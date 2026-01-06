@@ -32,16 +32,48 @@ L.Icon.Default.mergeOptions({
 
 type Province = { name: string; code: string };
 
-type PotaLookupItem = { display: string };
+type PotaLookupItem = { 
+  type: string; 
+  id: number; 
+  display: string; 
+  value: string; 
+};
+
+type PotaParkInfo = {
+  parkId: number;
+  reference: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  grid4: string;
+  grid6: string;
+  parktypeId: number;
+  active: number;
+  parkComments: string;
+  accessibility: string | null;
+  sensitivity: string | null;
+  accessMethods: string;
+  activationMethods: string;
+  agencies: string | null;
+  agencyURLs: string | null;
+  parkURLs: string | null;
+  website: string;
+  createdByAdmin: string;
+  parktypeDesc: string;
+  locationDesc: string;
+  locationName: string;
+  entityId: number;
+  entityName: string;
+  referencePrefix: string;
+  entityDeleted: number;
+};
 
 type LatLngTuple = [number, number];
 
 function MapController({
-  showMap,
   center,
   onZoomChange,
 }: {
-  showMap: boolean;
   center: LatLngTuple;
   onZoomChange: (zoom: number) => void;
 }) {
@@ -50,17 +82,16 @@ function MapController({
   const lon = center[1];
 
   useEffect(() => {
-    if (!showMap) return;
     const t = setTimeout(() => map.invalidateSize(), 0);
     return () => clearTimeout(t);
-  }, [map, showMap]);
+  }, [map]);
 
   useEffect(() => {
     // 只有当中心点真正改变时才移动地图
-    if (showMap && lat !== map.getCenter().lat || lon !== map.getCenter().lng) {
+    if (lat !== map.getCenter().lat || lon !== map.getCenter().lng) {
       map.setView([lat, lon]);
     }
-  }, [map, showMap, lat, lon]);
+  }, [map, lat, lon]);
 
   // 监听缩放变化
   useEffect(() => {
@@ -91,37 +122,53 @@ function AddPark() {
   const [activationMethods, setActivationMethods] = useState<string[]>(['步行', '车载', '其他']);
   const [confirmed, setConfirmed] = useState(false);
   const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [isPotaPark, setIsPotaPark] = useState(false);
 
   const provinces = useMemo(() => regionData as Province[], []);
 
   const [mapCenter, setMapCenter] = useState<LatLngTuple>([39.9042, 116.4074]); // 北京
-  const [showMap, setShowMap] = useState(false);
   const [mapZoom, setMapZoom] = useState(13);
 
   const handleSearchPOTA = async () => {
-    setShowMap(true);
+    // 重置 POTA 公园状态
+    setIsPotaPark(false);
     try {
-      const res = await axios.get<PotaLookupItem[]>(
+      // 第一步：搜索公园列表
+      const searchRes = await axios.get<PotaLookupItem[]>(
         `https://api.pota.app/lookup?search=${encodeURIComponent(parkName)}`,
       );
-      setSearchResults(res.data.map((item) => item.display));
       
-      // 同时获取第一个结果的坐标作为地图中心
-      if (res.data.length > 0) {
-        const firstResult = res.data[0].display;
-        
-        // POTA API 的 display 格式通常是: "Name-Reference (lat,lon)"
-        const coordMatch = firstResult.match(/\(([-+]?\d*\.?\d+),\s*([-+]?\d*\.?\d+)\)/);
-        
-        if (coordMatch) {
-          const lat = parseFloat(coordMatch[1]);
-          const lon = parseFloat(coordMatch[2]);
+      if (searchRes.data.length === 0) {
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchResults(searchRes.data.map((item) => item.display));
+      
+      // 如果只有一个搜索结果，自动填充所有信息并禁用相关字段
+      if (searchRes.data.length === 1) {
+        const firstPark = searchRes.data[0];
+        try {
+          const parkRes = await axios.get<PotaParkInfo>(
+            `https://api.pota.app/park/${encodeURIComponent(firstPark.value)}`,
+          );
           
-          if (!isNaN(lat) && !isNaN(lon)) {
-            setLatitude(String(lat));
-            setLongitude(String(lon));
-            setMapCenter([lat, lon]);
-          }
+          const parkInfo = parkRes.data;
+          setLatitude(String(parkInfo.latitude));
+          setLongitude(String(parkInfo.longitude));
+          setMapCenter([parkInfo.latitude, parkInfo.longitude]);
+          
+          // 自动填充所有信息
+          setParkType(parkInfo.parktypeDesc);
+          setWebsite(parkInfo.website || '');
+          setAccessMethods(parkInfo.accessMethods ? parkInfo.accessMethods.split(',') : ['汽车', '步行', '其他']);
+          setActivationMethods(parkInfo.activationMethods ? parkInfo.activationMethods.split(',') : ['步行', '车载', '其他']);
+          
+          // 设置为 POTA 公园状态
+          setIsPotaPark(true);
+          
+        } catch (parkErr) {
+          console.error('Failed to fetch park details:', parkErr);
         }
       }
     } catch (err) {
@@ -130,7 +177,8 @@ function AddPark() {
   };
 
   const handleSearchMap = async () => {
-    setShowMap(true);
+    // 重置 POTA 公园状态
+    setIsPotaPark(false);
     try {
       const res = await axios.get<Array<{ lat: string; lon: string }>>(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(parkName)}&format=json`,
@@ -174,27 +222,30 @@ function AddPark() {
     }
   };
 
-  const LocationMarker = () => {
-    useMapEvents({
-      click(e) {
-        setShowMap(true);
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
-        setLatitude(String(lat));
-        setLongitude(String(lon));
-        // 移除 setMapCenter 调用，不重置地图中心
-      },
-    });
+  const LocationMarker = useMemo(() => {
+    return () => {
+      useMapEvents({
+        click(e) {
+          if (isPotaPark) return; // POTA 公园不允许点击修改位置
+          const lat = e.latlng.lat;
+          const lon = e.latlng.lng;
+          setLatitude(String(lat));
+          setLongitude(String(lon));
+          // 移除 setMapCenter 调用，不重置地图中心
+        },
+      });
 
-    const lat = Number.parseFloat(latitude);
-    const lon = Number.parseFloat(longitude);
-    
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return null;
-    }
+      const lat = Number.parseFloat(latitude);
+      const lon = Number.parseFloat(longitude);
+      
+      // 只有当坐标有效时才显示 marker
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return null;
+      }
 
-    return <Marker position={[lat, lon]} />;
-  };
+      return <Marker position={[lat, lon]} />;
+    };
+  }, [latitude, longitude, isPotaPark]);
 
   // 移除自动更新地图中心的效果，让用户通过搜索功能来控制地图中心
 
@@ -238,6 +289,7 @@ function AddPark() {
               value={parkType}
               label="公园类型"
               onChange={(e) => setParkType(e.target.value as string)}
+              disabled={isPotaPark}
             >
               {['National Park', 'National Nature Reserve'].map((type) => (
                 <MenuItem key={type} value={type}>
@@ -251,12 +303,56 @@ function AddPark() {
         <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
           <Button onClick={handleSearchPOTA}>搜索POTA</Button>
           <Button onClick={handleSearchMap}>搜索地图</Button>
+          {isPotaPark && (
+            <Button 
+              onClick={() => {
+                setIsPotaPark(false);
+                // 清空除 DX 实体以外的所有输入
+                setParkName('');
+                setParkType('');
+                setProvince('');
+                setLatitude('');
+                setLongitude('');
+                setWebsite('');
+                setAccessMethods(['汽车', '步行', '其他']);
+                setActivationMethods(['步行', '车载', '其他']);
+                setConfirmed(false);
+                setSearchResults([]);
+                setMapCenter([39.9042, 116.4074]); // 重置地图中心到北京
+                setMapZoom(13);
+              }} 
+              color="secondary"
+            >
+              重新编辑
+            </Button>
+          )}
         </Box>
 
         {searchResults.length > 0 && (
-          <Box sx={{ mt: 1 }}>
+          <Box 
+            sx={{ 
+              mt: 1, 
+              maxHeight: 200, 
+              overflowY: 'auto',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1,
+              backgroundColor: 'background.paper'
+            }}
+          >
             {searchResults.map((result, idx) => (
-              <Typography key={idx}>{result}</Typography>
+              <Typography 
+                key={idx} 
+                sx={{ 
+                  py: 0.5,
+                  fontSize: '0.875rem',
+                  borderBottom: idx < searchResults.length - 1 ? '1px solid' : 'none',
+                  borderColor: 'divider'
+                }}
+              >
+                {result}
+              </Typography>
             ))}
           </Box>
         )}
@@ -267,6 +363,7 @@ function AddPark() {
             value={province}
             label="省份"
             onChange={(e) => setProvince(e.target.value as string)}
+            disabled={isPotaPark}
             MenuProps={{
               PaperProps: {
                 style: {
@@ -289,18 +386,18 @@ function AddPark() {
             label="纬度 (WGS84)"
             value={latitude}
             onChange={(e) => {
-              setShowMap(true);
               setLatitude(e.target.value);
             }}
+            disabled={isPotaPark}
             sx={{ flex: 1 }}
           />
           <TextField
             label="经度 (WGS84)"
             value={longitude}
             onChange={(e) => {
-              setShowMap(true);
               setLongitude(e.target.value);
             }}
+            disabled={isPotaPark}
             sx={{ flex: 1 }}
           />
         </Box>
@@ -310,6 +407,7 @@ function AddPark() {
           label="公园网站"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
+          disabled={isPotaPark}
           sx={{ mt: 2 }}
         />
 
@@ -320,6 +418,7 @@ function AddPark() {
             value={accessMethods}
             label="访问方法"
             onChange={handleAccessMethodsChange}
+            disabled={isPotaPark}
           >
             {['汽车', '步行', '船只', '水上飞机/空中出租车', '其他'].map((method) => (
               <MenuItem key={method} value={method}>
@@ -336,6 +435,7 @@ function AddPark() {
             value={activationMethods}
             label="激活方法"
             onChange={handleActivationMethodsChange}
+            disabled={isPotaPark}
           >
             {['步行', '车载', '固定建筑', '露营地', '庇护所', '其他'].map((method) => (
               <MenuItem key={method} value={method}>
@@ -349,39 +449,22 @@ function AddPark() {
           control={<Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />}
           label="我已确认公园真实性"
         />
-        <Button variant="contained" onClick={handleSubmit}>
-          提交审核
+        <Button variant="contained" onClick={handleSubmit} disabled={isPotaPark}>
+          {isPotaPark ? '已存在 POTA 公园' : '提交审核'}
         </Button>
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 2, md: 0 } }}>
         <Box sx={{ height: 500, width: '100%', borderRadius: 1, overflow: 'hidden' }}>
-          {showMap ? (
             <MapContainer 
               center={mapCenter} 
               zoom={mapZoom} 
               style={{ height: '100%', width: '100%' }}
             >
-              <MapController showMap={showMap} center={mapCenter} onZoomChange={setMapZoom} />
+              <MapController center={mapCenter} onZoomChange={setMapZoom} />
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <LocationMarker />
             </MapContainer>
-          ) : (
-            <Box
-              sx={{
-                height: '100%',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'text.secondary',
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              点击"搜索POTA"或"搜索地图"后显示地图
-            </Box>
-          )}
         </Box>
       </Box>
     </Box>
