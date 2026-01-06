@@ -187,24 +187,41 @@ echo "  停止后端: kill $BACKEND_PID"
 echo "  停止全部: kill $FRONTEND_PID $BACKEND_PID"
 echo ""
 
+# 设置信号处理，确保退出时清理进程
+cleanup() {
+    log_info "正在停止服务..."
+    kill $FRONTEND_PID $BACKEND_PID 2>/dev/null
+    # 等待进程完全退出，最多等待3秒
+    for i in {1..3}; do
+        if ! ps -p $FRONTEND_PID $BACKEND_PID > /dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    # 强制清理仍在运行的进程
+    kill -9 $FRONTEND_PID $BACKEND_PID 2>/dev/null
+    log_success "服务已停止"
+    echo ""
+    echo "感谢使用 POTA Park Apply！🎯"
+    exit 0
+}
+
+# 捕获 Ctrl+C 信号
+trap cleanup SIGINT SIGTERM
+
 # 等待用户输入退出
 echo "按 Ctrl+C 或输入 'q' 退出..."
 while true; do
-    read -t 1 -n 1 input
+    read -t 1 -n 1 input 2>/dev/null
     if [[ $input == "q" ]] || [[ $input == "Q" ]]; then
-        break
+        cleanup
     fi
     # 检查进程是否还在运行
     if ! ps -p $FRONTEND_PID > /dev/null || ! ps -p $BACKEND_PID > /dev/null; then
         log_warning "检测到服务异常退出"
-        break
+        cleanup
     fi
 done
-
-# 清理进程
-log_info "正在停止服务..."
-kill $FRONTEND_PID 2>/dev/null
-kill $BACKEND_PID 2>/dev/null
 
 # 等待进程完全退出
 sleep 1
