@@ -6,4 +6,6 @@ updatedAt: 2026-01-06T14:24:45.082Z
 provider: 
 ---
 
-when execute git commit, MUST follow conventional commit rules
+When execute git commit, MUST follow conventional commit rules.
+
+Don't automatically run git commit. ONLY run git commit when I explicitly tell you to do so.
