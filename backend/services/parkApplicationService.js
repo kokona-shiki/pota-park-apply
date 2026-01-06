@@ -312,7 +312,7 @@ export const syncToPOTA = async (operatorId, applicationId, potaNotes) => {
         application_id, action, operator_id, operator_role,
         old_status, new_status, notes
       ) VALUES (
-        $1, 'pota_synced', $2, $3, $4, $5, $6
+        $1, $2, $3, $4, $5, $6, $7
       )
     `, [applicationId, 'pota_synced', operatorId, operatorRole, oldStatus, 'pota_synced', potaNotes]);
     
