@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-01-06T14:24:45.082Z
+provider: 
+---
+
+when execute git commit, MUST follow conventional commit rules

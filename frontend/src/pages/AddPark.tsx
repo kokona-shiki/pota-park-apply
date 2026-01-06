@@ -21,6 +21,7 @@ import regionData from '../assets/region.json';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import shadow from 'leaflet/dist/images/marker-shadow.png';
+import { mapAccessMethods, mapActivationMethods, mapLocationToProvince } from '../utils/potaMapping';
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 
@@ -159,10 +160,12 @@ function AddPark() {
           setMapCenter([parkInfo.latitude, parkInfo.longitude]);
           
           // 自动填充所有信息
+          setParkName(parkInfo.name);
           setParkType(parkInfo.parktypeDesc);
+          setProvince(mapLocationToProvince(parkInfo.locationDesc));
           setWebsite(parkInfo.website || '');
-          setAccessMethods(parkInfo.accessMethods ? parkInfo.accessMethods.split(',') : ['汽车', '步行', '其他']);
-          setActivationMethods(parkInfo.activationMethods ? parkInfo.activationMethods.split(',') : ['步行', '车载', '其他']);
+          setAccessMethods(parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']);
+          setActivationMethods(parkInfo.activationMethods ? mapActivationMethods(parkInfo.activationMethods) : ['步行', '车载', '其他']);
           
           // 设置为 POTA 公园状态
           setIsPotaPark(true);
@@ -222,30 +225,28 @@ function AddPark() {
     }
   };
 
-  const LocationMarker = useMemo(() => {
-    return () => {
-      useMapEvents({
-        click(e) {
-          if (isPotaPark) return; // POTA 公园不允许点击修改位置
-          const lat = e.latlng.lat;
-          const lon = e.latlng.lng;
-          setLatitude(String(lat));
-          setLongitude(String(lon));
-          // 移除 setMapCenter 调用，不重置地图中心
-        },
-      });
+  const LocationMarker = () => {
+    useMapEvents({
+      click(e) {
+        if (isPotaPark) return; // POTA 公园不允许点击修改位置
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        setLatitude(String(lat));
+        setLongitude(String(lon));
+        // 移除 setMapCenter 调用，不重置地图中心
+      },
+    });
 
-      const lat = Number.parseFloat(latitude);
-      const lon = Number.parseFloat(longitude);
-      
-      // 只有当坐标有效时才显示 marker
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return null;
-      }
+    const lat = Number.parseFloat(latitude);
+    const lon = Number.parseFloat(longitude);
+    
+    // 只有当坐标有效时才显示 marker
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return null;
+    }
 
-      return <Marker position={[lat, lon]} />;
-    };
-  }, [latitude, longitude, isPotaPark]);
+    return <Marker position={[lat, lon]} />;
+  };
 
   // 移除自动更新地图中心的效果，让用户通过搜索功能来控制地图中心
 
