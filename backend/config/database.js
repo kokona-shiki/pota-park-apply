@@ -29,16 +29,27 @@ export const testConnection = async () => {
   }
 };
 
+// 是否打印完整 SQL（默认关闭，避免 init-db 输出过大导致“看起来很慢”）
+const DB_LOG_SQL = String(process.env.DB_LOG_SQL || '').toLowerCase();
+const SHOULD_LOG_SQL = DB_LOG_SQL === '1' || DB_LOG_SQL === 'true' || DB_LOG_SQL === 'yes';
+
 // 执行查询的辅助函数
 export const query = async (text, params) => {
   const start = Date.now();
   try {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('📊 查询执行:', { text, duration, rows: result.rowCount });
+
+    if (SHOULD_LOG_SQL) {
+      console.log('📊 查询执行:', { text, duration, rows: result.rowCount });
+    } else {
+      const firstLine = String(text).trim().split('\n')[0]?.slice(0, 120);
+      console.log('📊 查询执行:', { sql: firstLine, duration, rows: result.rowCount });
+    }
+
     return result;
   } catch (error) {
-    console.error('❌ 查询失败:', { text, error: error.message });
+    console.error('❌ 查询失败:', { text: SHOULD_LOG_SQL ? text : String(text).trim().slice(0, 200), error: error.message });
     throw error;
   }
 };
