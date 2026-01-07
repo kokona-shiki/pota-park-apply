@@ -25,9 +25,10 @@ interface SideBarProps {
 function SideBar({ isOpen, isAdmin, isSysAdmin }: SideBarProps) {
   const navigate = useNavigate();
 
-  // 这里保留 isSysAdmin 参数，方便将来单独控制系统管理员的菜单项
-  // （同时避免 TS 报 unused）
-  const canViewApplications = isAdmin || isSysAdmin;
+  // 所有登录用户都可以查看申请列表（普通用户只能看到自己的申请；审核员可看到全部）
+  // 用 void 显式引用，避免 TS/ESLint 报 unused
+  void isAdmin;
+  void isSysAdmin;
 
   return (
     <Drawer
@@ -60,14 +61,12 @@ function SideBar({ isOpen, isAdmin, isSysAdmin }: SideBarProps) {
           <ListItemText primary="申请添加公园" />
         </ListItemButton>
 
-        {canViewApplications && (
-          <ListItemButton onClick={() => navigate('/applications')}>
-            <ListItemIcon>
-              <ListIcon />
-            </ListItemIcon>
-            <ListItemText primary="申请列表" />
-          </ListItemButton>
-        )}
+        <ListItemButton onClick={() => navigate('/applications')}>
+          <ListItemIcon>
+            <ListIcon />
+          </ListItemIcon>
+          <ListItemText primary="申请列表" />
+        </ListItemButton>
 
         <ListItemButton onClick={() => navigate('/my-uploads')}>
           <ListItemIcon>

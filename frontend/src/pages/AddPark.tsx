@@ -207,17 +207,17 @@ function AddPark() {
     if (!confirmed) return alert('请确认公园真实性');
 
     try {
-      await axios.post('/api/apply-park', {
+      await axios.post('/api/park-applications', {
         dx_entity: dxEntity,
         park_name: parkName,
         park_type: parkType,
-        province,
+        province_iso_code: province,
         latitude,
         longitude,
         website,
         access_methods: mapAccessMethodsWithBothLangs(accessMethods),
         activation_methods: mapActivationMethodsWithBothLangs(activationMethods),
-        confirmed_authenticity: confirmed,
+        confirmed_authenticity: confirmed
       });
       alert('提交成功');
     } catch (err) {

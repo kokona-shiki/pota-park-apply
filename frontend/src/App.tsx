@@ -236,9 +236,9 @@ function App() {
             <Route
               path="/applications"
               element={
-                <RequireAdmin>
+                <RequireAuth>
                   <ApplicationsList />
-                </RequireAdmin>
+                </RequireAuth>
               }
             />
             <Route
