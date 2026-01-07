@@ -1,5 +1,5 @@
 // src/pages/UserInfo.tsx
-import React, { useContext, useState } from 'react';
+import { useContext, useState } from 'react';
 import { Button, Box, Typography } from '@mui/material';
 import { AuthContext } from '../App';
 

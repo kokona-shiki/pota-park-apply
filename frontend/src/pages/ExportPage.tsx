@@ -1,17 +1,21 @@
-// src/pages/ExportPage.jsx
-import React, { useContext } from 'react';
+// src/pages/ExportPage.tsx
+import { useContext } from 'react';
 import { Button } from '@mui/material';
 import { AuthContext } from '../App';
 import axios from 'axios';
 
+type ExportType = 'csv' | 'kml';
+type ExportScope = 'self' | 'all';
+
 function ExportPage() {
   const { user } = useContext(AuthContext);
-  const isAdmin = user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+  const isAdmin =
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
 
-
-  const handleExport = (type, scope) => {
-    axios.get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' })
-      .then(res => {
+  const handleExport = (type: ExportType, scope: ExportScope) => {
+    axios
+      .get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' })
+      .then((res) => {
         const url = window.URL.createObjectURL(new Blob([res.data]));
         const link = document.createElement('a');
         link.href = url;

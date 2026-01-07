@@ -30,11 +30,19 @@ echo "📦 构建并启动容器..."
 docker compose up -d --build
 
 echo "⏳ 等待数据库就绪..."
+# 注意：PostgreSQL 镜像在首次初始化（加载 PostGIS 等）期间会经历一次短暂的重启。
+# 为避免在“第一次 ready”后立刻进入初始化脚本而撞上重启窗口，这里要求连续多次就绪。
 READY=0
-for i in $(seq 1 60); do
+STREAK=0
+for i in $(seq 1 90); do
   if docker compose exec -T db pg_isready -U postgres -d pota_park >/dev/null 2>&1; then
-    READY=1
-    break
+    STREAK=$((STREAK + 1))
+    if [ "$STREAK" -ge 5 ]; then
+      READY=1
+      break
+    fi
+  else
+    STREAK=0
   fi
   sleep 2
 done

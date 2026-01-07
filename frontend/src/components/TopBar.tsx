@@ -1,5 +1,5 @@
 // src/components/TopBar.tsx
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { AppBar, Toolbar, IconButton, Typography, Avatar, Menu, MenuItem, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate } from 'react-router-dom';

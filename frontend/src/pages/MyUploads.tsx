@@ -1,5 +1,5 @@
 // src/pages/MyUploads.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Paper,
   Table,
@@ -8,7 +8,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
+  Typography
 } from '@mui/material';
 
 function MyUploads() {
@@ -23,7 +23,7 @@ function MyUploads() {
         park_name: '北京奥林匹克森林公园',
         status: 'pending',
         pota_uploaded: false,
-        remarks: '',
+        remarks: ''
       },
       {
         id: 2,
@@ -32,7 +32,7 @@ function MyUploads() {
         status: 'approved',
         pota_uploaded: true,
         reference: 'CN-0001',
-        remarks: '已上传',
+        remarks: '已上传'
       },
       {
         id: 3,
@@ -40,15 +40,15 @@ function MyUploads() {
         park_name: '圆明园遗址公园',
         status: 'rejected',
         pota_uploaded: false,
-        remarks: '资料不完整，已驳回',
-      },
+        remarks: '资料不完整，已驳回'
+      }
     ]);
   }, []);
 
   const getRowBackgroundColor = (app: any) => {
-    if (app.pota_uploaded) return '#c8e6c9'; // 绿色
-    if (app.status === 'rejected') return '#ffcdd2'; // 红色
-    if (app.status === 'pending') return '#fff9c4'; // 黄色
+    if (app.pota_uploaded) return '#c8e6c9';
+    if (app.status === 'rejected') return '#ffcdd2';
+    if (app.status === 'pending') return '#fff9c4';
     return '';
   };
 
@@ -88,9 +88,7 @@ function MyUploads() {
       </TableContainer>
 
       {uploads.length === 0 && (
-        <Typography sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}>
-          您还没有上传任何公园申请
-        </Typography>
+        <Typography sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}>您还没有上传任何公园申请</Typography>
       )}
     </Paper>
   );

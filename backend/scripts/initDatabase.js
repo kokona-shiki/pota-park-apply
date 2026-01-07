@@ -5,10 +5,18 @@ const init = async () => {
   console.log('🚀 开始初始化 POTA 公园申请系统数据库...');
   
   try {
-    // 1. 测试连接
+    // 1. 测试连接（首次启动时 Postgres 可能会经历一次短暂重启，这里做重试）
     console.log('🔍 测试数据库连接...');
-    const connected = await testConnection();
-    
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    let connected = false;
+    for (let i = 1; i <= 30; i++) {
+      connected = await testConnection();
+      if (connected) break;
+      console.log(`⏳ 数据库尚未就绪，稍后重试... (${i}/30)`);
+      await sleep(2000);
+    }
+
     if (!connected) {
       console.error('❌ 数据库连接失败，请检查配置');
       process.exit(1);

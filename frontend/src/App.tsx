@@ -1,8 +1,8 @@
 // src/App.tsx
-import React, { useState, createContext, useEffect, useCallback } from 'react';
+import { useState, createContext, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box, Toolbar } from '@mui/material';
-import TopBar from './components/TopBar.tsx';
+import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
 import Home from './pages/Home';
 import AddPark from './pages/AddPark';

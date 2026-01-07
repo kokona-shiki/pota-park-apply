@@ -1,33 +1,22 @@
-// src/pages/Login.jsx
-import React, { useState, useContext } from 'react';
-import { TextField, Button, Box } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { AuthContext } from '../App';
+// src/pages/About.tsx
+import { Paper, Typography, Link, Box } from '@mui/material';
 
-function Login() {
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const { setUser } = useContext(AuthContext);
-  const navigate = useNavigate();
-
-  const handleSubmit = () => {
-    axios.post('/api/login', { identifier, password })
-      .then(res => {
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data.user);
-        navigate('/');
-      })
-      .catch(err => alert('登录失败'));
-  };
-
+function About() {
   return (
-    <Box sx={{ maxWidth: 400, mx: 'auto' }}>
-      <TextField fullWidth label="呼号或邮箱" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
-      <TextField fullWidth label="密码" type="password" value={password} onChange={(e) => setPassword(e.target.value)} sx={{ mt: 2 }} />
-      <Button variant="contained" onClick={handleSubmit} sx={{ mt: 2 }}>登录</Button>
-    </Box>
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h5" gutterBottom>
+        关于
+      </Typography>
+      <Typography sx={{ mb: 2 }}>
+        本站用于提交与审核 POTA 公园信息（第一期版本）。
+      </Typography>
+      <Box>
+        <Typography variant="body2" color="text.secondary">
+          POTA: <Link href="https://pota.app" target="_blank" rel="noreferrer">https://pota.app</Link>
+        </Typography>
+      </Box>
+    </Paper>
   );
 }
 
-export default Login;
+export default About;

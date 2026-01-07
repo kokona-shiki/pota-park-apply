@@ -8,7 +8,17 @@ export const createTables = async () => {
     // 0. 扩展与全文检索配置
     await query('CREATE EXTENSION IF NOT EXISTS postgis');
     // 避免本地/容器缺少 chinese 配置导致索引创建失败：先用 simple 复制一个占位配置
-    await query("CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS chinese ( COPY = simple )");
+    // 注意：PostgreSQL 不支持 `CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS ...`
+    await query(`
+      DO $$
+      BEGIN
+        -- Postgres 没有 IF NOT EXISTS 语法；这里用异常吞掉“已存在”的情况
+        CREATE TEXT SEARCH CONFIGURATION chinese ( COPY = simple );
+      EXCEPTION
+        WHEN duplicate_object OR unique_violation THEN NULL;
+      END
+      $$;
+    `);
 
     // 1. 权限表
     await query(`
@@ -442,25 +452,48 @@ export const initializeData = async () => {
       ON CONFLICT (permission_code) DO NOTHING
     `);
 
-    // 2. 初始化角色权限
+    // 2. 初始化角色权限（不要依赖 permissions.id 的固定自增顺序，用 permission_code 关联）
     await query(`
-      INSERT INTO role_permissions (role, permission_id) VALUES
-      -- 系统管理员 - 所有权限 (1-13)
-      ('system_admin', 1), ('system_admin', 2), ('system_admin', 3), 
-      ('system_admin', 4), ('system_admin', 5), ('system_admin', 6),
-      ('system_admin', 7), ('system_admin', 8), ('system_admin', 9), 
-      ('system_admin', 10), ('system_admin', 11), ('system_admin', 12), ('system_admin', 13),
-      
-      -- POTA 地图代表 - 7、8、9、10、11、12、13
-      ('pota_representative', 7), ('pota_representative', 8), ('pota_representative', 9), 
-      ('pota_representative', 10), ('pota_representative', 11), ('pota_representative', 12), ('pota_representative', 13),
-      
-      -- 公园申请审核员 - 7、8、9、10、11
-      ('park_reviewer', 7), ('park_reviewer', 8), ('park_reviewer', 9), 
-      ('park_reviewer', 10), ('park_reviewer', 11),
-      
-      -- 普通用户 - 7、8、9
-      ('user', 7), ('user', 8), ('user', 9)
+      WITH role_perm(role, permission_code) AS (
+        VALUES
+          -- system_admin: 全部权限
+          ('system_admin', 'create_user'),
+          ('system_admin', 'modify_user_info'),
+          ('system_admin', 'modify_user_role'),
+          ('system_admin', 'delete_user'),
+          ('system_admin', 'approve_callsign_change'),
+          ('system_admin', 'view_all_users'),
+          ('system_admin', 'submit_application'),
+          ('system_admin', 'view_application_list'),
+          ('system_admin', 'view_application_detail'),
+          ('system_admin', 'review_application'),
+          ('system_admin', 'remind_review'),
+          ('system_admin', 'sync_to_pota'),
+
+          -- pota_representative
+          ('pota_representative', 'submit_application'),
+          ('pota_representative', 'view_application_list'),
+          ('pota_representative', 'view_application_detail'),
+          ('pota_representative', 'review_application'),
+          ('pota_representative', 'remind_review'),
+          ('pota_representative', 'sync_to_pota'),
+
+          -- park_reviewer
+          ('park_reviewer', 'submit_application'),
+          ('park_reviewer', 'view_application_list'),
+          ('park_reviewer', 'view_application_detail'),
+          ('park_reviewer', 'review_application'),
+          ('park_reviewer', 'remind_review'),
+
+          -- user
+          ('user', 'submit_application'),
+          ('user', 'view_application_list'),
+          ('user', 'view_application_detail')
+      )
+      INSERT INTO role_permissions (role, permission_id)
+      SELECT rp.role, p.id
+      FROM role_perm rp
+      JOIN permissions p ON p.permission_code = rp.permission_code
       ON CONFLICT (role, permission_id) DO NOTHING
     `);
 

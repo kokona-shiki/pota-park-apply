@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.tsx
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import {
   Table,
   TableBody,
@@ -96,7 +96,7 @@ function AdminPanel() {
             <TableBody>
               {users.map((u) => {
                 const isSelf = currentUser?.id === u.id;
-                const roleSelectDisabled = isSelf || !u.is_active; // 被禁用用户不能改角色（后端也会拒绝）
+                const roleSelectDisabled = isSelf || !u.is_active;
 
                 return (
                   <TableRow key={u.id}>
@@ -118,11 +118,7 @@ function AdminPanel() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Switch
-                        checked={!!u.is_active}
-                        disabled={isSelf}
-                        onChange={(e) => handleActiveChange(u, e.target.checked)}
-                      />
+                      <Switch checked={!!u.is_active} disabled={isSelf} onChange={(e) => handleActiveChange(u, e.target.checked)} />
                     </TableCell>
                     <TableCell>{u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</TableCell>
                   </TableRow>

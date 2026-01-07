@@ -1,5 +1,5 @@
 // src/pages/ApplicationsList.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Paper,
   Table,
@@ -14,7 +14,7 @@ import {
   FormControl,
   InputLabel,
   Button,
-  Box,
+  Box
 } from '@mui/material';
 
 function ApplicationsList() {
@@ -32,7 +32,7 @@ function ApplicationsList() {
         park_name: '北京奥林匹克森林公园',
         status: 'pending',
         pota_uploaded: false,
-        remarks: '',
+        remarks: ''
       },
       {
         id: 2,
@@ -43,7 +43,7 @@ function ApplicationsList() {
         status: 'approved',
         pota_uploaded: true,
         reference: 'CN-0001',
-        remarks: '已上传，编号 CN-0001',
+        remarks: '已上传，编号 CN-0001'
       },
       {
         id: 3,
@@ -53,7 +53,7 @@ function ApplicationsList() {
         park_name: '某个不存在的公园',
         status: 'rejected',
         pota_uploaded: false,
-        remarks: '公园不存在，资料不全',
+        remarks: '公园不存在，资料不全'
       },
       {
         id: 4,
@@ -63,8 +63,8 @@ function ApplicationsList() {
         park_name: '香山公园',
         status: 'approved',
         pota_uploaded: false,
-        remarks: '已通过，待上传',
-      },
+        remarks: '已通过，待上传'
+      }
     ]);
   }, []);
 
@@ -147,9 +147,7 @@ function ApplicationsList() {
       </TableContainer>
 
       {filteredApps.length === 0 && (
-        <Typography sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}>
-          暂无符合条件的申请
-        </Typography>
+        <Typography sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}>暂无符合条件的申请</Typography>
       )}
     </Paper>
   );
