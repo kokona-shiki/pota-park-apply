@@ -14,6 +14,7 @@ import ListIcon from '@mui/icons-material/List';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import InfoIcon from '@mui/icons-material/Info';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useNavigate } from 'react-router-dom';
 
 interface SideBarProps {
@@ -81,6 +82,15 @@ function SideBar({ isOpen, isAdmin, isSysAdmin }: SideBarProps) {
           </ListItemIcon>
           <ListItemText primary="导出" />
         </ListItemButton>
+
+        {isSysAdmin && (
+          <ListItemButton onClick={() => navigate('/admin-panel')}>
+            <ListItemIcon>
+              <AdminPanelSettingsIcon />
+            </ListItemIcon>
+            <ListItemText primary="用户管理" />
+          </ListItemButton>
+        )}
 
         <ListItemButton onClick={() => navigate('/about')}>
           <ListItemIcon>
