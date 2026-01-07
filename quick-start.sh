@@ -1,29 +1,25 @@
 #!/bin/bash
 
-# POTA Park Apply 快速启动脚本（Docker Compose 版本）
-# - 假设已构建过镜像（如未构建也会自动拉起/构建）
+# POTA Park Apply 快速启动脚本（本地开发 / 无 Docker）
+# - 仅启动前后端（假设依赖与数据库已就绪）
 
 set -euo pipefail
 
-echo "⚡ POTA Park Apply 快速启动（Docker）"
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "❌ 未找到 docker，请先安装 Docker"
-  exit 1
-fi
+echo "⚡ POTA Park Apply 快速启动（本地开发 / 无 Docker）"
 
-if ! docker info >/dev/null 2>&1; then
-  echo "❌ Docker 未启动，请先启动 Docker"
-  exit 1
-fi
+echo "提示：该脚本假设 PostgreSQL（含 PostGIS）已启动，且已执行过 ./start.sh 或手动初始化数据库。"
 
-if ! docker compose version >/dev/null 2>&1; then
-  echo "❌ 未找到 docker compose，请升级 Docker（或安装 compose 插件）"
-  exit 1
-fi
+echo "🧩 启动后端..."
+(pnpm -C backend run dev) &
+BACKEND_PID=$!
 
-echo "🚀 启动容器..."
-docker compose up -d
+cleanup() {
+  kill "$BACKEND_PID" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
 
-echo "📱 访问地址: http://localhost:8080"
-echo "查看日志: docker compose logs -f"
+echo "🌐 启动前端（端口 8080）..."
+pnpm -C frontend run dev -- --port 8080

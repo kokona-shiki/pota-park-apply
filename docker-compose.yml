@@ -29,6 +29,12 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password
       JWT_SECRET: your-secret-key-change-in-production
+
+      # 初始系统管理员（可选）：仅当当前库里不存在 system_admin 时才会创建/提升
+      # 建议把真实值写到项目根目录的 .env（docker compose 会自动加载）
+      INIT_ADMIN_EMAIL: ${INIT_ADMIN_EMAIL:-}
+      INIT_ADMIN_CALLSIGN: ${INIT_ADMIN_CALLSIGN:-}
+      INIT_ADMIN_PASSWORD: ${INIT_ADMIN_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
