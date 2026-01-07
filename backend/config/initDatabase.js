@@ -21,6 +21,24 @@ export const createTables = async () => {
       $$;
     `);
 
+    // 0.1 初始化元信息（用于后续快速判断“已初始化”）
+    await query(`
+      CREATE TABLE IF NOT EXISTS app_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
+    await query(`
+      INSERT INTO app_meta (key, value)
+      VALUES ('schema_version', '1')
+      ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value,
+          updated_at = CURRENT_TIMESTAMP
+    `);
+
     // 1. 权限表
     await query(`
       CREATE TABLE IF NOT EXISTS permissions (
@@ -430,7 +448,7 @@ export const createFunctionsAndTriggers = async () => {
   }
 };
 
-const ensureInitialSystemAdmin = async () => {
+export const ensureInitialSystemAdmin = async () => {
   const existingAdmin = await getOne(`
     SELECT id, email, callsign
     FROM users
