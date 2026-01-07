@@ -20,7 +20,8 @@ app.set('trust proxy', true);
 app.use(
   cors({
     origin: true,
-    credentials: false,
+    // 使用 HttpOnly Cookie 携带 refresh token（开发/部署走同源代理时不会触发 CORS，但这里保持可用）
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
   })

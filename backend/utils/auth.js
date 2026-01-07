@@ -141,6 +141,23 @@ export const revokeAllRefreshTokensForUser = async (userId) => {
   );
 };
 
+export const revokeRefreshToken = async (refreshTokenPlain) => {
+  const tokenHash = hashRefreshToken(refreshTokenPlain);
+
+  // 只吊销当前 token（rotation 已保证旧 token 会被吊销）
+  const row = await getOne(
+    `
+    UPDATE refresh_tokens
+    SET revoked_at = CURRENT_TIMESTAMP
+    WHERE token_hash = $1 AND revoked_at IS NULL
+    RETURNING user_id
+  `,
+    [tokenHash]
+  );
+
+  return row;
+};
+
 export const createRefreshTokenForUser = async (userId, { userAgent = null, ip = null } = {}) => {
   const refreshToken = generateRefreshTokenPlain();
   const tokenHash = hashRefreshToken(refreshToken);

@@ -6,12 +6,54 @@ import {
   findUserById,
   getUserPermissions,
   rotateRefreshToken,
-  revokeAllRefreshTokensForUser
+  revokeAllRefreshTokensForUser,
+  revokeRefreshToken
 } from '../utils/auth.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
 
 const router = express.Router();
+
+const REFRESH_COOKIE_NAME = 'pota_refresh_token';
+const REFRESH_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+const getCookie = (req, name) => {
+  const cookieHeader = req?.headers?.cookie;
+  if (!cookieHeader) return null;
+
+  const parts = String(cookieHeader)
+    .split(';')
+    .map((s) => s.trim());
+
+  for (const part of parts) {
+    const [k, ...rest] = part.split('=');
+    if (k === name) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+
+  return null;
+};
+
+const setRefreshCookie = (req, res, refreshToken) => {
+  // secure: 依赖 req.secure（已在 app.js 设置 trust proxy）
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: Boolean(req.secure),
+    path: '/api',
+    maxAge: REFRESH_COOKIE_MAX_AGE_MS
+  });
+};
+
+const clearRefreshCookie = (req, res) => {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: Boolean(req.secure),
+    path: '/api'
+  });
+};
 
 // 鉴权相关接口更严格的限流
 const authLimiter = rateLimit({
@@ -62,17 +104,18 @@ router.post('/api/login', authLimiter, async (req, res) => {
       role: user.role
     });
 
-    // refreshToken：随机串 + 落库；请求时走 X-Refresh-Token Header
+    // refreshToken：随机串 + 落库；通过 HttpOnly Cookie 返回给浏览器
     const { refreshToken } = await createRefreshTokenForUser(user.id, {
       userAgent: req.get('user-agent') || null,
       ip: req.ip || null
     });
 
+    setRefreshCookie(req, res, refreshToken);
+
     res.json({
       success: true,
       message: '登录成功',
       accessToken,
-      refreshToken,
       user
     });
   } catch (error) {
@@ -90,7 +133,7 @@ router.post('/api/login', authLimiter, async (req, res) => {
 // 刷新 token（refreshToken 重放检测 + rotation）
 router.post('/api/refresh-token', authLimiter, async (req, res) => {
   try {
-    const refreshToken = req.get('X-Refresh-Token');
+    const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');
 
     if (!refreshToken) {
       return res.status(401).json({ error: '缺少刷新令牌' });
@@ -102,18 +145,21 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     });
 
     if (result.status === 'invalid' || result.status === 'expired') {
+      clearRefreshCookie(req, res);
       return res.status(401).json({ error: '无效或过期的刷新令牌' });
     }
 
     if (result.status === 'user_disabled') {
       // 被封禁：吊销其所有 refresh token（强制登出只能做到“无法续期”，accessToken 仍会自然过期）
       await revokeAllRefreshTokensForUser(result.userId);
+      clearRefreshCookie(req, res);
       return res.status(403).json({ error: '用户已被禁用' });
     }
 
     if (result.status === 'replay') {
       // 重放检测：吊销该用户所有 refresh token
       await revokeAllRefreshTokensForUser(result.userId);
+      clearRefreshCookie(req, res);
 
       // 记录审计日志（不强依赖；失败不影响主流程）
       try {
@@ -139,15 +185,39 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
       role: user.role
     });
 
+    // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
+    setRefreshCookie(req, res, result.refreshToken);
+
     res.json({
       success: true,
       accessToken,
-      refreshToken: result.refreshToken,
       user
     });
   } catch (error) {
     console.error('刷新 token 失败:', error);
     res.status(500).json({ error: '刷新 token 失败' });
+  }
+});
+
+// 用户退出登录：清除 refresh cookie，并尽可能吊销该 refresh token
+router.post('/api/logout', async (req, res) => {
+  try {
+    const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');
+    if (refreshToken) {
+      try {
+        await revokeRefreshToken(refreshToken);
+      } catch (e) {
+        console.warn('吊销 refresh token 失败（忽略）:', e?.message);
+      }
+    }
+
+    clearRefreshCookie(req, res);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('退出登录失败:', error);
+    // 即便失败，也清 cookie，避免前端卡住
+    clearRefreshCookie(req, res);
+    res.json({ success: true });
   }
 });
 
