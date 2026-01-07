@@ -1,9 +1,9 @@
-import { testConnection } from '../config/database.js';
-import { initializeDatabase } from '../config/initDatabase.js';
+import { testConnection, getOne, closePool } from '../config/database.js';
+import { initializeDatabase, ensureInitialSystemAdmin } from '../config/initDatabase.js';
 
 const init = async () => {
   console.log('🚀 开始初始化 POTA 公园申请系统数据库...');
-  
+
   try {
     // 1. 测试连接（首次启动时 Postgres 可能会经历一次短暂重启，这里做重试）
     console.log('🔍 测试数据库连接...');
@@ -21,11 +21,36 @@ const init = async () => {
       console.error('❌ 数据库连接失败，请检查配置');
       process.exit(1);
     }
-    
-    // 2. 初始化数据库
+
+    // 2. 快速路径：如果检测到库已初始化，则跳过建表/建索引（这些即使幂等也会比较慢）
+    const forceInit = ['1', 'true', 'yes'].includes(String(process.env.FORCE_INIT_DB || '').toLowerCase());
+    if (!forceInit) {
+      try {
+        const regs = await getOne(`
+          SELECT
+            to_regclass('public.app_meta') AS app_meta,
+            to_regclass('public.users') AS users
+        `);
+
+        if (regs?.app_meta && regs?.users) {
+          const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
+
+          if (schemaVersion?.value === '1') {
+            console.log('✅ 检测到数据库已初始化（schema_version=1），跳过建表/建索引，仅确保初始系统管理员存在...');
+            await ensureInitialSystemAdmin();
+            console.log('🎉 数据库检查完成！');
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ 初始化状态检测失败，将继续执行完整初始化：', e?.message || e);
+      }
+    }
+
+    // 3. 完整初始化数据库
     console.log('📝 初始化数据库表结构和数据...');
     await initializeDatabase();
-    
+
     console.log('🎉 数据库初始化完成！');
     console.log('');
     console.log('📋 创建的表:');
@@ -49,10 +74,16 @@ const init = async () => {
     console.log('  - 34 个省份数据');
     console.log('  - 13 个权限项');
     console.log('  - 4 种角色的权限配置');
-    
   } catch (error) {
     console.error('❌ 数据库初始化失败:', error);
     process.exit(1);
+  } finally {
+    // 关键：init-db 是一次性脚本，不关闭连接池会让 Node 进程等待 idleTimeout（默认 30s），看起来像“init-db 很慢”
+    try {
+      await closePool();
+    } catch {
+      // ignore
+    }
   }
 };
 
