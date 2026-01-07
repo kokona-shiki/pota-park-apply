@@ -1,6 +1,21 @@
 // src/pages/Login.tsx
 import { useMemo, useState, useContext } from 'react';
-import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Avatar,
+  Button,
+  Container,
+  Divider,
+  IconButton,
+  InputAdornment,
+  Link,
+  Paper,
+  TextField,
+  Typography
+} from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../App';
@@ -8,8 +23,10 @@ import { AuthContext } from '../App';
 function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dismissedReason, setDismissedReason] = useState(false);
 
   const { setUser, setAccessToken } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -24,9 +41,20 @@ function Login() {
   }, [location?.state?.from]);
 
   const reason = location?.state?.reason as string | undefined;
+  const shouldShowReason = Boolean(reason) && !error && !dismissedReason;
+
+  // 禁止空格/TAB/换行等“无内容字符”（统一剔除所有 \s）
+  const stripBlankChars = (v: string) => v.replace(/\s+/g, '');
+
+  const canSubmit = identifier.trim().length > 0 && password.trim().length > 0;
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
+
+    // 避免空提交（包括用户按 Enter 触发 submit）
+    if (!canSubmit || submitting) return;
+
+    setDismissedReason(true);
     setError(null);
     setSubmitting(true);
 
@@ -67,7 +95,7 @@ function Login() {
 
         <Divider sx={{ my: 3 }} />
 
-        {reason && (
+        {shouldShowReason && (
           <Alert severity="info" sx={{ mb: 2 }}>
             {reason}
           </Alert>
@@ -84,20 +112,86 @@ function Login() {
             fullWidth
             label="呼号或邮箱"
             value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            onKeyDown={(e) => {
+              // 空格（Tab 在单行输入框里不会插入字符，但空格会）
+              if (e.key === ' ') e.preventDefault();
+            }}
+            onChange={(e) => {
+              setDismissedReason(true);
+              setIdentifier(stripBlankChars(e.target.value));
+            }}
             autoComplete="username"
+            InputProps={
+              identifier.length > 0
+                ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="清空"
+                          onClick={() => {
+                            setDismissedReason(true);
+                            setIdentifier('');
+                          }}
+                          edge="end"
+                          size="small"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                : undefined
+            }
           />
           <TextField
             fullWidth
             label="密码"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === ' ') e.preventDefault();
+            }}
+            onChange={(e) => {
+              setDismissedReason(true);
+              const next = stripBlankChars(e.target.value);
+              setPassword(next);
+              if (next.length === 0) setShowPassword(false);
+            }}
             sx={{ mt: 2 }}
             autoComplete="current-password"
+            InputProps={
+              password.length > 0
+                ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                          onClick={() => setShowPassword((v) => !v)}
+                          edge="end"
+                          size="small"
+                        >
+                          {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                        </IconButton>
+                        <IconButton
+                          aria-label="清空密码"
+                          onClick={() => {
+                            setDismissedReason(true);
+                            setPassword('');
+                            setShowPassword(false);
+                          }}
+                          edge="end"
+                          size="small"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                : undefined
+            }
           />
 
-          <Button fullWidth variant="contained" type="submit" sx={{ mt: 2 }} disabled={submitting}>
+          <Button fullWidth variant="contained" type="submit" sx={{ mt: 2 }} disabled={!canSubmit || submitting}>
             {submitting ? '登录中...' : '登录'}
           </Button>
         </form>

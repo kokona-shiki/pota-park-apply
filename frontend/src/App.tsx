@@ -105,12 +105,18 @@ function App() {
     });
   }, []);
 
-  // 启动时：尝试静默刷新以恢复登录态（新开标签页/刷新页面不会丢登录）
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+  // 尝试静默刷新以恢复登录态（新开标签页/刷新页面不会丢登录）
+  // 但：直接进入登录/注册页时不需要请求 refresh-token，减少无意义请求
   useEffect(() => {
+    if (isAuthPage) return;
+    if (user) return;
+
     refreshSession().catch(() => {
       // 未登录时后端会返回 401，这里不提示
     });
-  }, [refreshSession]);
+  }, [isAuthPage, refreshSession, user]);
 
   // 多标签页同步：退出登录广播（不存 token，只做“登出同步”）
   useEffect(() => {
@@ -198,7 +204,6 @@ function App() {
   const isAdmin =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
   const isSysAdmin = user?.role === 'system_admin';
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   return (
     <AuthContext.Provider
