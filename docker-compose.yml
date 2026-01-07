@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_DB: pota_park
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # 第一阶段：db 不向宿主机暴露端口，仅供 backend 容器内访问
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: pota_park
+      DB_USER: postgres
+      DB_PASSWORD: password
+      JWT_SECRET: your-secret-key-change-in-production
+    depends_on:
+      - db
+    # 第一阶段：backend 不向宿主机暴露端口，仅供 frontend 容器内访问
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - '8080:80'
+
+volumes:
+  db_data:

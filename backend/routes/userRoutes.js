@@ -5,11 +5,16 @@ import * as userService from '../services/userService.js';
 
 const router = express.Router();
 
-// 获取用户列表
+// 获取用户列表（仅管理员）
 router.get('/api/users', authenticateToken, requirePermission('view_all_users'), async (req, res) => {
   try {
     const { role, isActive } = req.query;
-    const users = await userService.getUsers(role, isActive !== 'false');
+
+    let isActiveParsed = null;
+    if (isActive === 'true') isActiveParsed = true;
+    if (isActive === 'false') isActiveParsed = false;
+
+    const users = await userService.getUsers(role || null, isActiveParsed);
 
     res.json({ users });
   } catch (error) {
@@ -24,13 +29,13 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const { field, value, reason } = req.body;
 
-    if (!field || !value) {
+    if (!field || value === undefined || value === null) {
       return res.status(400).json({ error: '字段名和新值不能为空' });
     }
 
     const updatedUser = await userService.updateUserInfo(
       req.user.id,
-      parseInt(userId),
+      parseInt(userId, 10),
       field,
       value,
       reason
@@ -47,11 +52,11 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
   }
 });
 
-// 修改用户角色（业务层会做最终权限校验）
+// 修改用户角色（必须 reason）
 router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role } = req.body;
+    const { role, reason } = req.body;
 
     if (!role) {
       return res.status(400).json({ error: '角色不能为空' });
@@ -59,8 +64,9 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
 
     const updatedUser = await userService.updateUserRole(
       req.user.id,
-      parseInt(userId),
-      role
+      parseInt(userId, 10),
+      role,
+      reason
     );
 
     res.json({
@@ -70,6 +76,33 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('修改用户角色失败:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 封禁/解封（不需要 reason，但写审计；封禁会吊销 refresh tokens）
+router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ error: 'isActive 必须为 boolean' });
+    }
+
+    const updatedUser = await userService.updateUserActive(
+      req.user.id,
+      parseInt(userId, 10),
+      isActive
+    );
+
+    res.json({
+      success: true,
+      message: isActive ? '用户已解封' : '用户已封禁',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('封禁/解封用户失败:', error);
     res.status(400).json({ error: error.message });
   }
 });

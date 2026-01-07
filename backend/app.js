@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 
 import systemRoutes from './routes/systemRoutes.js';
 import authRoutes from './routes/authRoutes.js';
@@ -10,11 +11,36 @@ import provinceRoutes from './routes/provinceRoutes.js';
 
 const app = express();
 
+// 在反向代理/容器环境下获取真实客户端 IP
+app.set('trust proxy', true);
+
+// -----------------
 // 中间件
-app.use(cors());
+// -----------------
+app.use(
+  cors({
+    origin: true,
+    credentials: false,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  })
+);
 app.use(express.json());
 
+// 全局限流（所有接口）
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '请求过于频繁，请稍后再试' }
+  })
+);
+
+// -----------------
 // 路由
+// -----------------
 app.use(systemRoutes);
 app.use(authRoutes);
 app.use(userRoutes);

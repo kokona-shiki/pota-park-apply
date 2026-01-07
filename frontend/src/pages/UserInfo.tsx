@@ -1,30 +1,37 @@
-// src/pages/UserInfo.jsx
-import React, { useState, useContext } from 'react';
-import { TextField, Button, Box, Typography } from '@mui/material';
+// src/pages/UserInfo.tsx
+import React, { useContext, useState } from 'react';
+import { Button, Box, Typography } from '@mui/material';
 import { AuthContext } from '../App';
-import axios from 'axios';
 
 function UserInfo() {
-  const { user, setUser } = useContext(AuthContext);
-  const [username, setUsername] = useState(user.username);
-  const [password, setPassword] = useState('');
+  const { user, refreshSession } = useContext(AuthContext);
+  const [loading, setLoading] = useState(false);
 
-  const handleUpdate = () => {
-    axios.patch('/api/user', { username, password })
-      .then(res => setUser(res.data))
-      .catch(err => console.error(err));
+  const handleRefreshRole = async () => {
+    try {
+      setLoading(true);
+      await refreshSession();
+      alert('刷新成功');
+    } catch (e: any) {
+      alert(e?.response?.data?.error || e?.message || '刷新失败');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (!user) return null;
 
   return (
     <Box>
-      <Typography>用户组: {user.user_group}</Typography>
+      <Typography>用户ID: {user.id}</Typography>
       <Typography>呼号: {user.callsign}</Typography>
-      <Typography>名称: {user.username}</Typography>
-      <Typography>注册时间: {user.registration_time}</Typography>
       <Typography>邮箱: {user.email}</Typography>
-      <TextField label="新用户名" value={username} onChange={(e) => setUsername(e.target.value)} />
-      <TextField label="新密码" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <Button onClick={handleUpdate}>更新</Button>
+      <Typography>角色: {user.role}</Typography>
+      <Typography>状态: {user.is_active ? '启用' : '禁用'}</Typography>
+
+      <Button variant="contained" sx={{ mt: 2 }} onClick={handleRefreshRole} disabled={loading}>
+        刷新登录态（更新角色）
+      </Button>
     </Box>
   );
 }

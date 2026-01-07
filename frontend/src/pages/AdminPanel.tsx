@@ -1,5 +1,5 @@
-// src/pages/AdminPanel.jsx
-import React, { useState, useEffect } from 'react';
+// src/pages/AdminPanel.tsx
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Table,
   TableBody,
@@ -8,113 +8,126 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Select,
   MenuItem,
   Switch,
-  Typography,   // ← 新增这一行
+  Typography,
+  Button
 } from '@mui/material';
 import axios from 'axios';
+import { AuthContext } from '../App';
+
+const ROLE_OPTIONS = [
+  { value: 'user', label: '普通用户' },
+  { value: 'park_reviewer', label: '地图审核员' },
+  { value: 'pota_representative', label: 'POTA地图代表' },
+  { value: 'system_admin', label: '系统管理员' },
+  { value: 'banned', label: '封禁用户(可登录但权限受限)' }
+];
 
 function AdminPanel() {
-  const [users, setUsers] = useState([]);
-  const [admins, setAdmins] = useState([]);
-  const [applyOpen, setApplyOpen] = useState(true);
+  const { user: currentUser } = useContext(AuthContext);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-useEffect(() => {
-    // 前端开发阶段临时 mock 数据
-    setUsers([
-      { id: 1, username: '系统管理员', callsign: 'BH1AAA', user_group: 'sysadmin', disabled: false, last_logins: ['192.168.1.1'] },
-      { id: 2, username: '北京管理员', callsign: 'BH1BBB', user_group: 'admin', disabled: false, last_logins: ['203.0.113.5'] },
-      { id: 3, username: '普通用户', callsign: 'BH1CCC', user_group: 'user', disabled: true, last_logins: [] },
-    ]);
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('/api/users');
+      setUsers(res.data.users || []);
+    } catch (e: any) {
+      alert(e?.response?.data?.error || '获取用户列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setAdmins([
-      { id: 1, username: '北京管理员', managed_regions: ['CN-BJ', 'CN-TJ'] },
-      { id: 2, username: '新疆管理员', managed_regions: ['CN-XJ'] },
-    ]);
-
-    setApplyOpen(true);
+  useEffect(() => {
+    loadUsers();
   }, []);
 
-  const handleUserUpdate = (id, field, value) => {
-    axios.patch(`/api/user/${id}`, { [field]: value });
+  const handleRoleChange = async (targetUser: any, newRole: string) => {
+    const reason = window.prompt('请输入修改角色理由（必填）');
+    if (!reason || !reason.trim()) {
+      alert('必须填写理由');
+      return;
+    }
+
+    try {
+      const res = await axios.put(`/api/users/${targetUser.id}/role`, { role: newRole, reason });
+      const updated = res.data.user;
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    } catch (e: any) {
+      alert(e?.response?.data?.error || '修改角色失败');
+    }
   };
 
-  const handleAdminRegions = (id, regions) => {
-    axios.patch(`/api/admin/${id}`, { managed_regions: regions });
-  };
-
-  const handleToggleApply = () => {
-    setApplyOpen(!applyOpen);
-    // PATCH to server
+  const handleActiveChange = async (targetUser: any, isActive: boolean) => {
+    try {
+      const res = await axios.put(`/api/users/${targetUser.id}/active`, { isActive });
+      const updated = res.data.user;
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    } catch (e: any) {
+      alert(e?.response?.data?.error || '封禁/解封失败');
+    }
   };
 
   return (
     <div>
-      <Switch checked={applyOpen} onChange={handleToggleApply} /> 申请入口开启
+      <Typography variant="h6">系统管理员面板</Typography>
+      <Button sx={{ mt: 1, mb: 1 }} variant="outlined" onClick={loadUsers} disabled={loading}>
+        刷新列表
+      </Button>
+
       <Paper sx={{ mt: 2 }}>
-        <Typography>用户列表</Typography>
+        <Typography sx={{ p: 2 }}>用户列表</Typography>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
                 <TableCell>ID</TableCell>
-                <TableCell>用户名</TableCell>
-                <TableCell>用户组</TableCell>
-                <TableCell>禁用</TableCell>
-                <TableCell>最后5次IP</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell>呼号</TableCell>
+                <TableCell>邮箱</TableCell>
+                <TableCell>角色</TableCell>
+                <TableCell>启用</TableCell>
+                <TableCell>最后登录</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map(u => (
-                <TableRow key={u.id}>
-                  <TableCell>{u.id}</TableCell>
-                  <TableCell>{u.username}</TableCell>
-                  <TableCell>
-                    <Select value={u.user_group} onChange={(e) => handleUserUpdate(u.id, 'user_group', e.target.value)}>
-                      <MenuItem value="user">用户</MenuItem>
-                      <MenuItem value="admin">地图管理员</MenuItem>
-                      <MenuItem value="sysadmin">系统管理员</MenuItem>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Switch checked={u.disabled} onChange={(e) => handleUserUpdate(u.id, 'disabled', e.target.checked)} />
-                  </TableCell>
-                  <TableCell>{u.last_logins.join(', ')}</TableCell>
-                  <TableCell><Button>更改密码</Button></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-      <Paper sx={{ mt: 2 }}>
-        <Typography>管理员列表</Typography>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>用户名</TableCell>
-                <TableCell>管理区域</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {admins.map(a => (
-                <TableRow key={a.id}>
-                  <TableCell>{a.id}</TableCell>
-                  <TableCell>{a.username}</TableCell>
-                  <TableCell>
-                    <Select multiple value={a.managed_regions || []} onChange={(e) => handleAdminRegions(a.id, e.target.value)}>
-                      {/* List provinces from region.json */}
-                      <MenuItem value="CN-BJ">CN-BJ (北京)</MenuItem>
-                      {/* Add more */}
-                    </Select>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((u) => {
+                const isSelf = currentUser?.id === u.id;
+                const roleSelectDisabled = isSelf || !u.is_active; // 被禁用用户不能改角色（后端也会拒绝）
+
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell>{u.id}</TableCell>
+                    <TableCell>{u.callsign}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Select
+                        size="small"
+                        value={u.role}
+                        disabled={roleSelectDisabled}
+                        onChange={(e) => handleRoleChange(u, e.target.value as string)}
+                      >
+                        {ROLE_OPTIONS.map((r) => (
+                          <MenuItem key={r.value} value={r.value}>
+                            {r.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={!!u.is_active}
+                        disabled={isSelf}
+                        onChange={(e) => handleActiveChange(u, e.target.checked)}
+                      />
+                    </TableCell>
+                    <TableCell>{u.last_login ? new Date(u.last_login).toLocaleString() : '-'}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

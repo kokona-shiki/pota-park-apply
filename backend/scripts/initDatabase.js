@@ -1,4 +1,5 @@
-import { testConnection, initializeDatabase } from '../config/database.js';
+import { testConnection } from '../config/database.js';
+import { initializeDatabase } from '../config/initDatabase.js';
 
 const init = async () => {
   console.log('🚀 开始初始化 POTA 公园申请系统数据库...');

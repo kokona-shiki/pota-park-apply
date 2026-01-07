@@ -1,5 +1,5 @@
-// src/App.jsx
-import React, { useState, createContext, useEffect } from 'react';
+// src/App.tsx
+import React, { useState, createContext, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box, Toolbar } from '@mui/material';
 import TopBar from './components/TopBar.tsx';
@@ -16,34 +16,69 @@ import UserInfo from './pages/UserInfo';
 import AdminPanel from './pages/AdminPanel';
 import axios from 'axios';
 
-export const AuthContext = createContext();
+export const AuthContext = createContext<any>(null);
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
-useEffect(() => {
-  // 临时伪造登录状态，便于前端开发和页面预览
-  // 你可以修改这里的用户信息来测试不同权限
-  setUser({
-    id: 1,
-    username: '测试用户',
-    callsign: 'BG0FFH',
-    email: 'test@example.com',
-    user_group: 'sysadmin',  // 可选: 'user'（普通用户）、'admin'（地图管理员）、'sysadmin'（系统管理员）
-    registration_time: '2025-01-01',
-  });
-  setLoading(false);
-}, []);
+  useEffect(() => {
+    if (accessToken) {
+      axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+    } else {
+      delete axios.defaults.headers.common.Authorization;
+    }
+  }, [accessToken]);
 
-  if (loading) return <div>Loading...</div>;
+  const logout = useCallback(() => {
+    setUser(null);
+    setAccessToken(null);
+    setRefreshToken(null);
+  }, []);
 
-  const isAdmin = user?.user_group === 'admin' || user?.user_group === 'sysadmin';
-  const isSysAdmin = user?.user_group === 'sysadmin';
+  // 供“用户信息页刷新按钮”使用：刷新 token 并同步最新角色
+  const refreshSession = useCallback(async () => {
+    if (!refreshToken) {
+      throw new Error('缺少 refreshToken');
+    }
+
+    const res = await axios.post(
+      '/api/refresh-token',
+      {},
+      {
+        headers: {
+          'X-Refresh-Token': refreshToken
+        }
+      }
+    );
+
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken, user: newUser } = res.data;
+    setAccessToken(newAccessToken);
+    setRefreshToken(newRefreshToken);
+    setUser(newUser);
+
+    return res.data;
+  }, [refreshToken]);
+
+  const isAdmin =
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+  const isSysAdmin = user?.role === 'system_admin';
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        accessToken,
+        setAccessToken,
+        refreshToken,
+        setRefreshToken,
+        refreshSession,
+        logout
+      }}
+    >
       <Box sx={{ display: 'flex' }}>
         <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
         <SideBar isOpen={isSidebarOpen} isAdmin={isAdmin} isSysAdmin={isSysAdmin} />

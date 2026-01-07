@@ -6,7 +6,8 @@ import axios from 'axios';
 
 function ExportPage() {
   const { user } = useContext(AuthContext);
-  const isAdmin = user.user_group === 'admin' || user.user_group === 'sysadmin';
+  const isAdmin = user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+
 
   const handleExport = (type, scope) => {
     axios.get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' })

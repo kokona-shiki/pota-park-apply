@@ -5,6 +5,11 @@ export const createTables = async () => {
   console.log('🚀 开始创建数据库表...');
 
   try {
+    // 0. 扩展与全文检索配置
+    await query('CREATE EXTENSION IF NOT EXISTS postgis');
+    // 避免本地/容器缺少 chinese 配置导致索引创建失败：先用 simple 复制一个占位配置
+    await query("CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS chinese ( COPY = simple )");
+
     // 1. 权限表
     await query(`
       CREATE TABLE IF NOT EXISTS permissions (
@@ -102,6 +107,52 @@ export const createTables = async () => {
         
         -- 约束
         CONSTRAINT valid_fields CHECK (field_name IN ('email', 'password_hash', 'callsign'))
+      )
+    `);
+
+    // 6.1 Refresh Token（随机串 + 落库 + rotation + 重放检测）
+    await query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        family_id UUID NOT NULL,
+        token_hash TEXT UNIQUE NOT NULL,
+
+        issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP WITH TIME ZONE,
+
+        -- sliding 15 天
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        -- absolute 90 天
+        absolute_expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+
+        revoked_at TIMESTAMP WITH TIME ZONE,
+        replaced_by INTEGER REFERENCES refresh_tokens(id),
+
+        user_agent TEXT,
+        ip INET
+      )
+    `);
+
+    // 6.2 用户管理审计日志（封禁/解封不需要理由；修改角色必须理由，由业务层约束）
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_admin_audit_logs (
+        id SERIAL PRIMARY KEY,
+        action VARCHAR(50) NOT NULL
+          CHECK (action IN ('user_role_changed', 'user_disabled', 'user_enabled', 'refresh_token_reuse_detected')),
+
+        operator_id INTEGER REFERENCES users(id),
+        target_user_id INTEGER REFERENCES users(id),
+
+        old_role VARCHAR(20),
+        new_role VARCHAR(20),
+        old_is_active BOOLEAN,
+        new_is_active BOOLEAN,
+
+        reason TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -238,6 +289,16 @@ export const createIndexes = async () => {
     // 用户信息修改记录表索引
     await query('CREATE INDEX IF NOT EXISTS idx_user_changes_user ON user_info_changes (user_id, created_at DESC)');
     await query('CREATE INDEX IF NOT EXISTS idx_user_changes_field ON user_info_changes (field_name, status, created_at DESC)');
+
+    // Refresh token 索引
+    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id, revoked_at, expires_at)');
+    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id, revoked_at)');
+    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_absolute_exp ON refresh_tokens (absolute_expires_at)');
+
+    // 用户管理审计日志索引
+    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_target ON user_admin_audit_logs (target_user_id, created_at DESC)');
+    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_operator ON user_admin_audit_logs (operator_id, created_at DESC)');
+    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_action ON user_admin_audit_logs (action, created_at DESC)');
 
     // 审核提醒表索引
     await query('CREATE INDEX IF NOT EXISTS idx_reminder_application ON review_reminders (application_id, created_at DESC)');

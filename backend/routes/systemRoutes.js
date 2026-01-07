@@ -14,8 +14,18 @@ router.get('/', (_req, res) => {
   });
 });
 
-// API 健康检查
-router.get('/api/health', async (_req, res) => {
+const isInternalIp = (ip) => {
+  // Express 在 IPv6/代理场景下可能返回 ::ffff:10.x.x.x
+  const normalized = String(ip || '').replace('::ffff:', '');
+  return normalized.startsWith('10.');
+};
+
+// API 健康检查（仅内网 10.0.0.0/8 允许访问）
+router.get('/api/health', async (req, res) => {
+  if (!isInternalIp(req.ip)) {
+    return res.status(403).json({ error: '仅允许内网访问' });
+  }
+
   const dbStatus = await testConnection();
   res.json({
     status: 'OK',
