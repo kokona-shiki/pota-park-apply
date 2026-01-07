@@ -1,4 +1,5 @@
-import { query } from './database.js';
+import { query, getOne } from './database.js';
+import { hashPassword, normalizeEmail, normalizeCallsign } from '../utils/auth.js';
 
 // 创建所有数据库表
 export const createTables = async () => {
@@ -429,6 +430,73 @@ export const createFunctionsAndTriggers = async () => {
   }
 };
 
+const ensureInitialSystemAdmin = async () => {
+  const existingAdmin = await getOne(`
+    SELECT id, email, callsign
+    FROM users
+    WHERE role = 'system_admin'
+    LIMIT 1
+  `);
+
+  if (existingAdmin) {
+    return;
+  }
+
+  const emailEnv = process.env.INIT_ADMIN_EMAIL;
+  const callsignEnv = process.env.INIT_ADMIN_CALLSIGN;
+  const passwordEnv = process.env.INIT_ADMIN_PASSWORD;
+
+  if (!emailEnv || !callsignEnv || !passwordEnv) {
+    console.warn(
+      '⚠️ 未检测到初始系统管理员 env（INIT_ADMIN_EMAIL / INIT_ADMIN_CALLSIGN / INIT_ADMIN_PASSWORD），且数据库内不存在 system_admin。\n' +
+        '   你可以在 .env（或容器环境变量）中配置这三个值，以便首次初始化时自动创建初始系统管理员。'
+    );
+    return;
+  }
+
+  const email = normalizeEmail(emailEnv);
+  const callsign = normalizeCallsign(callsignEnv);
+  const passwordHash = await hashPassword(passwordEnv);
+
+  // 若用户已存在（可能是先注册了），则提升为系统管理员并重置密码（以 env 为准）
+  const existingUser = await getOne(
+    `
+      SELECT id, email, callsign
+      FROM users
+      WHERE lower(email) = lower($1) OR upper(callsign) = upper($2)
+      LIMIT 1
+    `,
+    [email, callsign]
+  );
+
+  if (existingUser) {
+    await query(
+      `
+        UPDATE users
+        SET role = 'system_admin',
+            is_active = true,
+            password_hash = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `,
+      [existingUser.id, passwordHash]
+    );
+
+    console.log(`✅ 已将用户提升为初始系统管理员: ${existingUser.callsign} <${existingUser.email}>`);
+    return;
+  }
+
+  await query(
+    `
+      INSERT INTO users (email, callsign, password_hash, role, is_active)
+      VALUES ($1, $2, $3, 'system_admin', true)
+    `,
+    [email, callsign, passwordHash]
+  );
+
+  console.log(`✅ 已创建初始系统管理员: ${callsign} <${email}>`);
+};
+
 // 初始化基础数据
 export const initializeData = async () => {
   console.log('📝 开始初始化基础数据...');
@@ -536,6 +604,9 @@ export const initializeData = async () => {
       ('CN-TW', '台湾省', 'Taiwan', 34)
       ON CONFLICT (iso_code) DO NOTHING
     `);
+
+    // 4. 确保存在一个 system_admin（通过 env 配置首次管理员账号）
+    await ensureInitialSystemAdmin();
 
     console.log('✅ 基础数据初始化完成');
   } catch (error) {
