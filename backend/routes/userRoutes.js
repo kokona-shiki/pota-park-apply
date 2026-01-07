@@ -107,4 +107,24 @@ router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
   }
 });
 
+// 用户管理审计日志（仅系统管理员）
+router.get('/api/user-admin-audit-logs', authenticateToken, requirePermission('view_all_users'), async (req, res) => {
+  try {
+    const { action, targetUserId, operatorId, limit, offset } = req.query;
+
+    const logs = await userService.getUserAdminAuditLogs({
+      action: action || null,
+      targetUserId: targetUserId || null,
+      operatorId: operatorId || null,
+      limit: limit || 200,
+      offset: offset || 0
+    });
+
+    res.json({ logs });
+  } catch (error) {
+    console.error('获取用户管理审计日志失败:', error);
+    res.status(500).json({ error: '获取用户管理审计日志失败' });
+  }
+});
+
 export default router;

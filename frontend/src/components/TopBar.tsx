@@ -51,16 +51,6 @@ function TopBar({ isSidebarOpen, setIsSidebarOpen }: any) {
                 用户信息
               </MenuItem>
               <MenuItem onClick={handleLogout}>登出</MenuItem>
-              {user.role === 'system_admin' && (
-                <MenuItem
-                  onClick={() => {
-                    handleClose();
-                    navigate('/admin-panel');
-                  }}
-                >
-                  管理网站
-                </MenuItem>
-              )}
             </Menu>
           </>
         ) : (

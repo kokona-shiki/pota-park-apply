@@ -269,6 +269,61 @@ export const getCallsignChangeRequests = async (status = 'pending') => {
   return await getMany(queryText, params);
 };
 
+// 获取用户管理审计日志（仅系统管理员）
+export const getUserAdminAuditLogs = async ({
+  action = null,
+  targetUserId = null,
+  operatorId = null,
+  limit = 200,
+  offset = 0
+} = {}) => {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+  const safeOffset = Math.max(0, Number(offset) || 0);
+
+  const conditions = [];
+  const params = [];
+
+  if (action) {
+    params.push(action);
+    conditions.push(`l.action = $${params.length}`);
+  }
+
+  if (targetUserId) {
+    params.push(Number(targetUserId));
+    conditions.push(`l.target_user_id = $${params.length}`);
+  }
+
+  if (operatorId) {
+    params.push(Number(operatorId));
+    conditions.push(`l.operator_id = $${params.length}`);
+  }
+
+  params.push(safeLimit);
+  const limitIndex = params.length;
+  params.push(safeOffset);
+  const offsetIndex = params.length;
+
+  const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  return await getMany(
+    `
+      SELECT
+        l.*, 
+        op.callsign AS operator_callsign,
+        op.email AS operator_email,
+        tu.callsign AS target_callsign,
+        tu.email AS target_email
+      FROM user_admin_audit_logs l
+      LEFT JOIN users op ON l.operator_id = op.id
+      LEFT JOIN users tu ON l.target_user_id = tu.id
+      ${whereSql}
+      ORDER BY l.created_at DESC
+      LIMIT $${limitIndex} OFFSET $${offsetIndex}
+    `,
+    params
+  );
+};
+
 // 获取用户列表
 export const getUsers = async (role = null, isActive = null) => {
   let queryText = `
