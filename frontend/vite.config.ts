@@ -10,6 +10,13 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      // 通过同源代理转发到 api.pota.app，避免浏览器 CORS（Authorization header 会触发预检）
+      '/pota-api': {
+        target: 'https://api.pota.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/pota-api/, '')
       }
     }
   }

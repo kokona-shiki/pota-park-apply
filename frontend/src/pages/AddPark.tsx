@@ -136,7 +136,7 @@ function AddPark() {
     try {
       // 第一步：搜索公园列表
       const searchRes = await axios.get<PotaLookupItem[]>(
-        `https://api.pota.app/lookup?search=${encodeURIComponent(parkName)}`,
+        `/pota-api/lookup?search=${encodeURIComponent(parkName)}`,
       );
       
       if (searchRes.data.length === 0) {
@@ -151,7 +151,7 @@ function AddPark() {
         const firstPark = searchRes.data[0];
         try {
           const parkRes = await axios.get<PotaParkInfo>(
-            `https://api.pota.app/park/${encodeURIComponent(firstPark.value)}`,
+            `/pota-api/park/${encodeURIComponent(firstPark.value)}`,
           );
           
           const parkInfo = parkRes.data;

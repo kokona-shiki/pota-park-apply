@@ -29,7 +29,8 @@ function Home() {
 
   useEffect(() => {
     axios
-      .get<PotaPark[]>('https://api.pota.app/entity/parks/318')
+      // 通过同源代理转发到 https://api.pota.app，避免浏览器 CORS
+      .get<PotaPark[]>('/pota-api/entity/parks/318')
       .then((res) => {
         const sorted = [...res.data].sort((a, b) => (b.qsos || 0) - (a.qsos || 0));
         setParks(sorted);
