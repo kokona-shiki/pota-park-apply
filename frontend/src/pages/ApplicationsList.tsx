@@ -71,7 +71,7 @@ function ApplicationsList() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const isReviewer =
-    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative';
 
   useEffect(() => {
     const load = async () => {

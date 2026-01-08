@@ -37,7 +37,7 @@ function RequireAdmin({ children }: { children: ReactElement }) {
   const location = useLocation();
 
   const isAdmin =
-    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative';
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
@@ -202,7 +202,7 @@ function App() {
   }, [logout, navigate, refreshSession]);
 
   const isAdmin =
-    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative';
   const isSysAdmin = user?.role === 'system_admin';
 
   return (

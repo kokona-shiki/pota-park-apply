@@ -542,7 +542,7 @@ export const initializeData = async () => {
     await query(`
       WITH role_perm(role, permission_code) AS (
         VALUES
-          -- system_admin: 全部权限
+          -- system_admin: 仅用户管理相关权限
           ('system_admin', 'create_user'),
           ('system_admin', 'modify_user_info'),
           ('system_admin', 'modify_user_role'),
@@ -552,9 +552,6 @@ export const initializeData = async () => {
           ('system_admin', 'submit_application'),
           ('system_admin', 'view_application_list'),
           ('system_admin', 'view_application_detail'),
-          ('system_admin', 'review_application'),
-          ('system_admin', 'remind_review'),
-          ('system_admin', 'sync_to_pota'),
 
           -- pota_representative
           ('pota_representative', 'submit_application'),

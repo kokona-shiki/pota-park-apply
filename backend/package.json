@@ -9,6 +9,7 @@
     "dev": "node index.js",
     "start": "node index.js",
     "init-db": "node scripts/initDatabase.js",
+    "migrate:remove-admin-review-permissions": "node migrations/001-remove-system-admin-review-permissions.js",
     "test-api": "node test/test-api.js",
     "test-backend": "node scripts/test-backend.js",
     "clean": "rm -rf node_modules pnpm-lock.yaml",
