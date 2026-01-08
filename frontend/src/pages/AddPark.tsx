@@ -14,6 +14,9 @@ import {
   Alert,
   IconButton,
   Collapse,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import type { SelectChangeEvent } from '@mui/material/Select';
@@ -25,7 +28,15 @@ import regionData from '../assets/region.json';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import shadow from 'leaflet/dist/images/marker-shadow.png';
-import { mapAccessMethods, mapActivationMethods, mapLocationToProvince, mapAccessMethodsWithBothLangs, mapActivationMethodsWithBothLangs } from '../utils/potaMapping';
+import {
+  mapAccessMethods,
+  mapActivationMethods,
+  mapLocationToProvince,
+  mapAccessMethodsWithBothLangs,
+  mapActivationMethodsWithBothLangs,
+  parseOSMDisplayName,
+  getProvinceCodeFromNames
+} from '../utils/potaMapping';
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 
@@ -35,13 +46,35 @@ L.Icon.Default.mergeOptions({
   shadowUrl: shadow,
 });
 
+// 创建选中状态的 marker 图标
+const selectedIcon = new L.Icon({
+  iconRetinaUrl: iconRetina,
+  iconUrl: icon,
+  shadowUrl: shadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+// 创建未选中状态的 marker 图标
+const normalIcon = new L.Icon({
+  iconRetinaUrl: iconRetina,
+  iconUrl: icon,
+  shadowUrl: shadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 type Province = { name: string; code: string };
 
-type PotaLookupItem = { 
-  type: string; 
-  id: number; 
-  display: string; 
-  value: string; 
+type PotaLookupItem = {
+  type: string;
+  id: number;
+  display: string;
+  value: string;
 };
 
 type PotaParkInfo = {
@@ -73,7 +106,30 @@ type PotaParkInfo = {
   entityDeleted: number;
 };
 
+type MapPOI = {
+  id: number;
+  name: string;
+  displayName: string;
+  province: string;
+  city: string;
+  lat: number;
+  lon: number;
+};
+
 type LatLngTuple = [number, number];
+
+// 地图边界控制器组件
+function MapBoundsController({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [map, bounds]);
+
+  return null;
+}
 
 function MapController({
   center,
@@ -140,6 +196,10 @@ function AddPark() {
   const [confirmed, setConfirmed] = useState(savedState?.confirmed || false);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isPotaPark, setIsPotaPark] = useState(savedState?.isPotaPark || false);
+
+  // 地图搜索相关的状态
+  const [mapPOIs, setMapPOIs] = useState<MapPOI[]>([]);
+  const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
 
   const [searchingPota, setSearchingPota] = useState(false);
   const [searchingMap, setSearchingMap] = useState(false);
@@ -262,28 +322,48 @@ function AddPark() {
     setSearchingMap(true);
 
     try {
-      const res = await axios.get<Array<{ lat: string; lon: string }>>(
+      const res = await axios.get<Array<{
+        place_id: number;
+        lat: string;
+        lon: string;
+        display_name: string;
+        name: string;
+      }>>(
         `/proxy-api/geocoding/osm/search?q=${encodeURIComponent(parkName)}&format=json`,
-        { timeout: 5000 } // 5秒超时
+        { timeout: 5000 }
       );
 
-      const first = res.data[0];
-      if (!first) {
+      if (!res.data || res.data.length === 0) {
         setError('未找到匹配的地点');
+        setMapPOIs([]);
+        setSelectedPOIId(null);
         return;
       }
 
-      const lat = Number.parseFloat(first.lat);
-      const lon = Number.parseFloat(first.lon);
+      // 转换为 MapPOI 类型
+      const pois: MapPOI[] = res.data.map((item) => {
+        const parsed = parseOSMDisplayName(item.display_name);
+        return {
+          id: item.place_id,
+          name: item.name || '',
+          displayName: item.display_name,
+          province: parsed?.province || '',
+          city: parsed?.city || '',
+          lat: Number.parseFloat(item.lat),
+          lon: Number.parseFloat(item.lon),
+        };
+      });
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        setError('获取的坐标无效');
-        return;
+      setMapPOIs(pois);
+
+      // 默认选中第一个 POI
+      if (pois.length > 0) {
+        setSelectedPOIId(pois[0].id);
+        setLatitude(String(pois[0].lat));
+        setLongitude(String(pois[0].lon));
+        setParkName(pois[0].name || parkName); // 使用 POI 名称或搜索词
+        setMapCenter([pois[0].lat, pois[0].lon]);
       }
-
-      setLatitude(first.lat);
-      setLongitude(first.lon);
-      setMapCenter([lat, lon]);
     } catch (err: any) {
       console.error(err);
       if (err.code === 'ECONNABORTED') {
@@ -294,6 +374,30 @@ function AddPark() {
     } finally {
       setSearchingMap(false);
     }
+  };
+
+  // 处理 POI 选中
+  const handlePOISelect = (poi: MapPOI) => {
+    setSelectedPOIId(poi.id);
+    setLatitude(String(poi.lat));
+    setLongitude(String(poi.lon));
+
+    // 解析省份和城市
+    const provinceCode = getProvinceCodeFromNames(poi.province, poi.city);
+    if (provinceCode) {
+      setProvince(provinceCode);
+    }
+
+    // 格式化公园名称: <省份><城市><名称>
+    let formattedName: string;
+    if (poi.city) {
+      formattedName = `${poi.province}${poi.city}${poi.name}`;
+    } else {
+      formattedName = `${poi.province}${poi.name}`;
+    }
+    setParkName(formattedName);
+
+    setMapCenter([poi.lat, poi.lon]);
   };
 
   const handleSubmit = async () => {
@@ -359,7 +463,8 @@ function AddPark() {
   const LocationMarker = () => {
     useMapEvents({
       click(e) {
-        if (isPotaPark) return; // POTA 公园不允许点击修改位置
+        // 如果有地图搜索结果,不允许点击修改位置
+        if (isPotaPark || mapPOIs.length > 0) return;
         const lat = e.latlng.lat;
         const lon = e.latlng.lng;
         setLatitude(String(lat));
@@ -368,16 +473,31 @@ function AddPark() {
       },
     });
 
-    const lat = Number.parseFloat(latitude);
-    const lon = Number.parseFloat(longitude);
-    
-    // 只有当坐标有效时才显示 marker
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return null;
+    // 显示手动选择的标记（当没有地图搜索结果时）
+    if (mapPOIs.length === 0) {
+      const lat = Number.parseFloat(latitude);
+      const lon = Number.parseFloat(longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return null;
+      }
+
+      return <Marker position={[lat, lon]} />;
     }
 
-    return <Marker position={[lat, lon]} />;
+    return null;
   };
+
+  // 计算所有 POI 的边界
+  const mapBounds = useMemo(() => {
+    if (mapPOIs.length === 0) return null;
+
+    const bounds = L.latLngBounds(
+      mapPOIs.map(poi => [poi.lat, poi.lon] as LatLngTuple)
+    );
+
+    return bounds;
+  }, [mapPOIs]);
 
   // 移除自动更新地图中心的效果，让用户通过搜索功能来控制地图中心
 
@@ -480,6 +600,8 @@ function AddPark() {
                 setActivationMethods(['步行', '车载', '其他']);
                 setConfirmed(false);
                 setSearchResults([]);
+                setMapPOIs([]);
+                setSelectedPOIId(null);
                 setMapCenter([39.9042, 116.4074]); // 重置地图中心到北京
                 setMapZoom(13);
               }}
@@ -490,11 +612,64 @@ function AddPark() {
           )}
         </Box>
 
-        {searchResults.length > 0 && (
-          <Box 
-            sx={{ 
-              mt: 1, 
-              maxHeight: 200, 
+        {mapPOIs.length > 0 && (
+          <Box
+            sx={{
+              mt: 1,
+              maxHeight: 250,
+              overflowY: 'auto',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              backgroundColor: 'background.paper'
+            }}
+          >
+            <List dense>
+              {mapPOIs.map((poi) => (
+                <ListItem
+                  key={poi.id}
+                  button
+                  selected={selectedPOIId === poi.id}
+                  onClick={() => handlePOISelect(poi)}
+                  sx={{
+                    '&.Mui-selected': {
+                      backgroundColor: 'primary.light',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                      },
+                    },
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemText
+                    primary={poi.name || '未命名地点'}
+                    secondary={`${poi.province}${poi.city ? ` ${poi.city}` : ''}`}
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontWeight: selectedPOIId === poi.id ? 'bold' : 'normal',
+                        }
+                      },
+                      secondary: {
+                        sx: {
+                          fontSize: '0.75rem',
+                          color: 'text.secondary',
+                        }
+                      }
+                    }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        {searchResults.length > 0 && mapPOIs.length === 0 && (
+          <Box
+            sx={{
+              mt: 1,
+              maxHeight: 200,
               overflowY: 'auto',
               border: '1px solid',
               borderColor: 'divider',
@@ -503,13 +678,13 @@ function AddPark() {
               backgroundColor: 'background.paper'
             }}
           >
-            {searchResults.map((result, idx) => (
-              <Typography 
-                key={idx} 
-                sx={{ 
+            {searchResults.map((result, index) => (
+              <Typography
+                key={`search-${index}-${result.substring(0, 10)}`}
+                sx={{
                   py: 0.5,
                   fontSize: '0.875rem',
-                  borderBottom: idx < searchResults.length - 1 ? '1px solid' : 'none',
+                  borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
                   borderColor: 'divider'
                 }}
               >
@@ -625,14 +800,25 @@ function AddPark() {
 
       <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 2, md: 0 } }}>
         <Box sx={{ height: 500, width: '100%', borderRadius: 1, overflow: 'hidden' }}>
-            <MapContainer 
-              center={mapCenter} 
-              zoom={mapZoom} 
+            <MapContainer
+              center={mapCenter}
+              zoom={mapZoom}
               style={{ height: '100%', width: '100%' }}
             >
               <MapController center={mapCenter} onZoomChange={setMapZoom} />
+              <MapBoundsController bounds={mapBounds} />
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <LocationMarker />
+              {mapPOIs.map((poi) => (
+                <Marker
+                  key={poi.id}
+                  position={[poi.lat, poi.lon]}
+                  icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
+                  eventHandlers={{
+                    click: () => handlePOISelect(poi),
+                  }}
+                />
+              ))}
             </MapContainer>
         </Box>
       </Box>

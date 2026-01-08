@@ -98,6 +98,113 @@ export const mapLocationToProvince = (locationDesc: string): string => {
     'CN-NX': '64', // 宁夏
     'CN-XJ': '65', // 新疆
   };
-  
+
   return locationMap[locationDesc] || '';
+};
+
+// 从 OSM POI 的 display_name 解析省份和地市
+export const parseOSMDisplayName = (displayName: string): { province: string; city: string; name: string } | null => {
+  // OSM display_name 格式: "name, district, city, province, postal_code, country"
+  // 示例: "横琴花海长廊, 横琴粤澳深度合作区, 香洲区, 珠海市, 广东省, 519000, 中国"
+
+  const parts = displayName.split(', ').map(p => p.trim());
+
+  if (parts.length < 4) {
+    return null;
+  }
+
+  const name = parts[0] || ''; // POI 名称
+  let province = '';
+  let city = '';
+
+  // 从后向前解析省份和城市
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+
+    // 识别省份 (以"省"结尾)
+    if (!province && part.includes('省')) {
+      province = part.replace('省', '');
+      continue;
+    }
+
+    // 识别直辖市 (北京、上海、天津、重庆)
+    if (!province && ['北京市', '上海市', '天津市', '重庆市'].includes(part)) {
+      province = part.replace('市', '');
+      city = province; // 直辖市城市名与省份相同
+      continue;
+    }
+
+    // 识别自治区
+    if (!province && ['自治区'].some(suffix => part.includes(suffix))) {
+      province = part.replaceAll(/自治区|壮族回族维吾尔藏族蒙古/g, '');
+      continue;
+    }
+
+    // 识别城市 (以"市"结尾,且已经找到省份)
+    if (province && !city && part.includes('市') && !part.includes('省')) {
+      city = part.replace('市', '');
+    }
+  }
+
+  // 如果没有找到城市,尝试从其他位置查找
+  if (!city && parts.length >= 4) {
+    // 尝试从索引3或4的位置查找城市名
+    for (const part of parts.slice(2, 5)) {
+      if (part.includes('市') && !part.includes('省')) {
+        city = part.replace('市', '');
+        break;
+      }
+    }
+  }
+
+  if (!province) {
+    return null;
+  }
+
+  return { province, city: city || '', name };
+};
+
+// 根据省份和地市名称获取省份代码
+export const getProvinceCodeFromNames = (provinceName: string, cityName: string): string => {
+  // 省份名称到代码的映射
+  const provinceNameMap: { [key: string]: string } = {
+    '北京': '11',
+    '天津': '12',
+    '河北': '13',
+    '山西': '14',
+    '内蒙古': '15',
+    '辽宁': '21',
+    '吉林': '22',
+    '黑龙江': '23',
+    '上海': '31',
+    '江苏': '32',
+    '浙江': '33',
+    '安徽': '34',
+    '福建': '35',
+    '江西': '36',
+    '山东': '37',
+    '河南': '41',
+    '湖北': '42',
+    '湖南': '43',
+    '广东': '44',
+    '广西': '45',
+    '海南': '46',
+    '重庆': '50',
+    '四川': '51',
+    '贵州': '52',
+    '云南': '53',
+    '西藏': '54',
+    '陕西': '61',
+    '甘肃': '62',
+    '青海': '63',
+    '宁夏': '64',
+    '新疆': '65',
+  };
+
+  // 直辖市特殊处理
+  if (['北京', '上海', '天津', '重庆'].includes(provinceName)) {
+    return provinceNameMap[provinceName] || '';
+  }
+
+  return provinceNameMap[provinceName] || '';
 };
