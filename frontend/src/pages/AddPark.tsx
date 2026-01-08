@@ -46,18 +46,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: shadow,
 });
 
-// 创建选中状态的 marker 图标
+// 创建选中状态的 marker 图标 - 更大尺寸
 const selectedIcon = new L.Icon({
   iconRetinaUrl: iconRetina,
   iconUrl: icon,
   shadowUrl: shadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+  iconSize: [35, 57],
+  iconAnchor: [17, 57],
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
 
-// 创建未选中状态的 marker 图标
+// 创建未选中状态的 marker 图标 - 正常尺寸
 const normalIcon = new L.Icon({
   iconRetinaUrl: iconRetina,
   iconUrl: icon,
@@ -358,11 +358,23 @@ function AddPark() {
 
       // 默认选中第一个 POI
       if (pois.length > 0) {
-        setSelectedPOIId(pois[0].id);
-        setLatitude(String(pois[0].lat));
-        setLongitude(String(pois[0].lon));
-        setParkName(pois[0].name || parkName); // 使用 POI 名称或搜索词
-        setMapCenter([pois[0].lat, pois[0].lon]);
+        const firstPoi = pois[0];
+        setSelectedPOIId(firstPoi.id);
+        setLatitude(String(firstPoi.lat));
+        setLongitude(String(firstPoi.lon));
+
+        // 格式化公园名称: <省份><城市><名称>
+        const provinceCode = getProvinceCodeFromNames(firstPoi.province, firstPoi.city);
+        if (provinceCode) {
+          setProvince(provinceCode);
+        }
+
+        const formattedName = firstPoi.city
+          ? `${firstPoi.province}${firstPoi.city}${firstPoi.name}`
+          : `${firstPoi.province}${firstPoi.name}`;
+        setParkName(formattedName);
+
+        setMapCenter([firstPoi.lat, firstPoi.lon]);
       }
     } catch (err: any) {
       console.error(err);
@@ -618,13 +630,12 @@ function AddPark() {
               mt: 1,
               maxHeight: 250,
               overflowY: 'auto',
-              border: '1px solid',
-              borderColor: 'divider',
               borderRadius: 1,
-              backgroundColor: 'background.paper'
+              backgroundColor: 'background.paper',
+              boxShadow: 1,
             }}
           >
-            <List dense>
+            <List dense disablePadding>
               {mapPOIs.map((poi) => (
                 <ListItem
                   key={poi.id}
@@ -633,28 +644,38 @@ function AddPark() {
                   onClick={() => handlePOISelect(poi)}
                   sx={{
                     '&.Mui-selected': {
-                      backgroundColor: 'primary.light',
+                      backgroundColor: 'action.hover',
+                      borderLeft: 4,
+                      borderLeftColor: 'primary.main',
+                      pl: 1.5,
                       '&:hover': {
-                        backgroundColor: 'primary.light',
+                        backgroundColor: 'action.selected',
                       },
+                    },
+                    '&:not(.Mui-selected):hover': {
+                      backgroundColor: 'action.hover',
                     },
                     borderBottom: '1px solid',
                     borderColor: 'divider',
+                    transition: 'all 0.15s ease-in-out',
                   }}
                 >
                   <ListItemText
                     primary={poi.name || '未命名地点'}
-                    secondary={`${poi.province}${poi.city ? ` ${poi.city}` : ''}`}
+                    secondary={poi.city ? `${poi.province} ${poi.city}` : poi.province}
                     slotProps={{
                       primary: {
                         sx: {
-                          fontWeight: selectedPOIId === poi.id ? 'bold' : 'normal',
+                          fontWeight: selectedPOIId === poi.id ? 700 : 400,
+                          fontSize: '0.95rem',
+                          color: selectedPOIId === poi.id ? 'primary.main' : 'text.primary',
                         }
                       },
                       secondary: {
                         sx: {
                           fontSize: '0.75rem',
-                          color: 'text.secondary',
+                          fontWeight: selectedPOIId === poi.id ? 500 : 400,
+                          color: selectedPOIId === poi.id ? 'primary.main' : 'text.secondary',
                         }
                       }
                     }}
