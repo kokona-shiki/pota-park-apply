@@ -19,6 +19,7 @@ import {
   ListItemText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import ClearIcon from '@mui/icons-material/Clear';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -564,6 +565,27 @@ function AddPark() {
             value={parkName}
             onChange={(e) => setParkName(e.target.value)}
             sx={{ flex: 1 }}
+            InputProps={{
+              endAdornment: parkName && (
+                <IconButton
+                  onClick={() => {
+                    setParkName('');
+                    setParkType('');
+                    setProvince('');
+                    setLatitude('');
+                    setLongitude('');
+                    setSearchResults([]);
+                    setMapPOIs([]);
+                    setSelectedPOIId(null);
+                    setIsPotaPark(false);
+                  }}
+                  tabIndex={-1}
+                  sx={{ mr: -0.5 }}
+                >
+                  <ClearIcon />
+                </IconButton>
+              ),
+            }}
           />
 
           <FormControl sx={{ minWidth: 200, flex: 1 }}>
@@ -642,6 +664,11 @@ function AddPark() {
                   button
                   selected={selectedPOIId === poi.id}
                   onClick={() => handlePOISelect(poi)}
+                  ref={(ref) => {
+                    if (ref && selectedPOIId === poi.id) {
+                      ref.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                  }}
                   sx={{
                     '&.Mui-selected': {
                       backgroundColor: 'action.hover',
