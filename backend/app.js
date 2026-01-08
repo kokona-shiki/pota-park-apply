@@ -8,6 +8,7 @@ import userRoutes from './routes/userRoutes.js';
 import callsignRoutes from './routes/callsignRoutes.js';
 import parkApplicationRoutes from './routes/parkApplicationRoutes.js';
 import provinceRoutes from './routes/provinceRoutes.js';
+import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
 
@@ -27,6 +28,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// 初始化动态代理 (在路由之前)
+const proxyConfigs = initProxies(app);
 
 // 全局限流（所有接口）
 app.use(

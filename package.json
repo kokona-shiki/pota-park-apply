@@ -13,6 +13,7 @@
     "reinstall": "pnpm -r clean && pnpm install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "http-proxy-middleware": "^3.0.5"
   }
 }
