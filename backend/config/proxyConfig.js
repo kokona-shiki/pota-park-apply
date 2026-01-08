@@ -20,9 +20,17 @@ const proxyConfigs = {
       path: '/proxy-api/geocoding/osm',
       target: 'https://nominatim.openstreetmap.org',
       options: {
-        timeout: 10000,
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true,
         headers: {
-          'User-Agent': 'POTA-Park-Apply/1.0'
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          'Accept': 'application/json',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+        },
+        onProxyReq: (proxyReq) => {
+          proxyReq.setHeader('Connection', 'keep-alive');
         }
       }
     },
@@ -31,7 +39,10 @@ const proxyConfigs = {
       path: '/proxy-api/tiles/osm',
       target: 'https://{s}.tile.openstreetmap.org',
       options: {
-        timeout: 30000
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true
       }
     }
   ],
@@ -43,9 +54,13 @@ const proxyConfigs = {
       path: '/proxy-api/geocoding/amap',
       target: 'https://restapi.amap.com/v3',
       options: {
-        timeout: 10000,
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true,
         headers: {
-          'User-Agent': 'POTA-Park-Apply/1.0'
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          'Accept': 'application/json'
         }
       }
     },
@@ -54,7 +69,10 @@ const proxyConfigs = {
       path: '/proxy-api/tiles/amap',
       target: 'https://webrd0{s}.is.autonavi.com',
       options: {
-        timeout: 30000
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true
       }
     }
   ],
@@ -66,7 +84,10 @@ const proxyConfigs = {
       path: '/proxy-api/pota',
       target: 'https://api.pota.app',
       options: {
-        timeout: 10000
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true
       }
     }
   ]
@@ -93,18 +114,30 @@ const initProxies = (app) => {
     const proxyOptions = {
       target,
       changeOrigin: true,
+      secure: true,
       ...(shouldRewritePath && {
         pathRewrite: {
           [`^${path}`]: ''
         }
       }),
+      onProxyReq: (proxyReq, req, res) => {
+        // 确保请求头正确传递
+        proxyReq.setHeader('Connection', 'keep-alive');
+      },
+      onProxyRes: (proxyRes, req, res) => {
+        // 添加 CORS 头
+        proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+      },
       onError: (err, req, res) => {
         console.error(`[Proxy Error] ${key}:`, err.message);
-        res.status(500).json({
-          error: 'Proxy Error',
-          message: `Failed to proxy request to ${key}`,
-          details: err.message
-        });
+        console.error(`[Proxy Error Details] Path: ${req.path}, Target: ${target}`);
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: 'Proxy Error',
+            message: `Failed to proxy request to ${key}`,
+            details: err.message
+          });
+        }
       },
       ...options
     };

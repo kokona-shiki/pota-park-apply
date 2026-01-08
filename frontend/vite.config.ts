@@ -22,9 +22,13 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
-    define: {
-      // 将环境变量注入到前端代码中
-      'import.meta.env.VITE_MAP_PROVIDER': JSON.stringify(env.VITE_MAP_PROVIDER || 'osm')
+    // 确保所有路由都返回 index.html，支持 SPA 刷新
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: undefined
+        }
+      }
     }
   }
 })

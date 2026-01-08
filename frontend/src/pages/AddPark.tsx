@@ -1,5 +1,5 @@
 // src/pages/AddPark.jsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -109,26 +109,69 @@ function MapController({
 }
 
 function AddPark() {
-  const [dxEntity, setDxEntity] = useState('CN');
-  const [parkName, setParkName] = useState('');
-  const [parkType, setParkType] = useState('');
-  const [province, setProvince] = useState('');
+  // 从 localStorage 加载保存的表单状态
+  const loadSavedState = () => {
+    try {
+      const saved = localStorage.getItem('addParkFormData');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const savedState = loadSavedState();
+
+  const [dxEntity, setDxEntity] = useState(savedState?.dxEntity || 'CN');
+  const [parkName, setParkName] = useState(savedState?.parkName || '');
+  const [parkType, setParkType] = useState(savedState?.parkType || '');
+  const [province, setProvince] = useState(savedState?.province || '');
 
   // 表单显示用字符串；地图计算用 number
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [latitude, setLatitude] = useState(savedState?.latitude || '');
+  const [longitude, setLongitude] = useState(savedState?.longitude || '');
 
-  const [website, setWebsite] = useState('');
-  const [accessMethods, setAccessMethods] = useState<string[]>(['汽车', '步行', '其他']);
-  const [activationMethods, setActivationMethods] = useState<string[]>(['步行', '车载', '其他']);
-  const [confirmed, setConfirmed] = useState(false);
+  const [website, setWebsite] = useState(savedState?.website || '');
+  const [accessMethods, setAccessMethods] = useState<string[]>(savedState?.accessMethods || ['汽车', '步行', '其他']);
+  const [activationMethods, setActivationMethods] = useState<string[]>(savedState?.activationMethods || ['步行', '车载', '其他']);
+  const [confirmed, setConfirmed] = useState(savedState?.confirmed || false);
   const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [isPotaPark, setIsPotaPark] = useState(false);
+  const [isPotaPark, setIsPotaPark] = useState(savedState?.isPotaPark || false);
 
   const provinces = useMemo(() => regionData as Province[], []);
 
-  const [mapCenter, setMapCenter] = useState<LatLngTuple>([39.9042, 116.4074]); // 北京
-  const [mapZoom, setMapZoom] = useState(13);
+  const [mapCenter, setMapCenter] = useState<LatLngTuple>(savedState?.mapCenter || [39.9042, 116.4074]); // 北京
+  const [mapZoom, setMapZoom] = useState(savedState?.mapZoom || 13);
+  const submitRequestRef = useRef(false);
+
+  // 保存表单状态到 localStorage
+  const saveFormState = () => {
+    const stateToSave = {
+      dxEntity,
+      parkName,
+      parkType,
+      province,
+      latitude,
+      longitude,
+      website,
+      accessMethods,
+      activationMethods,
+      confirmed,
+      isPotaPark,
+      mapCenter,
+      mapZoom
+    };
+    localStorage.setItem('addParkFormData', JSON.stringify(stateToSave));
+  };
+
+  // 清除保存的表单状态
+  const clearFormState = () => {
+    localStorage.removeItem('addParkFormData');
+  };
+
+  // 监听状态变化并保存
+  useEffect(() => {
+    saveFormState();
+  }, [dxEntity, parkName, parkType, province, latitude, longitude, website, accessMethods, activationMethods, confirmed, isPotaPark, mapCenter, mapZoom]);
 
   const handleSearchPOTA = async () => {
     // 重置 POTA 公园状态
@@ -184,7 +227,7 @@ function AddPark() {
     setIsPotaPark(false);
     try {
       const res = await axios.get<Array<{ lat: string; lon: string }>>(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(parkName)}&format=json`,
+        `/proxy-api/geocoding/osm/search?q=${encodeURIComponent(parkName)}&format=json`,
       );
 
       const first = res.data[0];
@@ -205,7 +248,9 @@ function AddPark() {
 
   const handleSubmit = async () => {
     if (!confirmed) return alert('请确认公园真实性');
+    if (submitRequestRef.current) return alert('请勿重复提交');
 
+    submitRequestRef.current = true;
     try {
       await axios.post('/api/park-applications', {
         dx_entity: dxEntity,
@@ -220,8 +265,30 @@ function AddPark() {
         confirmed_authenticity: confirmed
       });
       alert('提交成功');
+
+      // 清除保存的表单状态
+      clearFormState();
+
+      // 重置表单
+      setDxEntity('CN');
+      setParkName('');
+      setParkType('');
+      setProvince('');
+      setLatitude('');
+      setLongitude('');
+      setWebsite('');
+      setAccessMethods(['汽车', '步行', '其他']);
+      setActivationMethods(['步行', '车载', '其他']);
+      setConfirmed(false);
+      setIsPotaPark(false);
+      setSearchResults([]);
+      setMapCenter([39.9042, 116.4074]);
+      setMapZoom(13);
+
+      submitRequestRef.current = false;
     } catch (err) {
       console.error(err);
+      submitRequestRef.current = false;
     }
   };
 

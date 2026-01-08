@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 
 import app from './app.js';
 import { testConnection } from './config/database.js';
+import { getMapProvider } from './config/proxyConfig.js';
 
 dotenv.config();
 
@@ -17,12 +18,15 @@ const startServer = async () => {
       console.warn('⚠️  数据库连接失败，某些功能可能无法正常工作');
     }
 
+    const mapProvider = getMapProvider();
+
     app.listen(PORT, () => {
       console.log(`🚀 POTA Park Apply Backend is running on port ${PORT}`);
       console.log(`📖 API documentation: http://localhost:${PORT}`);
       console.log('');
       console.log(`🗄️  Database: PostgreSQL`);
       console.log(`🔗 Status: ${dbConnected ? 'Connected' : 'Disconnected'}`);
+      console.log(`🗺️  Map Provider: ${mapProvider}`);
       console.log('');
       console.log('📋 可用的初始化接口:');
       console.log('POST /api/init-database - 初始化数据库表结构');

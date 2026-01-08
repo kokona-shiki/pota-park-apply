@@ -2,7 +2,7 @@
 import { useState, createContext, useEffect, useCallback, useContext, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactElement } from 'react';
-import { Box, Toolbar } from '@mui/material';
+import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
 import Home from './pages/Home';
@@ -19,13 +19,28 @@ import axios from 'axios';
 
 export const AuthContext = createContext<any>(null);
 
-const LOGOUT_BROADCAST_KEY = 'pota_logout';
+export const LOGOUT_BROADCAST_KEY = 'pota_logout';
+export const REDIRECT_KEY = 'pota_redirect_after_login';
 
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { user } = useContext(AuthContext);
+  const { user, isAuthLoading } = useContext(AuthContext);
   const location = useLocation();
 
+  // 如果正在加载认证状态,显示加载提示
+  if (isAuthLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Typography>加载中...</Typography>
+      </Box>
+    );
+  }
+
+  // 认证加载完成,检查用户是否登录
   if (!user) {
+    // 保存目标路径到 localStorage,以便登录后跳转
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
+    }
     return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
   }
 
@@ -40,6 +55,10 @@ function RequireAdmin({ children }: { children: ReactElement }) {
     user?.role === 'park_reviewer' || user?.role === 'pota_representative';
 
   if (!user) {
+    // 保存目标路径到 localStorage,以便登录后跳转
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
+    }
     return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
   }
 
@@ -55,6 +74,10 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
   const location = useLocation();
 
   if (!user) {
+    // 保存目标路径到 localStorage,以便登录后跳转
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
+    }
     return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
   }
 
@@ -69,6 +92,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // 添加认证加载状态
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,10 +100,8 @@ function App() {
 
   // refresh-token 请求去重：多个请求同时 401 时，只发一次刷新
   const refreshInFlightRef = useRef<Promise<any> | null>(null);
-
-  useEffect(() => {
-    locationRef.current = location;
-  }, [location]);
+  const hasAttemptedRefreshRef = useRef(false);
+  const interceptorRegisteredRef = useRef(false);
 
   // axios 在需要时携带 cookie（同源下也会自动携带，这里显式开启以兼容未来配置）
   useEffect(() => {
@@ -110,13 +132,25 @@ function App() {
   // 尝试静默刷新以恢复登录态（新开标签页/刷新页面不会丢登录）
   // 但：直接进入登录/注册页时不需要请求 refresh-token，减少无意义请求
   useEffect(() => {
-    if (isAuthPage) return;
-    if (user) return;
+    if (isAuthPage) {
+      setIsAuthLoading(false);
+      return;
+    }
 
-    refreshSession().catch(() => {
-      // 未登录时后端会返回 401，这里不提示
-    });
-  }, [isAuthPage, refreshSession, user]);
+    // 使用ref确保只尝试一次刷新,避免重复调用
+    if (hasAttemptedRefreshRef.current) return;
+
+    hasAttemptedRefreshRef.current = true;
+
+    refreshSession()
+      .catch(() => {
+        // 未登录时后端会返回 401，这里不提示
+      })
+      .finally(() => {
+        // 无论成功与否,都结束加载状态
+        setIsAuthLoading(false);
+      });
+  }, [isAuthPage]);
 
   // 多标签页同步：退出登录广播（不存 token，只做“登出同步”）
   useEffect(() => {
@@ -147,7 +181,12 @@ function App() {
   // 1) accessToken 过期：自动用 HttpOnly Cookie 刷新并重试一次原请求
   // 2) 刷新失败：统一跳转登录页
   useEffect(() => {
-    const interceptorId = axios.interceptors.response.use(
+    // 确保拦截器只注册一次
+    if (interceptorRegisteredRef.current) return;
+
+    interceptorRegisteredRef.current = true;
+
+    axios.interceptors.response.use(
       (res) => res,
       (err) => {
         const status = err?.response?.status;
@@ -165,6 +204,10 @@ function App() {
         const originalRequest: any = err?.config || {};
         if (originalRequest.__retried) {
           const from = locationRef.current;
+          // 保存目标路径到 localStorage
+          if (from.pathname !== '/login' && from.pathname !== '/register') {
+            localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
+          }
           logout();
           navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
           return Promise.reject(err);
@@ -189,6 +232,10 @@ function App() {
           })
           .catch((refreshErr) => {
             const from = locationRef.current;
+            // 保存目标路径到 localStorage
+            if (from.pathname !== '/login' && from.pathname !== '/register') {
+              localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
+            }
             logout();
             navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
             return Promise.reject(refreshErr);
@@ -196,10 +243,11 @@ function App() {
       }
     );
 
+    // 不需要清理,因为拦截器应该在整个应用生命周期内保持
     return () => {
-      axios.interceptors.response.eject(interceptorId);
+      // 只在组件卸载时清理(理论上不会发生)
     };
-  }, [logout, navigate, refreshSession]);
+  }, []);
 
   const isAdmin =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative';
@@ -213,7 +261,8 @@ function App() {
         accessToken,
         setAccessToken,
         refreshSession,
-        logout
+        logout,
+        isAuthLoading
       }}
     >
       <Box sx={{ display: 'flex' }}>

@@ -1,5 +1,5 @@
 // src/pages/Home.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import {
   Table,
@@ -26,8 +26,10 @@ function Home() {
   const [parks, setParks] = useState<PotaPark[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(30);
+  const hasRequestedRef = useRef(false);
 
   useEffect(() => {
+    // 移除 hasRequestedRef 检查,允许每次组件挂载时都重新加载数据
     axios
       // 通过后端代理转发到 https://api.pota.app，避免浏览器 CORS
       .get<PotaPark[]>('/proxy-api/pota/entity/parks/318')

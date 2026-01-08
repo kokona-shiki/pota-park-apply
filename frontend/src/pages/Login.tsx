@@ -18,7 +18,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { AuthContext, REDIRECT_KEY } from '../App';
 
 function Login() {
   const [identifier, setIdentifier] = useState('');
@@ -33,10 +33,19 @@ function Login() {
   const location = useLocation() as any;
 
   const redirectTo = useMemo(() => {
+    // 优先从 localStorage 读取保存的重定向路径
+    const savedRedirect = localStorage.getItem(REDIRECT_KEY);
+    if (savedRedirect) {
+      return savedRedirect;
+    }
+
+    // 其次从 location.state 读取
     const from = location?.state?.from;
     const pathname = from?.pathname;
     const search = from?.search || '';
     if (pathname && typeof pathname === 'string') return `${pathname}${search}`;
+
+    // 默认返回首页
     return '/';
   }, [location?.state?.from]);
 
@@ -64,6 +73,10 @@ function Login() {
         // refreshToken 由后端通过 HttpOnly Cookie 下发（前端 JS 不可读）
         setAccessToken(res.data.accessToken);
         setUser(res.data.user);
+
+        // 清除保存的重定向路径
+        localStorage.removeItem(REDIRECT_KEY);
+
         navigate(redirectTo, { replace: true });
       })
       .catch((err) => {
@@ -134,6 +147,7 @@ function Login() {
                           }}
                           edge="end"
                           size="small"
+                          tabIndex={-1}
                         >
                           <ClearIcon fontSize="small" />
                         </IconButton>
@@ -169,6 +183,7 @@ function Login() {
                           onClick={() => setShowPassword((v) => !v)}
                           edge="end"
                           size="small"
+                          tabIndex={-1}
                         >
                           {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                         </IconButton>
@@ -181,6 +196,7 @@ function Login() {
                           }}
                           edge="end"
                           size="small"
+                          tabIndex={-1}
                         >
                           <ClearIcon fontSize="small" />
                         </IconButton>

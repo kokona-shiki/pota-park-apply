@@ -1,5 +1,5 @@
 // src/pages/ApplicationsList.tsx
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import {
   Paper,
   Table,
@@ -69,6 +69,7 @@ function ApplicationsList() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const reviewRequestRef = useRef<Record<number, boolean>>({});
 
   const isReviewer =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative';
@@ -157,6 +158,9 @@ function ApplicationsList() {
       return;
     }
 
+    if (reviewRequestRef.current[selected.id]) return;
+    reviewRequestRef.current[selected.id] = true;
+
     try {
       setReviewSubmitting(true);
       setDetailError(null);
@@ -178,6 +182,7 @@ function ApplicationsList() {
       setDetailError(e?.response?.data?.error || '审核失败');
     } finally {
       setReviewSubmitting(false);
+      reviewRequestRef.current[selected.id] = false;
     }
   };
 

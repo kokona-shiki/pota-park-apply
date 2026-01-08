@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.tsx
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -59,6 +59,8 @@ function AdminPanel() {
   const [logs, setLogs] = useState<UserAdminAuditLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  const roleChangeRequestRef = useRef<Record<number, boolean>>({});
+  const activeChangeRequestRef = useRef<Record<number, boolean>>({});
 
   const loadUsers = async () => {
     setLoading(true);
@@ -97,22 +99,32 @@ function AdminPanel() {
       return;
     }
 
+    if (roleChangeRequestRef.current[targetUser.id]) return;
+    roleChangeRequestRef.current[targetUser.id] = true;
+
     try {
       const res = await axios.put(`/api/users/${targetUser.id}/role`, { role: newRole, reason });
       const updated = res.data.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
       alert(e?.response?.data?.error || '修改角色失败');
+    } finally {
+      roleChangeRequestRef.current[targetUser.id] = false;
     }
   };
 
   const handleActiveChange = async (targetUser: any, isActive: boolean) => {
+    if (activeChangeRequestRef.current[targetUser.id]) return;
+    activeChangeRequestRef.current[targetUser.id] = true;
+
     try {
       const res = await axios.put(`/api/users/${targetUser.id}/active`, { isActive });
       const updated = res.data.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
       alert(e?.response?.data?.error || '封禁/解封失败');
+    } finally {
+      activeChangeRequestRef.current[targetUser.id] = false;
     }
   };
 
