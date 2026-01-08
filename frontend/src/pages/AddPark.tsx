@@ -206,6 +206,7 @@ function AddPark() {
   const [searchingMap, setSearchingMap] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [potaParks, setPotaParks] = useState<Map<number, PotaParkInfo>>(new Map());
 
   const provinces = useMemo(() => regionData as Province[], []);
 
@@ -251,6 +252,8 @@ function AddPark() {
 
     setError(null);
     setSearchingPota(true);
+    setSearchResults([]);
+    setMapPOIs([]);
 
     try {
       // 第一步：搜索公园列表
@@ -260,46 +263,78 @@ function AddPark() {
       );
 
       if (searchRes.data.length === 0) {
-        setSearchResults([]);
         setError('未找到匹配的 POTA 公园');
         return;
       }
 
-      setSearchResults(searchRes.data.map((item) => item.display));
-
-      // 如果只有一个搜索结果，自动填充所有信息并禁用相关字段
-      if (searchRes.data.length === 1) {
-        const firstPark = searchRes.data[0];
-        try {
-          const parkRes = await axios.get<PotaParkInfo>(
-            `/proxy-api/pota/park/${encodeURIComponent(firstPark.value)}`,
-            { timeout: 5000 } // 5秒超时
-          );
-
-          const parkInfo = parkRes.data;
-          setLatitude(String(parkInfo.latitude));
-          setLongitude(String(parkInfo.longitude));
-          setMapCenter([parkInfo.latitude, parkInfo.longitude]);
-
-          // 自动填充所有信息
-          setParkName(parkInfo.name);
-          setParkType(parkInfo.parktypeDesc);
-          setProvince(mapLocationToProvince(parkInfo.locationDesc));
-          setWebsite(parkInfo.website || '');
-          setAccessMethods(parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']);
-          setActivationMethods(parkInfo.activationMethods ? mapActivationMethods(parkInfo.activationMethods) : ['步行', '车载', '其他']);
-
-          // 设置为 POTA 公园状态
-          setIsPotaPark(true);
-
-        } catch (parkErr: any) {
-          console.error('Failed to fetch park details:', parkErr);
-          if (parkErr.code === 'ECONNABORTED') {
-            setError('获取 POTA 公园详情超时，请稍后重试');
-          } else {
-            setError('获取 POTA 公园详情失败');
+      // 第二步：获取所有公园的详细信息
+      const parksInfo = await Promise.all(
+        searchRes.data.map(async (item) => {
+          try {
+            const parkRes = await axios.get<PotaParkInfo>(
+              `/proxy-api/pota/park/${encodeURIComponent(item.value)}`,
+              { timeout: 5000 }
+            );
+            return parkRes.data;
+          } catch (err) {
+            console.error(`Failed to fetch park ${item.value}:`, err);
+            return null;
           }
-        }
+        })
+      );
+
+      const validParks = parksInfo.filter((park): park is PotaParkInfo => park !== null);
+
+      if (validParks.length === 0) {
+        setError('未获取到有效的 POTA 公园信息');
+        return;
+      }
+
+      // 存储公园信息到 Map
+      const parksMap = new Map<number, PotaParkInfo>();
+      validParks.forEach(park => parksMap.set(park.parkId, park));
+      setPotaParks(parksMap);
+
+      // 转换为 MapPOI 格式
+      const pois: MapPOI[] = validParks.map((park) => {
+        const province = mapLocationToProvince(park.locationDesc);
+        const provinceName = Object.entries({
+          '11': '北京', '12': '天津', '13': '河北', '14': '山西', '15': '内蒙古',
+          '21': '辽宁', '22': '吉林', '23': '黑龙江', '31': '上海', '32': '江苏',
+          '33': '浙江', '34': '安徽', '35': '福建', '36': '江西', '37': '山东',
+          '41': '河南', '42': '湖北', '43': '湖南', '44': '广东', '45': '广西',
+          '46': '海南', '50': '重庆', '51': '四川', '52': '贵州', '53': '云南',
+          '54': '西藏', '61': '陕西', '62': '甘肃', '63': '青海', '64': '宁夏',
+          '65': '新疆'
+        }).find(([code]) => code === province)?.[1] || '';
+
+        return {
+          id: park.parkId, // 使用真正的 parkId 作为唯一标识
+          name: park.name,
+          displayName: park.name,
+          province: provinceName,
+          city: '',
+          lat: park.latitude,
+          lon: park.longitude,
+        };
+      });
+
+      setMapPOIs(pois);
+
+      // 默认选中第一个 POI
+      if (pois.length > 0) {
+        const firstPoi = pois[0];
+        const firstPark = validParks[0];
+        setSelectedPOIId(firstPoi.id);
+        setLatitude(String(firstPoi.lat));
+        setLongitude(String(firstPoi.lon));
+        setProvince(mapLocationToProvince(firstPark.locationDesc));
+        setParkName(firstPark.name);
+        setParkType(firstPark.parktypeDesc);
+        setWebsite(firstPark.website || '');
+        setAccessMethods(firstPark.accessMethods ? mapAccessMethods(firstPark.accessMethods) : ['汽车', '步行', '其他']);
+        setActivationMethods(firstPark.activationMethods ? mapActivationMethods(firstPark.activationMethods) : ['步行', '车载', '其他']);
+        setIsPotaPark(true);
       }
     } catch (err: any) {
       console.error(err);
@@ -395,20 +430,33 @@ function AddPark() {
     setLatitude(String(poi.lat));
     setLongitude(String(poi.lon));
 
-    // 解析省份和城市
-    const provinceCode = getProvinceCodeFromNames(poi.province, poi.city);
-    if (provinceCode) {
-      setProvince(provinceCode);
-    }
-
-    // 格式化公园名称: <省份><城市><名称>
-    let formattedName: string;
-    if (poi.city) {
-      formattedName = `${poi.province}${poi.city}${poi.name}`;
+    // 如果是 POTA 公园，填充详细信息
+    const parkInfo = potaParks.get(poi.id);
+    if (parkInfo) {
+      setProvince(mapLocationToProvince(parkInfo.locationDesc));
+      setParkName(parkInfo.name);
+      setParkType(parkInfo.parktypeDesc);
+      setWebsite(parkInfo.website || '');
+      setAccessMethods(parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']);
+      setActivationMethods(parkInfo.activationMethods ? mapActivationMethods(parkInfo.activationMethods) : ['步行', '车载', '其他']);
+      setIsPotaPark(true);
     } else {
-      formattedName = `${poi.province}${poi.name}`;
+      // 地图 POI，解析省份和城市
+      const provinceCode = getProvinceCodeFromNames(poi.province, poi.city);
+      if (provinceCode) {
+        setProvince(provinceCode);
+      }
+
+      // 格式化公园名称: <省份><城市><名称>
+      let formattedName: string;
+      if (poi.city) {
+        formattedName = `${poi.province}${poi.city}${poi.name}`;
+      } else {
+        formattedName = `${poi.province}${poi.name}`;
+      }
+      setParkName(formattedName);
+      setIsPotaPark(false);
     }
-    setParkName(formattedName);
 
     setMapCenter([poi.lat, poi.lon]);
   };
