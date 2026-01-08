@@ -136,22 +136,22 @@ function AddPark() {
     try {
       // 第一步：搜索公园列表
       const searchRes = await axios.get<PotaLookupItem[]>(
-        `/pota-api/lookup?search=${encodeURIComponent(parkName)}`,
+        `/proxy-api/pota/lookup?search=${encodeURIComponent(parkName)}`,
       );
-      
+
       if (searchRes.data.length === 0) {
         setSearchResults([]);
         return;
       }
 
       setSearchResults(searchRes.data.map((item) => item.display));
-      
+
       // 如果只有一个搜索结果，自动填充所有信息并禁用相关字段
       if (searchRes.data.length === 1) {
         const firstPark = searchRes.data[0];
         try {
           const parkRes = await axios.get<PotaParkInfo>(
-            `/pota-api/park/${encodeURIComponent(firstPark.value)}`,
+            `/proxy-api/pota/park/${encodeURIComponent(firstPark.value)}`,
           );
           
           const parkInfo = parkRes.data;

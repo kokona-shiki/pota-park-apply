@@ -85,26 +85,33 @@ const initProxies = (app) => {
   ];
 
   configs.forEach(config => {
-    const { path, target, options } = config;
+    const { path, target, options, key } = config;
 
-    app.use(path, createProxyMiddleware({
+    // POTA API 不需要路径重写,其他服务需要
+    const shouldRewritePath = key !== 'pota-api';
+
+    const proxyOptions = {
       target,
       changeOrigin: true,
-      pathRewrite: {
-        [`^${path}`]: ''
-      },
+      ...(shouldRewritePath && {
+        pathRewrite: {
+          [`^${path}`]: ''
+        }
+      }),
       onError: (err, req, res) => {
-        console.error(`[Proxy Error] ${config.key}:`, err.message);
+        console.error(`[Proxy Error] ${key}:`, err.message);
         res.status(500).json({
           error: 'Proxy Error',
-          message: `Failed to proxy request to ${config.key}`,
+          message: `Failed to proxy request to ${key}`,
           details: err.message
         });
       },
       ...options
-    }));
+    };
 
-    console.log(`[Proxy] ${path} → ${target}`);
+    app.use(path, createProxyMiddleware(proxyOptions));
+
+    console.log(`[Proxy] ${path} → ${target}${shouldRewritePath ? ' (path rewrite)' : ''}`);
   });
 
   return configs;
