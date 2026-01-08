@@ -320,22 +320,6 @@ function AddPark() {
       });
 
       setMapPOIs(pois);
-
-      // 默认选中第一个 POI
-      if (pois.length > 0) {
-        const firstPoi = pois[0];
-        const firstPark = validParks[0];
-        setSelectedPOIId(firstPoi.id);
-        setLatitude(String(firstPoi.lat));
-        setLongitude(String(firstPoi.lon));
-        setProvince(mapLocationToProvince(firstPark.locationDesc));
-        setParkName(firstPark.name);
-        setParkType(firstPark.parktypeDesc);
-        setWebsite(firstPark.website || '');
-        setAccessMethods(firstPark.accessMethods ? mapAccessMethods(firstPark.accessMethods) : ['汽车', '步行', '其他']);
-        setActivationMethods(firstPark.activationMethods ? mapActivationMethods(firstPark.activationMethods) : ['步行', '车载', '其他']);
-        setIsPotaPark(true);
-      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'ECONNABORTED') {
@@ -391,27 +375,6 @@ function AddPark() {
       });
 
       setMapPOIs(pois);
-
-      // 默认选中第一个 POI
-      if (pois.length > 0) {
-        const firstPoi = pois[0];
-        setSelectedPOIId(firstPoi.id);
-        setLatitude(String(firstPoi.lat));
-        setLongitude(String(firstPoi.lon));
-
-        // 格式化公园名称: <省份><城市><名称>
-        const provinceCode = getProvinceCodeFromNames(firstPoi.province, firstPoi.city);
-        if (provinceCode) {
-          setProvince(provinceCode);
-        }
-
-        const formattedName = firstPoi.city
-          ? `${firstPoi.province}${firstPoi.city}${firstPoi.name}`
-          : `${firstPoi.province}${firstPoi.name}`;
-        setParkName(formattedName);
-
-        setMapCenter([firstPoi.lat, firstPoi.lon]);
-      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'ECONNABORTED') {
@@ -613,27 +576,6 @@ function AddPark() {
             value={parkName}
             onChange={(e) => setParkName(e.target.value)}
             sx={{ flex: 1 }}
-            InputProps={{
-              endAdornment: parkName && (
-                <IconButton
-                  onClick={() => {
-                    setParkName('');
-                    setParkType('');
-                    setProvince('');
-                    setLatitude('');
-                    setLongitude('');
-                    setSearchResults([]);
-                    setMapPOIs([]);
-                    setSelectedPOIId(null);
-                    setIsPotaPark(false);
-                  }}
-                  tabIndex={-1}
-                  sx={{ mr: -0.5 }}
-                >
-                  <ClearIcon />
-                </IconButton>
-              ),
-            }}
           />
 
           <FormControl sx={{ minWidth: 200, flex: 1 }}>
@@ -666,12 +608,9 @@ function AddPark() {
           >
             {searchingMap ? '搜索中...' : '搜索地图'}
           </Button>
-          {isPotaPark && (
+          {(parkName || mapPOIs.length > 0) && (
             <Button
               onClick={() => {
-                setIsPotaPark(false);
-                setError(null);
-                // 清空除 DX 实体以外的所有输入
                 setParkName('');
                 setParkType('');
                 setProvince('');
@@ -684,12 +623,15 @@ function AddPark() {
                 setSearchResults([]);
                 setMapPOIs([]);
                 setSelectedPOIId(null);
-                setMapCenter([39.9042, 116.4074]); // 重置地图中心到北京
+                setIsPotaPark(false);
+                setError(null);
+                setPotaParks(new Map());
+                setMapCenter([39.9042, 116.4074]);
                 setMapZoom(13);
               }}
               color="secondary"
             >
-              重新编辑
+              清空
             </Button>
           )}
         </Box>
