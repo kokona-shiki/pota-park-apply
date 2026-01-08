@@ -14,8 +14,12 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: 'http://localhost:3001',
           changeOrigin: true
+        },
+        // 开发环境: 将 /proxy-api/* 代理到后端,由后端动态代理处理外部服务
+        '/proxy-api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true
         }
-        // /proxy-api/* 由后端动态代理处理,不再在此配置
       }
     },
     define: {
