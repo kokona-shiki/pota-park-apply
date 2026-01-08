@@ -7,10 +7,17 @@
 ## 架构设计
 
 ```
+开发环境:
+前端 → Vite代理 → 后端代理 → 外部服务
+  ↓             ↓         ↓
+Vite       Express    ProxyConfig
+Config     代理       配置
+
+生产环境:
 前端 → 后端代理 → 外部服务
   ↓             ↓
-Vite       Express
-Config    ProxyConfig
+直接请求     Express
+           ProxyConfig
 ```
 
 ## 配置方式
@@ -59,7 +66,13 @@ VITE_MAP_PROVIDER=amap
 
 位置: `frontend/vite.config.ts`
 
-自动读取环境变量并注入到前端代码中。
+**开发环境**:
+- 自动读取环境变量并注入到前端代码中
+- `/proxy-api/*` 需要代理到后端 (`http://localhost:3001`)
+
+**生产环境**:
+- 前端直接请求后端
+- 后端处理所有外部服务代理
 
 ## 代理路径
 
