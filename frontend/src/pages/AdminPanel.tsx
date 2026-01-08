@@ -50,7 +50,7 @@ type UserAdminAuditLog = {
 };
 
 function AdminPanel() {
-  const { user: currentUser } = useContext(AuthContext);
+  const { user: currentUser, isAuthLoading } = useContext(AuthContext);
   const [tab, setTab] = useState(0);
 
   const [users, setUsers] = useState<any[]>([]);
@@ -61,6 +61,17 @@ function AdminPanel() {
   const [logsError, setLogsError] = useState<string | null>(null);
   const roleChangeRequestRef = useRef<Record<number, boolean>>({});
   const activeChangeRequestRef = useRef<Record<number, boolean>>({});
+  const hasLoadedRef = useRef(false);
+  const userIdRef = useRef<number | null>(null);
+
+  // 只在用户 ID 真正变化时才重置加载标志
+  useEffect(() => {
+    const currentUserId = currentUser?.id ?? null;
+    if (currentUserId !== userIdRef.current) {
+      userIdRef.current = currentUserId;
+      hasLoadedRef.current = false;
+    }
+  }, [currentUser]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -88,9 +99,16 @@ function AdminPanel() {
   };
 
   useEffect(() => {
+    // 等待认证加载完成，且用户已登录时才发起请求
+    if (isAuthLoading || !currentUser) return;
+
+    // 使用 ref 确保组件挂载时只请求一次
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
     loadUsers();
     loadLogs();
-  }, []);
+  }, [isAuthLoading, currentUser]);
 
   const handleRoleChange = async (targetUser: any, newRole: string) => {
     const reason = window.prompt('请输入修改角色理由（必填）');
