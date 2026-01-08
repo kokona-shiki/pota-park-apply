@@ -1,5 +1,6 @@
 // src/pages/Home.tsx
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useContext } from 'react';
+import { AuthContext } from '../App';
 import type { ChangeEvent } from 'react';
 import {
   Table,
@@ -23,22 +24,44 @@ type PotaPark = {
 };
 
 function Home() {
+  const { user, isAuthLoading } = useContext(AuthContext);
+
   const [parks, setParks] = useState<PotaPark[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(30);
   const hasRequestedRef = useRef(false);
+  const userIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // 移除 hasRequestedRef 检查,允许每次组件挂载时都重新加载数据
-    axios
-      // 通过后端代理转发到 https://api.pota.app，避免浏览器 CORS
-      .get<PotaPark[]>('/proxy-api/pota/entity/parks/318')
-      .then((res) => {
+    // 只在用户 ID 真正变化时才重置请求标志
+    const currentUserId = user?.id ?? null;
+    if (currentUserId !== userIdRef.current) {
+      userIdRef.current = currentUserId;
+      hasRequestedRef.current = false;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // 等待认证加载完成，且用户已登录时才发起请求
+    if (isAuthLoading || !user) return;
+
+    // 使用 ref 确保组件挂载时只请求一次
+    if (hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
+
+    // 请求 318 数据
+    const loadParks = async () => {
+      try {
+        const res = await axios.get<PotaPark[]>('/proxy-api/pota/entity/parks/318');
         const sorted = [...res.data].sort((a, b) => (b.qsos || 0) - (a.qsos || 0));
         setParks(sorted);
-      })
-      .catch((err) => console.error(err));
-  }, []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadParks();
+  }, [isAuthLoading, user]);
 
   const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
   const handleChangeRowsPerPage = (event: ChangeEvent<HTMLInputElement>) => {

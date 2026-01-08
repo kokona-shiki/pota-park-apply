@@ -53,7 +53,7 @@ type ParkApplicationDetail = ParkApplication & {
 };
 
 function ApplicationsList() {
-  const { user } = useContext(AuthContext);
+  const { user, isAuthLoading } = useContext(AuthContext);
 
   const [applications, setApplications] = useState<ParkApplication[]>([]);
   const [filter, setFilter] = useState('all');
@@ -71,10 +71,29 @@ function ApplicationsList() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const reviewRequestRef = useRef<Record<number, boolean>>({});
 
+  const hasRequestedRef = useRef(false);
+  const userIdRef = useRef<number | null>(null);
+
   const isReviewer =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative';
 
+  // 只在用户 ID 真正变化时才重置请求标志
   useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    if (currentUserId !== userIdRef.current) {
+      userIdRef.current = currentUserId;
+      hasRequestedRef.current = false;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // 等待认证加载完成，且用户已登录时才发起请求
+    if (isAuthLoading || !user) return;
+
+    // 使用 ref 确保组件挂载时只请求一次
+    if (hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
+
     const load = async () => {
       try {
         setLoading(true);
@@ -89,7 +108,7 @@ function ApplicationsList() {
     };
 
     load();
-  }, []);
+  }, [isAuthLoading, user]);
 
   const filteredApps = applications.filter((app) => {
     if (filter === 'all') return true;

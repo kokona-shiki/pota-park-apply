@@ -1,5 +1,5 @@
 // src/pages/MyUploads.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import {
   Paper,
   Table,
@@ -11,6 +11,7 @@ import {
   Typography
 } from '@mui/material';
 import axios from 'axios';
+import { AuthContext } from '../App';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
 
@@ -27,11 +28,31 @@ type ParkApplication = {
 };
 
 function MyUploads() {
+  const { user, isAuthLoading } = useContext(AuthContext);
+
   const [uploads, setUploads] = useState<ParkApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasRequestedRef = useRef(false);
+  const userIdRef = useRef<number | null>(null);
+
+  // 只在用户 ID 真正变化时才重置请求标志
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    if (currentUserId !== userIdRef.current) {
+      userIdRef.current = currentUserId;
+      hasRequestedRef.current = false;
+    }
+  }, [user]);
 
   useEffect(() => {
+    // 等待认证加载完成，且用户已登录时才发起请求
+    if (isAuthLoading || !user) return;
+
+    // 使用 ref 确保组件挂载时只请求一次
+    if (hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
+
     const load = async () => {
       try {
         setLoading(true);
@@ -47,7 +68,7 @@ function MyUploads() {
     };
 
     load();
-  }, []);
+  }, [isAuthLoading, user]);
 
   const getRowBackgroundColor = (app: ParkApplication) => {
     if (app.status === 'pota_synced') return '#c8e6c9';
