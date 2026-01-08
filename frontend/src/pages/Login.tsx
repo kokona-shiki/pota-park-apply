@@ -20,6 +20,8 @@ import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext, REDIRECT_KEY } from '../App';
 
+const AUTH_DATA_KEY = 'pota_auth_data'; // 与 App.tsx 保持一致
+
 function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -73,6 +75,13 @@ function Login() {
         // refreshToken 由后端通过 HttpOnly Cookie 下发（前端 JS 不可读）
         setAccessToken(res.data.accessToken);
         setUser(res.data.user);
+
+        // 保存到 localStorage (包含过期时间信息)
+        const authData = {
+          accessToken: res.data.accessToken,
+          user: res.data.user
+        };
+        localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
 
         // 清除保存的重定向路径
         localStorage.removeItem(REDIRECT_KEY);

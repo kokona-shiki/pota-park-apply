@@ -88,6 +88,11 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
   return children;
 }
 
+type AuthData = {
+  accessToken: string;
+  user: any;
+};
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -100,8 +105,11 @@ function App() {
 
   // refresh-token 请求去重：多个请求同时 401 时，只发一次刷新
   const refreshInFlightRef = useRef<Promise<any> | null>(null);
-  const hasAttemptedRefreshRef = useRef(false);
+  const isTokenReadyRef = useRef(false);
   const interceptorRegisteredRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+
+  const AUTH_DATA_KEY = 'pota_auth_data'; // 改为 localStorage
 
   // axios 在需要时携带 cookie（同源下也会自动携带，这里显式开启以兼容未来配置）
   useEffect(() => {
@@ -112,8 +120,10 @@ function App() {
   useEffect(() => {
     if (accessToken) {
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+      isTokenReadyRef.current = true;
     } else {
       delete axios.defaults.headers.common.Authorization;
+      isTokenReadyRef.current = false;
     }
   }, [accessToken]);
 
@@ -133,49 +143,106 @@ function App() {
   // 但：直接进入登录/注册页时不需要请求 refresh-token，减少无意义请求
   useEffect(() => {
     if (isAuthPage) {
-      setIsAuthLoading(false);
-      return;
+      // 使用 setTimeout 将 setState 调用推迟到 effect 返回后
+      const timeout = setTimeout(() => setIsAuthLoading(false), 0);
+      return () => clearTimeout(timeout);
     }
 
-    // 使用ref确保只尝试一次刷新,避免重复调用
-    if (hasAttemptedRefreshRef.current) return;
+    // 防止在同一个组件挂载周期内多次调用 (React Strict Mode 会触发两次)
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
 
-    hasAttemptedRefreshRef.current = true;
+    // 尝试从 localStorage 恢复认证数据
+    const storedAuth = localStorage.getItem(AUTH_DATA_KEY);
+    if (storedAuth) {
+      try {
+        const authData: AuthData = JSON.parse(storedAuth);
+        // 直接使用 localStorage 中的 token,不管是否即将过期
+        // 如果 token 过期,后续请求会返回 401,由拦截器自动刷新
+        console.log('[App] 从 localStorage 恢复登录态');
+        setAccessToken(authData.accessToken);
+        setUser(authData.user);
+        setIsAuthLoading(false);
+        return;
+      } catch (e) {
+        console.error('[App] 解析 localStorage 失败:', e);
+        // 解析失败,清除无效数据
+        localStorage.removeItem(AUTH_DATA_KEY);
+      }
+    }
 
+    // localStorage 无有效数据,尝试使用 refresh-token
+    console.log('[App] localStorage 无有效数据,开始尝试刷新 token...');
+
+    // 尝试使用 refresh-token 恢复登录态
     refreshSession()
-      .catch(() => {
-        // 未登录时后端会返回 401，这里不提示
+      .then((data) => {
+        console.log('[App] 刷新 token 成功:', data);
+
+        // 保存到 localStorage (包含过期时间信息)
+        const authData: AuthData = {
+          accessToken: data.accessToken,
+          user: data.user
+        };
+        localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
+      })
+      .catch((err) => {
+        console.error('[App] 刷新 token 失败:', err?.response?.status, err?.response?.data);
+        // 刷新失败时，清除用户状态、token 和 localStorage
+        setUser(null);
+        setAccessToken(null);
+        localStorage.removeItem(AUTH_DATA_KEY);
       })
       .finally(() => {
         // 无论成功与否,都结束加载状态
         setIsAuthLoading(false);
       });
-  }, [isAuthPage]);
+  }, [isAuthPage, refreshSession]);
 
-  // 多标签页同步：退出登录广播（不存 token，只做“登出同步”）
+  // 多标签页同步：退出登录广播 + token 更新同步
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== LOGOUT_BROADCAST_KEY) return;
-      setUser(null);
-      setAccessToken(null);
+      // 处理登出广播
+      if (e.key === LOGOUT_BROADCAST_KEY) {
+        setUser(null);
+        setAccessToken(null);
+        localStorage.removeItem(AUTH_DATA_KEY);
+        return;
+      }
+
+      // 处理 token 更新 (其他标签页刷新了 token)
+      if (e.key === AUTH_DATA_KEY && e.newValue) {
+        try {
+          const authData: AuthData = JSON.parse(e.newValue);
+          // 更新当前标签页的 token 和用户信息
+          setAccessToken(authData.accessToken);
+          setUser(authData.user);
+          console.log('[App] 从其他标签页同步 token');
+        } catch (err) {
+          console.error('[App] 解析 localStorage 失败:', err);
+        }
+      }
     };
 
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  }, [AUTH_DATA_KEY]);
 
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
 
+    // 清除 localStorage 中的认证数据
+    localStorage.removeItem(AUTH_DATA_KEY);
+
     // 通知其他标签页同步登出
-    localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()))
+    localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()));
 
     // 通知后端清除 refresh cookie（失败也不影响前端登出）
     axios.post('/api/logout').catch((e) => {
       console.warn('退出登录请求失败（忽略）:', e?.message || e);
     });
-  }, []);
+  }, [AUTH_DATA_KEY]);
 
   // 全局拦截：
   // 1) accessToken 过期：自动用 HttpOnly Cookie 刷新并重试一次原请求
@@ -224,6 +291,13 @@ function App() {
 
         return refreshInFlightRef.current
           .then((data: any) => {
+            // 更新 localStorage 中的认证数据
+            const authData: AuthData = {
+              accessToken: data.accessToken,
+              user: data.user
+            };
+            localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
+
             originalRequest.headers = {
               ...(originalRequest.headers || {}),
               Authorization: `Bearer ${data.accessToken}`
@@ -247,7 +321,7 @@ function App() {
     return () => {
       // 只在组件卸载时清理(理论上不会发生)
     };
-  }, []);
+  }, [logout, navigate, refreshSession]);
 
   const isAdmin =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative';
@@ -262,7 +336,8 @@ function App() {
         setAccessToken,
         refreshSession,
         logout,
-        isAuthLoading
+        isAuthLoading,
+        isTokenReady: isTokenReadyRef.current
       }}
     >
       <Box sx={{ display: 'flex' }}>
