@@ -57,8 +57,7 @@ function MyUploads() {
       try {
         setLoading(true);
         setError(null);
-        // 后端会自动基于权限控制：普通用户只能看到自己的申请
-        const res = await axios.get('/api/park-applications');
+        const res = await axios.get('/api/my-applications');
         setUploads(res.data?.applications || []);
       } catch (e: any) {
         setError(e?.response?.data?.error || '获取我的上传失败');

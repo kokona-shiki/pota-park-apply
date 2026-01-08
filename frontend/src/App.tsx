@@ -121,10 +121,9 @@ function App() {
     if (accessToken) {
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
       isTokenReadyRef.current = true;
-    } else {
-      delete axios.defaults.headers.common.Authorization;
-      isTokenReadyRef.current = false;
+      console.log('[App] Authorization header 已设置:', axios.defaults.headers.common.Authorization.substring(0, 50) + '...');
     }
+    // 不要在 accessToken 为 null 时清除 header，避免初始加载时的竞态条件
   }, [accessToken]);
 
   // 刷新 session（refreshToken 由后端通过 HttpOnly Cookie 持有，前端 JS 不可读）
@@ -157,16 +156,35 @@ function App() {
     if (storedAuth) {
       try {
         const authData: AuthData = JSON.parse(storedAuth);
+        console.log('[App] localStorage 中的认证数据:', {
+          accessToken: authData.accessToken.substring(0, 50) + '...',
+          user: authData.user
+        });
+
+        // 解析 JWT 查看过期时间
+        const tokenParts = authData.accessToken.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const expiresInMinutes = Math.floor((payload.exp * 1000 - Date.now()) / 1000 / 60);
+          console.log('[App] Token 过期时间:', new Date(payload.exp * 1000));
+          console.log('[App] Token 还剩', expiresInMinutes, '分钟过期');
+        }
+
         // 直接使用 localStorage 中的 token,不管是否即将过期
         // 如果 token 过期,后续请求会返回 401,由拦截器自动刷新
         console.log('[App] 从 localStorage 恢复登录态');
+
+        // 同步设置 axios header,避免后续请求在 effect 执行前就发出
+        axios.defaults.headers.common.Authorization = `Bearer ${authData.accessToken}`;
+        isTokenReadyRef.current = true;
+
         setAccessToken(authData.accessToken);
         setUser(authData.user);
         setIsAuthLoading(false);
         return;
       } catch (e) {
         console.error('[App] 解析 localStorage 失败:', e);
-        // 解析失败,清除无效数据
+        // 解析失败，清除无效数据
         localStorage.removeItem(AUTH_DATA_KEY);
       }
     }

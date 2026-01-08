@@ -90,6 +90,9 @@ function ApplicationsList() {
     // 等待认证加载完成，且用户已登录时才发起请求
     if (isAuthLoading || !user) return;
 
+    console.log('[ApplicationsList] isAuthLoading:', isAuthLoading, 'user:', !!user, '开始请求数据');
+    console.log('[ApplicationsList] 当前 Authorization header:', axios.defaults.headers.common.Authorization?.substring(0, 50) + '...' || 'none');
+
     // 使用 ref 确保组件挂载时只请求一次
     if (hasRequestedRef.current) return;
     hasRequestedRef.current = true;
@@ -98,9 +101,12 @@ function ApplicationsList() {
       try {
         setLoading(true);
         setError(null);
+        console.log('[ApplicationsList] 发起 /api/park-applications 请求');
         const res = await axios.get('/api/park-applications');
+        console.log('[ApplicationsList] 请求成功:', res.data);
         setApplications(res.data?.applications || []);
       } catch (e: any) {
+        console.error('[ApplicationsList] 请求失败:', e?.response?.status, e?.response?.data);
         setError(e?.response?.data?.error || '获取申请列表失败');
       } finally {
         setLoading(false);

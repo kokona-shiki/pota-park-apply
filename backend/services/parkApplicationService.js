@@ -79,6 +79,41 @@ export const submitParkApplication = async (userId, applicationData) => {
 };
 
 // 获取申请列表
+// 获取当前用户的公园申请列表（普通用户）
+export const getMyApplications = async (userId, status = null, province = null) => {
+  let query = `
+    SELECT pa.*,
+           u.email as applicant_email, u.callsign as applicant_callsign,
+           p.zh_name as province_name, p.en_name as province_en_name,
+           reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+    FROM park_applications pa
+    JOIN users u ON pa.applicant_id = u.id
+    JOIN provinces p ON pa.province_iso_code = p.iso_code
+    LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+    WHERE pa.applicant_id = $1
+  `;
+
+  const params = [userId];
+  let paramIndex = 2;
+
+  if (status) {
+    query += ` AND pa.status = $${paramIndex}`;
+    params.push(status);
+    paramIndex++;
+  }
+
+  if (province) {
+    query += ` AND pa.province_iso_code = $${paramIndex}`;
+    params.push(province);
+    paramIndex++;
+  }
+
+  query += ` ORDER BY pa.created_at DESC`;
+
+  return await getMany(query, params);
+};
+
+// 获取公园申请列表（审核员/管理员）
 export const getApplications = async (userId, status = null, province = null, applicantId = null) => {
   let query = `
     SELECT pa.*, 

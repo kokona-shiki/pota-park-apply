@@ -30,7 +30,25 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
   }
 });
 
-// 获取公园申请列表
+// 获取我的公园申请列表（普通用户）
+router.get('/api/my-applications', authenticateToken, async (req, res) => {
+  try {
+    const { status, province } = req.query;
+
+    const applications = await parkApplicationService.getMyApplications(
+      req.user.id,
+      status,
+      province
+    );
+
+    res.json({ applications });
+  } catch (error) {
+    console.error('获取我的公园申请列表失败:', error);
+    res.status(500).json({ error: '获取我的公园申请列表失败' });
+  }
+});
+
+// 获取公园申请列表（审核员/管理员）
 router.get('/api/park-applications', authenticateToken, async (req, res) => {
   try {
     const { status, province, applicantId } = req.query;
