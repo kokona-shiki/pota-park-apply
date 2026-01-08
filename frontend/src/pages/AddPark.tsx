@@ -11,7 +11,11 @@ import {
   InputLabel,
   Checkbox,
   FormControlLabel,
+  Alert,
+  IconButton,
+  Collapse,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -137,6 +141,11 @@ function AddPark() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isPotaPark, setIsPotaPark] = useState(savedState?.isPotaPark || false);
 
+  const [searchingPota, setSearchingPota] = useState(false);
+  const [searchingMap, setSearchingMap] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const provinces = useMemo(() => regionData as Province[], []);
 
   const [mapCenter, setMapCenter] = useState<LatLngTuple>(savedState?.mapCenter || [39.9042, 116.4074]); // 北京
@@ -174,16 +183,24 @@ function AddPark() {
   }, [dxEntity, parkName, parkType, province, latitude, longitude, website, accessMethods, activationMethods, confirmed, isPotaPark, mapCenter, mapZoom]);
 
   const handleSearchPOTA = async () => {
-    // 重置 POTA 公园状态
-    setIsPotaPark(false);
+    if (!parkName.trim()) {
+      setError('请输入公园名称');
+      return;
+    }
+
+    setError(null);
+    setSearchingPota(true);
+
     try {
       // 第一步：搜索公园列表
       const searchRes = await axios.get<PotaLookupItem[]>(
         `/proxy-api/pota/lookup?search=${encodeURIComponent(parkName)}`,
+        { timeout: 5000 } // 5秒超时
       );
 
       if (searchRes.data.length === 0) {
         setSearchResults([]);
+        setError('未找到匹配的 POTA 公园');
         return;
       }
 
@@ -195,13 +212,14 @@ function AddPark() {
         try {
           const parkRes = await axios.get<PotaParkInfo>(
             `/proxy-api/pota/park/${encodeURIComponent(firstPark.value)}`,
+            { timeout: 5000 } // 5秒超时
           );
-          
+
           const parkInfo = parkRes.data;
           setLatitude(String(parkInfo.latitude));
           setLongitude(String(parkInfo.longitude));
           setMapCenter([parkInfo.latitude, parkInfo.longitude]);
-          
+
           // 自动填充所有信息
           setParkName(parkInfo.name);
           setParkType(parkInfo.parktypeDesc);
@@ -209,48 +227,86 @@ function AddPark() {
           setWebsite(parkInfo.website || '');
           setAccessMethods(parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']);
           setActivationMethods(parkInfo.activationMethods ? mapActivationMethods(parkInfo.activationMethods) : ['步行', '车载', '其他']);
-          
+
           // 设置为 POTA 公园状态
           setIsPotaPark(true);
-          
-        } catch (parkErr) {
+
+        } catch (parkErr: any) {
           console.error('Failed to fetch park details:', parkErr);
+          if (parkErr.code === 'ECONNABORTED') {
+            setError('获取 POTA 公园详情超时，请稍后重试');
+          } else {
+            setError('获取 POTA 公园详情失败');
+          }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.code === 'ECONNABORTED') {
+        setError('搜索 POTA 超时，请检查网络后重试');
+      } else {
+        setError('搜索 POTA 失败，请检查网络后重试');
+      }
+    } finally {
+      setSearchingPota(false);
     }
   };
 
   const handleSearchMap = async () => {
-    // 重置 POTA 公园状态
-    setIsPotaPark(false);
+    if (!parkName.trim()) {
+      setError('请输入公园名称');
+      return;
+    }
+
+    setError(null);
+    setSearchingMap(true);
+
     try {
       const res = await axios.get<Array<{ lat: string; lon: string }>>(
         `/proxy-api/geocoding/osm/search?q=${encodeURIComponent(parkName)}&format=json`,
+        { timeout: 5000 } // 5秒超时
       );
 
       const first = res.data[0];
-      if (!first) return;
+      if (!first) {
+        setError('未找到匹配的地点');
+        return;
+      }
 
       const lat = Number.parseFloat(first.lat);
       const lon = Number.parseFloat(first.lon);
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        setError('获取的坐标无效');
+        return;
+      }
 
       setLatitude(first.lat);
       setLongitude(first.lon);
       setMapCenter([lat, lon]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.code === 'ECONNABORTED') {
+        setError('搜索地图超时，请检查网络后重试');
+      } else {
+        setError('搜索地图失败，请检查网络后重试');
+      }
+    } finally {
+      setSearchingMap(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!confirmed) return alert('请确认公园真实性');
-    if (submitRequestRef.current) return alert('请勿重复提交');
+    if (!confirmed) {
+      setError('请确认公园真实性');
+      return;
+    }
+    if (submitRequestRef.current) return;
 
     submitRequestRef.current = true;
+    setSubmitting(true);
+    setError(null);
+
     try {
       await axios.post('/api/park-applications', {
         dx_entity: dxEntity,
@@ -263,8 +319,7 @@ function AddPark() {
         access_methods: mapAccessMethodsWithBothLangs(accessMethods),
         activation_methods: mapActivationMethodsWithBothLangs(activationMethods),
         confirmed_authenticity: confirmed
-      });
-      alert('提交成功');
+      }, { timeout: 5000 }); // 5秒超时
 
       // 清除保存的表单状态
       clearFormState();
@@ -286,9 +341,18 @@ function AddPark() {
       setMapZoom(13);
 
       submitRequestRef.current = false;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.code === 'ECONNABORTED') {
+        setError('提交超时，请检查网络后重试');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError('提交失败，请检查网络后重试');
+      }
       submitRequestRef.current = false;
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -332,6 +396,25 @@ function AddPark() {
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography variant="h5">申请添加公园</Typography>
 
+        <Collapse in={!!error}>
+          <Alert
+            severity="error"
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => setError(null)}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            }
+            sx={{ mt: 2 }}
+          >
+            {error}
+          </Alert>
+        </Collapse>
+
         <FormControl fullWidth sx={{ mt: 2 }}>
           <InputLabel>DX实体</InputLabel>
           <Select
@@ -369,12 +452,23 @@ function AddPark() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-          <Button onClick={handleSearchPOTA}>搜索POTA</Button>
-          <Button onClick={handleSearchMap}>搜索地图</Button>
+          <Button
+            onClick={handleSearchPOTA}
+            disabled={searchingPota}
+          >
+            {searchingPota ? '搜索中...' : '搜索 POTA'}
+          </Button>
+          <Button
+            onClick={handleSearchMap}
+            disabled={searchingMap}
+          >
+            {searchingMap ? '搜索中...' : '搜索地图'}
+          </Button>
           {isPotaPark && (
-            <Button 
+            <Button
               onClick={() => {
                 setIsPotaPark(false);
+                setError(null);
                 // 清空除 DX 实体以外的所有输入
                 setParkName('');
                 setParkType('');
@@ -388,7 +482,7 @@ function AddPark() {
                 setSearchResults([]);
                 setMapCenter([39.9042, 116.4074]); // 重置地图中心到北京
                 setMapZoom(13);
-              }} 
+              }}
               color="secondary"
             >
               重新编辑
@@ -516,9 +610,16 @@ function AddPark() {
         <FormControlLabel
           control={<Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />}
           label="我已确认公园真实性"
+          sx={{ mt: 2 }}
         />
-        <Button variant="contained" onClick={handleSubmit} disabled={isPotaPark}>
-          {isPotaPark ? '已存在 POTA 公园' : '提交审核'}
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={submitting || isPotaPark || !confirmed}
+          sx={{ mt: 1 }}
+          fullWidth
+        >
+          {submitting ? '提交中...' : isPotaPark ? '已存在 POTA 公园' : '提交审核'}
         </Button>
       </Box>
 

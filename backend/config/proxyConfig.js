@@ -24,6 +24,9 @@ const proxyConfigs = {
         proxyTimeout: 30000,
         secure: true,
         changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/geocoding/osm': ''
+        },
         headers: {
           'User-Agent': 'POTA-Park-Apply/1.0',
           'Accept': 'application/json',
@@ -42,7 +45,10 @@ const proxyConfigs = {
         timeout: 30000,
         proxyTimeout: 30000,
         secure: true,
-        changeOrigin: true
+        changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/tiles/osm': ''
+        }
       }
     }
   ],
@@ -58,6 +64,9 @@ const proxyConfigs = {
         proxyTimeout: 30000,
         secure: true,
         changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/geocoding/amap': ''
+        },
         headers: {
           'User-Agent': 'POTA-Park-Apply/1.0',
           'Accept': 'application/json'
@@ -72,7 +81,10 @@ const proxyConfigs = {
         timeout: 30000,
         proxyTimeout: 30000,
         secure: true,
-        changeOrigin: true
+        changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/tiles/amap': ''
+        }
       }
     }
   ],
@@ -106,31 +118,18 @@ const initProxies = (app) => {
   ];
 
   configs.forEach(config => {
-    const { path, target, options, key } = config;
-
-    // POTA API 不需要路径重写,其他服务需要
-    const shouldRewritePath = key !== 'pota-api';
+    const { path, options, key, target } = config;
 
     const proxyOptions = {
-      target,
-      changeOrigin: true,
-      secure: true,
-      ...(shouldRewritePath && {
-        pathRewrite: {
-          [`^${path}`]: ''
-        }
-      }),
-      onProxyReq: (proxyReq, req, res) => {
-        // 确保请求头正确传递
-        proxyReq.setHeader('Connection', 'keep-alive');
-      },
+      target: target,
+      ...options,
       onProxyRes: (proxyRes, req, res) => {
         // 添加 CORS 头
         proxyRes.headers['Access-Control-Allow-Origin'] = '*';
       },
       onError: (err, req, res) => {
         console.error(`[Proxy Error] ${key}:`, err.message);
-        console.error(`[Proxy Error Details] Path: ${req.path}, Target: ${target}`);
+        console.error(`[Proxy Error Details] Path: ${req.path}`);
         if (!res.headersSent) {
           res.status(500).json({
             error: 'Proxy Error',
@@ -138,13 +137,12 @@ const initProxies = (app) => {
             details: err.message
           });
         }
-      },
-      ...options
+      }
     };
 
     app.use(path, createProxyMiddleware(proxyOptions));
 
-    console.log(`[Proxy] ${path} → ${target}${shouldRewritePath ? ' (path rewrite)' : ''}`);
+    console.log(`[Proxy] ${path} → ${target}`);
   });
 
   return configs;
