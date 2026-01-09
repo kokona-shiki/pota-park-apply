@@ -519,6 +519,18 @@ function MyUploads() {
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
+                WGS84 坐标：
+                {(() => {
+                  const lat = toFiniteNumber(selected.latitude);
+                  const lon = toFiniteNumber(selected.longitude);
+
+                  if (lat === null || lon === null) return '-';
+
+                  return `纬度 ${lat.toFixed(6)}，经度 ${lon.toFixed(6)}`;
+                })()}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
                 同步到 POTA：{selected.status === 'pota_synced' ? '是' : '否'}
               </Typography>
 
