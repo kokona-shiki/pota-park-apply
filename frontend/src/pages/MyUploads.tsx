@@ -35,7 +35,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import axios from 'axios';
-import { MapContainer, Marker, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -100,6 +100,65 @@ type LatLngTuple = [number, number];
 function toFiniteNumber(input: unknown) {
   const n = Number.parseFloat(String(input));
   return Number.isFinite(n) ? n : null;
+}
+
+function ResetViewControl({ center, zoom }: { center: LatLngTuple; zoom: number }) {
+  const map = useMap();
+  const [lat, lon] = center;
+
+  useEffect(() => {
+    const ResetControl = L.Control.extend({
+      onAdd: () => {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const btn = L.DomUtil.create('a', 'leaflet-control-reset-view', container);
+
+        btn.href = '#';
+        btn.title = '回位';
+        btn.setAttribute('role', 'button');
+        btn.setAttribute('aria-label', '回位');
+
+        // 使用 SVG 画“准星”，线条更粗且可精确居中
+        btn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+            <circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2" />
+            <line x1="9" y1="1.5" x2="9" y2="5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <line x1="9" y1="13" x2="9" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <line x1="1.5" y1="9" x2="5" y2="9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <line x1="13" y1="9" x2="16.5" y2="9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <circle cx="9" cy="9" r="0.9" fill="currentColor" />
+          </svg>
+        `;
+
+        // 让按钮尺寸/排版更接近 Leaflet 默认缩放按钮，并保证图标严格居中
+        btn.style.width = '30px';
+        btn.style.height = '30px';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.lineHeight = 'normal';
+        btn.style.color = '#000';
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.preventDefault(e);
+          L.DomEvent.stopPropagation(e);
+          map.setView([lat, lon], zoom);
+        });
+
+        return container;
+      }
+    });
+
+    const control = new ResetControl({ position: 'bottomright' }) as L.Control;
+    control.addTo(map);
+
+    return () => {
+      control.remove();
+    };
+  }, [map, lat, lon, zoom]);
+
+  return null;
 }
 
 function formatDateTime(input: string) {
@@ -179,7 +238,6 @@ function MyUploads() {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<ParkApplication | null>(null);
-  const detailMapRef = useRef<L.Map | null>(null);
 
   const hasRequestedRef = useRef(false);
   const userIdRef = useRef<number | null>(null);
@@ -513,7 +571,6 @@ function MyUploads() {
                     >
                       <MapContainer
                         key={`detail-map-${selected.id}`}
-                        ref={detailMapRef}
                         center={center}
                         zoom={DEFAULT_DETAIL_MAP_ZOOM}
                         style={{ height: '100%', width: '100%' }}
@@ -521,22 +578,8 @@ function MyUploads() {
                       >
                         <TileLayer url="/proxy-api/tiles/osm/{z}/{x}/{y}.png" />
                         <Marker position={center} />
+                        <ResetViewControl center={center} zoom={DEFAULT_DETAIL_MAP_ZOOM} />
                       </MapContainer>
-
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => detailMapRef.current?.setView(center, DEFAULT_DETAIL_MAP_ZOOM)}
-                        sx={{
-                          position: 'absolute',
-                          right: 12,
-                          bottom: 12,
-                          zIndex: 1000,
-                          boxShadow: 2
-                        }}
-                      >
-                        回位
-                      </Button>
                     </Box>
                   </Box>
                 );
