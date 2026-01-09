@@ -35,8 +35,22 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import axios from 'axios';
+import { MapContainer, Marker, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import shadow from 'leaflet/dist/images/marker-shadow.png';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
+
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: iconRetina,
+  iconUrl: icon,
+  shadowUrl: shadow
+});
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
 
@@ -46,6 +60,9 @@ type ParkApplication = {
   province_name: string;
   status: ApplicationStatus;
   created_at: string;
+
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 
   rejection_reason?: string | null;
   pota_notes?: string | null;
@@ -75,6 +92,15 @@ const HEAD_CELLS: HeadCell[] = [
   { id: 'province_name', label: '省份', sortable: true, sx: { whiteSpace: 'nowrap', display: { xs: 'none', sm: 'table-cell' } } },
   { id: 'status', label: '状态', sortable: true, sx: { whiteSpace: 'nowrap' } }
 ];
+
+const DEFAULT_DETAIL_MAP_ZOOM = 13;
+
+type LatLngTuple = [number, number];
+
+function toFiniteNumber(input: unknown) {
+  const n = Number.parseFloat(String(input));
+  return Number.isFinite(n) ? n : null;
+}
 
 function formatDateTime(input: string) {
   const d = new Date(input);
@@ -153,6 +179,7 @@ function MyUploads() {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<ParkApplication | null>(null);
+  const detailMapRef = useRef<L.Map | null>(null);
 
   const hasRequestedRef = useRef(false);
   const userIdRef = useRef<number | null>(null);
@@ -406,7 +433,14 @@ function MyUploads() {
         labelRowsPerPage="每页行数"
       />
 
-      <Dialog open={!!selected} onClose={() => setSelected(null)} fullWidth maxWidth="sm">
+      <Dialog
+        open={!!selected}
+        onClose={() => {
+          setSelected(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>上传详情</DialogTitle>
         <DialogContent dividers>
           {selected ? (
@@ -445,11 +479,79 @@ function MyUploads() {
                   备注：-
                 </Typography>
               )}
+
+              {(() => {
+                const lat = toFiniteNumber(selected.latitude);
+                const lon = toFiniteNumber(selected.longitude);
+
+                if (lat === null || lon === null) {
+                  return (
+                    <Alert severity="warning" variant="outlined">
+                      缺少经纬度，无法显示地图
+                    </Alert>
+                  );
+                }
+
+                const center: LatLngTuple = [lat, lon];
+
+                return (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      地图
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        height: 320,
+                        width: '100%',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <MapContainer
+                        key={`detail-map-${selected.id}`}
+                        ref={detailMapRef}
+                        center={center}
+                        zoom={DEFAULT_DETAIL_MAP_ZOOM}
+                        style={{ height: '100%', width: '100%' }}
+                        scrollWheelZoom
+                      >
+                        <TileLayer url="/proxy-api/tiles/osm/{z}/{x}/{y}.png" />
+                        <Marker position={center} />
+                      </MapContainer>
+
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => detailMapRef.current?.setView(center, DEFAULT_DETAIL_MAP_ZOOM)}
+                        sx={{
+                          position: 'absolute',
+                          right: 12,
+                          bottom: 12,
+                          zIndex: 1000,
+                          boxShadow: 2
+                        }}
+                      >
+                        回位
+                      </Button>
+                    </Box>
+                  </Box>
+                );
+              })()}
             </Stack>
           ) : null}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelected(null)}>关闭</Button>
+          <Button
+            onClick={() => {
+              setSelected(null);
+            }}
+          >
+            关闭
+          </Button>
         </DialogActions>
       </Dialog>
     </Paper>
