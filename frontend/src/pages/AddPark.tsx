@@ -1,5 +1,5 @@
 // src/pages/AddPark.jsx
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -17,6 +17,7 @@ import {
   Collapse,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -187,15 +188,14 @@ function AddPark() {
     try {
       const saved = localStorage.getItem('addParkFormData');
       return saved ? JSON.parse(saved) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
 
   const savedState = loadSavedState();
 
-  // dx_entity：公园所属的 DXCC entity（如 CN / K / JA...）
-  const [dxEntity, setDxEntity] = useState(savedState?.dxEntity || 'CN');
+  // 系统只处理中国申请
   const [parkName, setParkName] = useState(savedState?.parkName || '');
   const [parkType, setParkType] = useState(savedState?.parkType || '');
   const [province, setProvince] = useState(savedState?.province || '');
@@ -229,9 +229,8 @@ function AddPark() {
   const navigate = useNavigate();
 
   // 保存表单状态到 localStorage
-  const saveFormState = () => {
+  const saveFormState = useCallback(() => {
     const stateToSave = {
-      dxEntity,
       parkName,
       parkType,
       province,
@@ -246,7 +245,20 @@ function AddPark() {
       mapZoom
     };
     localStorage.setItem('addParkFormData', JSON.stringify(stateToSave));
-  };
+  }, [
+    accessMethods,
+    activationMethods,
+    confirmed,
+    isPotaPark,
+    latitude,
+    longitude,
+    mapCenter,
+    mapZoom,
+    parkName,
+    parkType,
+    province,
+    website
+  ]);
 
   // 清除保存的表单状态
   const clearFormState = () => {
@@ -256,7 +268,7 @@ function AddPark() {
   // 监听状态变化并保存
   useEffect(() => {
     saveFormState();
-  }, [dxEntity, parkName, parkType, province, latitude, longitude, website, accessMethods, activationMethods, confirmed, isPotaPark, mapCenter, mapZoom]);
+  }, [saveFormState]);
 
   const handleSearchPOTA = async () => {
     if (!parkName.trim()) {
@@ -334,9 +346,10 @@ function AddPark() {
       });
 
       setMapPOIs(pois);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (err.code === 'ECONNABORTED') {
+      const code = (err as { code?: unknown })?.code;
+      if (code === 'ECONNABORTED') {
         setError('搜索 POTA 超时，请检查网络后重试');
       } else {
         setError('搜索 POTA 失败，请检查网络后重试');
@@ -389,9 +402,10 @@ function AddPark() {
       });
 
       setMapPOIs(pois);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (err.code === 'ECONNABORTED') {
+      const code = (err as { code?: unknown })?.code;
+      if (code === 'ECONNABORTED') {
         setError('搜索地图超时，请检查网络后重试');
       } else {
         setError('搜索地图失败，请检查网络后重试');
@@ -441,7 +455,6 @@ function AddPark() {
   const handleSubmit = async () => {
     // 前端必填校验（避免无效请求）
     const name = parkName.trim();
-    const dx = dxEntity.trim();
     const type = parkType.trim();
     const prov = province.trim();
     const latNum = Number.parseFloat(String(latitude).trim());
@@ -451,10 +464,6 @@ function AddPark() {
 
     if (!name) {
       setError('请填写公园名称');
-      return;
-    }
-    if (!dx) {
-      setError('请选择 DX 实体');
       return;
     }
     if (!type) {
@@ -494,7 +503,6 @@ function AddPark() {
 
     try {
       await axios.post('/api/park-applications', {
-        dx_entity: dxEntity,
         park_name: parkName,
         park_type: parkType,
         province_iso_code: province,
@@ -513,9 +521,10 @@ function AddPark() {
 
       // 跳转到“我的上传”，让用户立刻看到已提交的申请
       navigate('/my-uploads');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (err.code === 'ECONNABORTED') {
+      const code = (err as { code?: unknown })?.code;
+      if (code === 'ECONNABORTED') {
         setError('提交超时，请检查网络后重试');
       } else {
         setError(getApiErrorMessage(err, '提交失败，请检查网络后重试'));
@@ -601,16 +610,6 @@ function AddPark() {
           </Alert>
         </Collapse>
 
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel>DX实体</InputLabel>
-          <Select
-            value={dxEntity}
-            label="DX实体"
-            onChange={(e) => setDxEntity(e.target.value as string)}
-          >
-            <MenuItem value="CN">中国(CN)</MenuItem>
-          </Select>
-        </FormControl>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
           <TextField
@@ -680,7 +679,6 @@ function AddPark() {
           {(parkName || mapPOIs.length > 0) && (
             <Button
               onClick={() => {
-                setDxEntity('CN');
                 setParkName('');
                 setParkType('');
                 setProvince('');
@@ -719,54 +717,54 @@ function AddPark() {
           >
             <List dense disablePadding>
               {mapPOIs.map((poi) => (
-                <ListItem
-                  key={poi.id}
-                  button
-                  selected={selectedPOIId === poi.id}
-                  onClick={() => handlePOISelect(poi)}
-                  ref={(ref) => {
-                    if (ref && selectedPOIId === poi.id) {
-                      ref.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                  }}
-                  sx={{
-                    '&.Mui-selected': {
-                      backgroundColor: 'action.hover',
-                      borderLeft: 4,
-                      borderLeftColor: 'primary.main',
-                      pl: 1.5,
-                      '&:hover': {
-                        backgroundColor: 'action.selected',
-                      },
-                    },
-                    '&:not(.Mui-selected):hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    transition: 'all 0.15s ease-in-out',
-                  }}
-                >
-                  <ListItemText
-                    primary={poi.name || '未命名地点'}
-                    secondary={poi.city ? `${poi.province} ${poi.city}` : poi.province}
-                    slotProps={{
-                      primary: {
-                        sx: {
-                          fontWeight: selectedPOIId === poi.id ? 700 : 400,
-                          fontSize: '0.95rem',
-                          color: selectedPOIId === poi.id ? 'primary.main' : 'text.primary',
-                        }
-                      },
-                      secondary: {
-                        sx: {
-                          fontSize: '0.75rem',
-                          fontWeight: selectedPOIId === poi.id ? 500 : 400,
-                          color: selectedPOIId === poi.id ? 'primary.main' : 'text.secondary',
-                        }
+                <ListItem key={poi.id} disablePadding>
+                  <ListItemButton
+                    selected={selectedPOIId === poi.id}
+                    onClick={() => handlePOISelect(poi)}
+                    ref={(ref) => {
+                      if (ref && selectedPOIId === poi.id) {
+                        ref.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                       }
                     }}
-                  />
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: 'action.hover',
+                        borderLeft: 4,
+                        borderLeftColor: 'primary.main',
+                        pl: 1.5,
+                        '&:hover': {
+                          backgroundColor: 'action.selected',
+                        },
+                      },
+                      '&:not(.Mui-selected):hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.15s ease-in-out',
+                    }}
+                  >
+                    <ListItemText
+                      primary={poi.name || '未命名地点'}
+                      secondary={poi.city ? `${poi.province} ${poi.city}` : poi.province}
+                      slotProps={{
+                        primary: {
+                          sx: {
+                            fontWeight: selectedPOIId === poi.id ? 700 : 400,
+                            fontSize: '0.95rem',
+                            color: selectedPOIId === poi.id ? 'primary.main' : 'text.primary',
+                          }
+                        },
+                        secondary: {
+                          sx: {
+                            fontSize: '0.75rem',
+                            fontWeight: selectedPOIId === poi.id ? 500 : 400,
+                            color: selectedPOIId === poi.id ? 'primary.main' : 'text.secondary',
+                          }
+                        }
+                      }}
+                    />
+                  </ListItemButton>
                 </ListItem>
               ))}
             </List>

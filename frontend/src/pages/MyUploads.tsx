@@ -42,7 +42,6 @@ type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
 
 type ParkApplication = {
   id: number;
-  dx_entity: string;
   park_name: string;
   province_name: string;
   status: ApplicationStatus;
@@ -316,7 +315,6 @@ function MyUploads() {
                 </TableCell>
               ))}
 
-              <TableCell sx={{ whiteSpace: 'nowrap', display: { xs: 'none', md: 'table-cell' } }}>DX 实体</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>同步到 POTA</TableCell>
               <TableCell>备注</TableCell>
               <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
@@ -328,7 +326,7 @@ function MyUploads() {
           <TableBody>
             {!loading && paged.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={HEAD_CELLS.length + 4} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={HEAD_CELLS.length + 3} align="center" sx={{ py: 8 }}>
                   <Typography color="text.secondary">
                     {query.trim() ? '未找到匹配的公园' : '暂无上传记录'}
                   </Typography>
@@ -358,7 +356,6 @@ function MyUploads() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Chip size="small" label={statusMeta.label} color={statusMeta.color} variant="outlined" />
                     </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{app.dx_entity || '-'}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{app.status === 'pota_synced' ? '是' : '否'}</TableCell>
                     <TableCell>
                       {notes ? (
@@ -427,10 +424,6 @@ function MyUploads() {
 
               <Typography variant="body2" color="text.secondary">
                 省份：{selected.province_name || '-'}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                DX 实体：{selected.dx_entity || '-'}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
