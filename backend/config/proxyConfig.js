@@ -40,7 +40,11 @@ const proxyConfigs = {
     {
       key: 'osm-tiles',
       path: '/proxy-api/tiles/osm',
-      target: 'https://{s}.tile.openstreetmap.org',
+
+      // NOTE: http-proxy-middleware 不会替换 target 里的 {s} 占位符；
+      // 会导致请求落到无效域名并最终 504。
+      // 这里用 router 按 (z,x,y) 选择 a/b/c 子域，既兼容 OSM，又保持同源代理（不放开 CSP 外域）。
+      target: 'https://a.tile.openstreetmap.org',
       options: {
         timeout: 30000,
         proxyTimeout: 30000,
@@ -48,6 +52,26 @@ const proxyConfigs = {
         changeOrigin: true,
         pathRewrite: {
           '^/proxy-api/tiles/osm': ''
+        },
+        router: (req) => {
+          try {
+            // req.url 形如：/13/6780/3104.png
+            const m = String(req.url || '').match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
+            if (!m) return 'https://a.tile.openstreetmap.org';
+            const z = Number(m[1]);
+            const x = Number(m[2]);
+            const y = Number(m[3]);
+            const subs = ['a', 'b', 'c'];
+            const sub = subs[(z + x + y) % subs.length];
+            return `https://${sub}.tile.openstreetmap.org`;
+          } catch {
+            return 'https://a.tile.openstreetmap.org';
+          }
+        },
+        headers: {
+          // OSM 建议设置明确 UA；避免被上游限流/拒绝
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
         }
       }
     }
