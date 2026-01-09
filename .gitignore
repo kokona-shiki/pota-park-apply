@@ -176,6 +176,9 @@ coverage/
 *.log
 logs/
 
+# protocols 目录下的日志需要纳入版本控制（不受全局 *.log 影响）
+!protocols/**/*.log
+
 # 临时文件
 *.tmp
 *.temp
