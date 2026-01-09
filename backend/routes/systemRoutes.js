@@ -1,17 +1,22 @@
 import express from 'express';
 import { testConnection } from '../config/database.js';
 import { initializeDatabase } from '../config/initDatabase.js';
+import { sendHttpError, sendOk } from '../utils/response.js';
 
 const router = express.Router();
 
 // 基础路由
 router.get('/', (_req, res) => {
-  res.json({
-    message: 'POTA Park Apply Backend API',
-    version: '1.0.0',
-    status: 'running',
-    database: 'PostgreSQL'
-  });
+  return sendOk(
+    res,
+    {
+      message: 'POTA Park Apply Backend API',
+      version: '1.0.0',
+      status: 'running',
+      database: 'PostgreSQL'
+    },
+    'ok'
+  );
 });
 
 const isInternalIp = (ip) => {
@@ -23,31 +28,29 @@ const isInternalIp = (ip) => {
 // API 健康检查（仅内网 10.0.0.0/8 允许访问）
 router.get('/api/health', async (req, res) => {
   if (!isInternalIp(req.ip)) {
-    return res.status(403).json({ error: '仅允许内网访问' });
+    return sendHttpError(res, 403, 'FORBIDDEN', '仅允许内网访问', null);
   }
 
   const dbStatus = await testConnection();
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    database: dbStatus ? 'connected' : 'disconnected'
-  });
+  return sendOk(
+    res,
+    {
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      database: dbStatus ? 'connected' : 'disconnected'
+    },
+    'ok'
+  );
 });
 
 // 初始化数据库
 router.post('/api/init-database', async (_req, res) => {
   try {
     await initializeDatabase();
-    res.json({
-      success: true,
-      message: '数据库初始化成功'
-    });
+    return sendOk(res, null, '数据库初始化成功');
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    res.status(500).json({
-      error: '数据库初始化失败',
-      details: error.message
-    });
+    return sendHttpError(res, 500, 'SERVER_ERROR', '数据库初始化失败', { details: error.message });
   }
 });
 

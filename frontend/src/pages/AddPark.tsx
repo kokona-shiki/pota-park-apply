@@ -19,8 +19,8 @@ import {
   ListItemText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import ClearIcon from '@mui/icons-material/Clear';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import parkTypeMappingData from '../assets/park_type_mapping.json';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
@@ -119,6 +119,16 @@ type MapPOI = {
 
 type LatLngTuple = [number, number];
 
+const PARK_TYPE_MAPPING = parkTypeMappingData as {
+  google_to_pota: Record<string, string>;
+  pota_to_google: Record<string, string>;
+};
+
+const PARK_TYPE_OPTIONS = Object.entries(PARK_TYPE_MAPPING.google_to_pota).map(([zh, en]) => ({
+  zh,
+  en,
+}))
+
 // 地图边界控制器组件
 function MapBoundsController({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
   const map = useMap();
@@ -182,6 +192,7 @@ function AddPark() {
 
   const savedState = loadSavedState();
 
+  // dx_entity：公园所属的 DXCC entity（如 CN / K / JA...）
   const [dxEntity, setDxEntity] = useState(savedState?.dxEntity || 'CN');
   const [parkName, setParkName] = useState(savedState?.parkName || '');
   const [parkType, setParkType] = useState(savedState?.parkType || '');
@@ -585,12 +596,39 @@ function AddPark() {
               label="公园类型"
               onChange={(e) => setParkType(e.target.value as string)}
               disabled={isPotaPark}
+              renderValue={(value) => {
+                const en = String(value ?? '');
+                if (!en) return '';
+                const zh = PARK_TYPE_MAPPING.pota_to_google[en];
+
+                if (!zh) return en;
+
+                return (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                    <Typography sx={{ fontSize: '0.95rem' }}>{zh}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{en}</Typography>
+                  </Box>
+                );
+              }}
             >
-              {['National Park', 'National Nature Reserve'].map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
+              {PARK_TYPE_OPTIONS.map(({ zh, en }) => (
+                <MenuItem key={en} value={en}>
+                  <ListItemText
+                    primary={zh}
+                    secondary={en}
+                    slotProps={{
+                      primary: { sx: { fontWeight: 600 } },
+                      secondary: { sx: { fontSize: '0.75rem', color: 'text.secondary' } },
+                    }}
+                  />
                 </MenuItem>
               ))}
+
+              {parkType && !PARK_TYPE_OPTIONS.some((opt) => opt.en === parkType) && (
+                <MenuItem value={parkType}>
+                  <ListItemText primary={parkType} />
+                </MenuItem>
+              )}
             </Select>
           </FormControl>
         </Box>
@@ -611,6 +649,7 @@ function AddPark() {
           {(parkName || mapPOIs.length > 0) && (
             <Button
               onClick={() => {
+                setDxEntity('CN');
                 setParkName('');
                 setParkType('');
                 setProvince('');

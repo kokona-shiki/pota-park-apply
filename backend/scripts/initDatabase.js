@@ -35,8 +35,8 @@ const init = async () => {
         if (regs?.app_meta && regs?.users) {
           const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
 
-          if (schemaVersion?.value === '1') {
-            console.log('✅ 检测到数据库已初始化（schema_version=1），跳过建表/建索引，仅确保初始系统管理员存在...');
+          if (schemaVersion?.value === '2') {
+            console.log('✅ 检测到数据库已初始化（schema_version=2），跳过建表/建索引，仅确保初始系统管理员存在...');
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库检查完成！');
             return;

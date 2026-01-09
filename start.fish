@@ -30,7 +30,7 @@ set -q DB_HOST; or set -gx DB_HOST localhost
 set -q DB_PORT; or set -gx DB_PORT 5432
 set -q DB_NAME; or set -gx DB_NAME pota_park
 set -q DB_USER; or set -gx DB_USER postgres
-set -q PORT; or set -gx PORT 3000
+set -q PORT; or set -gx PORT 3101
 
 command -v node >/dev/null 2>&1; or die "未找到 node，请先安装 Node.js（推荐 20.x 或更高）"
 

@@ -13,7 +13,8 @@ import { initProxies } from './config/proxyConfig.js';
 const app = express();
 
 // 在反向代理/容器环境下获取真实客户端 IP
-app.set('trust proxy', true);
+// - 设为 1：信任一层代理（例如 Nginx / Vite dev server），避免 express-rate-limit 的 permissive trust proxy 报错
+app.set('trust proxy', 1);
 
 // -----------------
 // 中间件
@@ -30,7 +31,7 @@ app.use(
 app.use(express.json());
 
 // 初始化动态代理 (在路由之前)
-const proxyConfigs = initProxies(app);
+initProxies(app);
 
 // 全局限流（所有接口）
 app.use(
@@ -39,7 +40,7 @@ app.use(
     max: 120,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: '请求过于频繁，请稍后再试' }
+    message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null }
   })
 );
 
@@ -55,15 +56,16 @@ app.use(provinceRoutes);
 
 // 404 处理
 app.use('*', (_req, res) => {
-  res.status(404).json({ error: '接口不存在' });
+  res.status(404).json({ code: 'NOT_FOUND', message: '接口不存在', data: null });
 });
 
 // 全局错误处理
 app.use((err, _req, res, _next) => {
   console.error('服务器错误:', err);
   res.status(500).json({
-    error: '服务器内部错误',
-    message: '请稍后重试'
+    code: 'SERVER_ERROR',
+    message: '服务器内部错误',
+    data: null
   });
 });
 

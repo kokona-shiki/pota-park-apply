@@ -10,7 +10,7 @@
 # 1) 检查 Node.js / pnpm
 # 2) 等待本地 PostgreSQL 就绪（需要 PostGIS 扩展）
 # 3) 幂等初始化数据库
-# 4) 启动 backend（:3000）
+# 4) 启动 backend（:3101）
 # 5) 启动 frontend（Vite dev server，:8080）
 
 set -euo pipefail
@@ -34,7 +34,7 @@ fi
 : "${DB_PORT:=5432}"
 : "${DB_NAME:=pota_park}"
 : "${DB_USER:=postgres}"
-: "${PORT:=3000}"
+: "${PORT:=3101}"
 
 # 检查 node
 if ! command -v node >/dev/null 2>&1; then

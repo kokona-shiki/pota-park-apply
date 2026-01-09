@@ -272,7 +272,26 @@ function App() {
     interceptorRegisteredRef.current = true;
 
     axios.interceptors.response.use(
-      (res) => res,
+      (res) => {
+        // 统一后端返回：{ code, message, data }
+        const payload = res?.data as any;
+        if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
+          // success
+          if (payload.code === 0) {
+            return { ...res, data: payload.data };
+          }
+
+          // business error: HTTP 200，但用 code/message 表达
+          const bizRes = { ...res, data: { ...payload, error: payload.message } };
+          const bizErr: any = new Error(payload?.message || '业务错误');
+          bizErr.isBusinessError = true;
+          bizErr.code = payload.code;
+          bizErr.response = bizRes;
+          return Promise.reject(bizErr);
+        }
+
+        return res;
+      },
       (err) => {
         const status = err?.response?.status;
         const url = String(err?.config?.url || '');

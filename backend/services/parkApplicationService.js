@@ -20,26 +20,29 @@ export const submitParkApplication = async (userId, applicationData) => {
   // 检查权限
   const canSubmit = await checkUserPermission(userId, 'submit_application');
   if (!canSubmit) {
-    throw new Error('没有权限提交申请');
+    const err = new Error('没有权限提交申请');
+    // 鉴权/鉴权相关错误：返回 4xx
+    // eslint-disable-next-line no-param-reassign
+    err.status = 403;
+    // eslint-disable-next-line no-param-reassign
+    err.code = 'FORBIDDEN';
+    throw err;
   }
   
-  // 检查 POTA 号码是否已存在
-  const existingApplication = await getOne(`
-    SELECT id FROM park_applications 
-    WHERE dx_entity = $1
-  `, [dx_entity]);
-  
-  if (existingApplication) {
-    throw new Error('该 POTA 号码已被使用');
-  }
-  
+  // dx_entity 是 DXCC entity（允许重复），这里不做唯一性检查
   // 验证访问方法和激活方法格式
   if (!Array.isArray(access_methods) || access_methods.length === 0) {
-    throw new Error('至少需要选择一个访问方法');
+    const err = new Error('至少需要选择一个访问方法');
+    // eslint-disable-next-line no-param-reassign
+    err.code = 'VALIDATION_ERROR';
+    throw err;
   }
   
   if (!Array.isArray(activation_methods) || activation_methods.length === 0) {
-    throw new Error('至少需要选择一个激活方法');
+    const err = new Error('至少需要选择一个激活方法');
+    // eslint-disable-next-line no-param-reassign
+    err.code = 'VALIDATION_ERROR';
+    throw err;
   }
   
   return await transaction(async (client) => {

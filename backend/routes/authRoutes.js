@@ -11,6 +11,7 @@ import {
 } from '../utils/auth.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
+import { sendBizError, sendError, sendHttpError, sendOk } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: '请求过于频繁，请稍后再试' }
+  message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null }
 });
 
 // 用户注册（注册成功后需要重新登录，不自动签发 token）
@@ -70,19 +71,15 @@ router.post('/api/register', authLimiter, async (req, res) => {
     const { email, callsign, password } = req.body;
 
     if (!email || !callsign || !password) {
-      return res.status(400).json({ error: '邮箱、呼号和密码不能为空' });
+      return sendBizError(res, 'VALIDATION_ERROR', '邮箱、呼号和密码不能为空', null);
     }
 
     const user = await userService.registerUser({ email, callsign, password });
 
-    res.json({
-      success: true,
-      message: '注册成功，请登录',
-      user
-    });
+    return sendOk(res, { user }, '注册成功，请登录');
   } catch (error) {
     console.error('注册失败:', error);
-    res.status(400).json({ error: error.message });
+    return sendError(res, error, { bizCode: 'REGISTER_FAILED', bizMessage: '注册失败' });
   }
 });
 
@@ -92,7 +89,7 @@ router.post('/api/login', authLimiter, async (req, res) => {
     const { identifier, password } = req.body;
 
     if (!identifier || !password) {
-      return res.status(400).json({ error: '用户名/邮箱和密码不能为空' });
+      return sendBizError(res, 'VALIDATION_ERROR', '用户名/邮箱和密码不能为空', null);
     }
 
     const user = await userService.loginUser(identifier, password);
@@ -112,21 +109,17 @@ router.post('/api/login', authLimiter, async (req, res) => {
 
     setRefreshCookie(req, res, refreshToken);
 
-    res.json({
-      success: true,
-      message: '登录成功',
-      accessToken,
-      user
-    });
+    return sendOk(res, { accessToken, user }, '登录成功');
   } catch (error) {
     console.error('登录失败:', error);
 
-    // 仅 is_active=false 给明确提示，其余统一口径
-    if (error.message === '用户已被禁用') {
-      return res.status(403).json({ error: '用户已被禁用' });
+    // 仅 is_active=false 给明确提示
+    if (error?.message === '用户已被禁用') {
+      return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
     }
 
-    res.status(400).json({ error: '用户不存在或密码错误' });
+    // 其余统一口径（业务错误：HTTP 200）
+    return sendBizError(res, 'INVALID_CREDENTIALS', '用户不存在或密码错误', null);
   }
 });
 
@@ -136,7 +129,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');
 
     if (!refreshToken) {
-      return res.status(401).json({ error: '缺少刷新令牌' });
+      return sendHttpError(res, 401, 'UNAUTHORIZED', '缺少刷新令牌', null);
     }
 
     const result = await rotateRefreshToken(refreshToken, {
@@ -146,14 +139,14 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
 
     if (result.status === 'invalid' || result.status === 'expired') {
       clearRefreshCookie(req, res);
-      return res.status(401).json({ error: '无效或过期的刷新令牌' });
+      return sendHttpError(res, 401, 'UNAUTHORIZED', '无效或过期的刷新令牌', null);
     }
 
     if (result.status === 'user_disabled') {
       // 被封禁：吊销其所有 refresh token（强制登出只能做到“无法续期”，accessToken 仍会自然过期）
       await revokeAllRefreshTokensForUser(result.userId);
       clearRefreshCookie(req, res);
-      return res.status(403).json({ error: '用户已被禁用' });
+      return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
     }
 
     if (result.status === 'replay') {
@@ -174,7 +167,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
         console.warn('写入 refresh token 重放审计失败:', e?.message);
       }
 
-      return res.status(403).json({ error: '检测到异常登录状态，请重新登录' });
+      return sendHttpError(res, 403, 'SESSION_INVALID', '检测到异常登录状态，请重新登录', null);
     }
 
     // ok
@@ -188,14 +181,10 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
     setRefreshCookie(req, res, result.refreshToken);
 
-    res.json({
-      success: true,
-      accessToken,
-      user
-    });
+    return sendOk(res, { accessToken, user }, 'ok');
   } catch (error) {
     console.error('刷新 token 失败:', error);
-    res.status(500).json({ error: '刷新 token 失败' });
+    return sendError(res, error, { httpMessage: '刷新 token 失败' });
   }
 });
 
@@ -212,12 +201,12 @@ router.post('/api/logout', async (req, res) => {
     }
 
     clearRefreshCookie(req, res);
-    res.json({ success: true });
+    return sendOk(res, null, 'ok');
   } catch (error) {
     console.error('退出登录失败:', error);
     // 即便失败，也清 cookie，避免前端卡住
     clearRefreshCookie(req, res);
-    res.json({ success: true });
+    return sendOk(res, null, 'ok');
   }
 });
 
@@ -226,13 +215,13 @@ router.get('/api/user-info', authenticateToken, async (req, res) => {
   try {
     const user = await findUserById(req.user.id);
     if (!user) {
-      return res.status(404).json({ error: '用户不存在' });
+      return sendBizError(res, 'NOT_FOUND', '用户不存在', null);
     }
 
-    res.json({ user });
+    return sendOk(res, { user }, 'ok');
   } catch (error) {
     console.error('获取用户信息失败:', error);
-    res.status(500).json({ error: '获取用户信息失败' });
+    return sendError(res, error, { httpMessage: '获取用户信息失败' });
   }
 });
 
@@ -240,10 +229,10 @@ router.get('/api/user-info', authenticateToken, async (req, res) => {
 router.get('/api/user-permissions', authenticateToken, async (req, res) => {
   try {
     const permissions = await getUserPermissions(req.user.id);
-    res.json({ permissions });
+    return sendOk(res, { permissions }, 'ok');
   } catch (error) {
     console.error('获取用户权限失败:', error);
-    res.status(500).json({ error: '获取用户权限失败' });
+    return sendError(res, error, { httpMessage: '获取用户权限失败' });
   }
 });
 

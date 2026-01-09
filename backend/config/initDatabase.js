@@ -33,7 +33,7 @@ export const createTables = async () => {
     // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '1')
+      VALUES ('schema_version', '2')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -189,7 +189,7 @@ export const createTables = async () => {
     await query(`
       CREATE TABLE IF NOT EXISTS park_applications (
         id SERIAL PRIMARY KEY,
-        dx_entity VARCHAR(20) NOT NULL UNIQUE,
+        dx_entity VARCHAR(20) NOT NULL,
         park_name VARCHAR(255) NOT NULL,
         park_type VARCHAR(100),
         province_iso_code VARCHAR(10) NOT NULL REFERENCES provinces(iso_code),
@@ -229,6 +229,27 @@ export const createTables = async () => {
         CONSTRAINT valid_lat_range CHECK (latitude BETWEEN -90 AND 90),
         CONSTRAINT valid_lng_range CHECK (longitude BETWEEN -180 AND 180)
       )
+    `);
+
+    // 兼容旧 schema：早期版本误把 dx_entity 做成了 UNIQUE（但它其实是 DXCC entity，可重复）
+    // 这里做一次幂等迁移：如果存在 (dx_entity) 的 unique constraint 就删除。
+    await query(`
+      DO $$
+      DECLARE
+        c TEXT;
+      BEGIN
+        SELECT conname INTO c
+        FROM pg_constraint
+        WHERE conrelid = 'park_applications'::regclass
+          AND contype = 'u'
+          AND pg_get_constraintdef(oid) LIKE '%(dx_entity)%'
+        LIMIT 1;
+
+        IF c IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE park_applications DROP CONSTRAINT %I', c);
+        END IF;
+      END
+      $$;
     `);
 
     // 8. 申请审核记录表

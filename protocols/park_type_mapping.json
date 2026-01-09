@@ -1,0 +1,24 @@
+{
+  "google_to_pota": {
+    "国家湿地公园": "Wetland Reserve",
+    "国家矿山公园": "Geopark",
+    "国家草原公园": "National Grassland",
+    "全国爱国主义教育基地": "National Memorial",
+    "重点文物保护单位": "National Heritage Site",
+    "风景名胜区": "Scenic Reserve",
+    "水利风景区": "Water Management Area",
+    "国家沙漠公园": "National Park",
+    "考古遗址公园": "Archeological Reserve"
+  },
+  "pota_to_google": {
+    "Wetland Reserve": "国家湿地公园",
+    "Geopark": "国家矿山公园",
+    "National Grassland": "国家草原公园",
+    "National Memorial": "全国爱国主义教育基地",
+    "National Heritage Site": "重点文物保护单位",
+    "Scenic Reserve": "风景名胜区",
+    "Water Management Area": "水利风景区",
+    "National Park": "国家沙漠公园",
+    "Archeological Reserve": "考古遗址公园"
+  }
+}

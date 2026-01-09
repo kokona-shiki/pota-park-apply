@@ -1,0 +1,9 @@
+国家湿地公园	Wetland Reserve 或 National Wildlife Area	列表中有 Wetland Reserve
+国家矿山公园	Geopark 或 National Landscape	列表中有 Geopark
+国家草原公园	National Grassland	完美对应，列表中有
+全国爱国主义教育基地	National Memorial 或 National Historic Site	列表中均有
+重点文物保护单位	National Historic Site 或 National Heritage Site	列表中均有
+风景名胜区	Scenic Reserve 或 Area of Outstanding Natural Beauty	列表中均有
+水利风景区	Water Management Area 或 Recreation Park	列表中均有
+国家沙漠公园	National Park	列表中有，作为通用大类
+考古遗址公园	Archeological Reserve 或 National Historic Site	列表中均有

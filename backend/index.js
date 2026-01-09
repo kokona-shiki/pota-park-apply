@@ -6,7 +6,7 @@ import { getMapProvider } from './config/proxyConfig.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3101;
 
 // 启动服务器
 const startServer = async () => {

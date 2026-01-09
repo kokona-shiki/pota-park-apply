@@ -1,6 +1,7 @@
 import express from 'express';
 import { getMany } from '../config/database.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
+import { sendHttpError, sendOk, sendError } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
 router.get('/api/provinces', authenticateToken, async (req, res) => {
   try {
     if (req.user?.role === 'banned') {
-      return res.status(403).json({ error: '权限不足' });
+      return sendHttpError(res, 403, 'FORBIDDEN', '权限不足', null);
     }
 
     const provinces = await getMany(
@@ -20,10 +21,10 @@ router.get('/api/provinces', authenticateToken, async (req, res) => {
     `
     );
 
-    res.json({ provinces });
+    return sendOk(res, { provinces }, 'ok');
   } catch (error) {
     console.error('获取省份列表失败:', error);
-    res.status(500).json({ error: '获取省份列表失败' });
+    return sendError(res, error, { httpMessage: '获取省份列表失败', bizMessage: '获取省份列表失败' });
   }
 });
 

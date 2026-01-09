@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as userService from '../services/userService.js';
+import { sendBizError, sendError, sendOk } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -16,10 +17,10 @@ router.get('/api/users', authenticateToken, requirePermission('view_all_users'),
 
     const users = await userService.getUsers(role || null, isActiveParsed);
 
-    res.json({ users });
+    return sendOk(res, { users }, 'ok');
   } catch (error) {
     console.error('获取用户列表失败:', error);
-    res.status(500).json({ error: '获取用户列表失败' });
+    return sendError(res, error, { httpMessage: '获取用户列表失败', bizMessage: '获取用户列表失败' });
   }
 });
 
@@ -30,7 +31,7 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
     const { field, value, reason } = req.body;
 
     if (!field || value === undefined || value === null) {
-      return res.status(400).json({ error: '字段名和新值不能为空' });
+      return sendBizError(res, 'VALIDATION_ERROR', '字段名和新值不能为空', null);
     }
 
     const updatedUser = await userService.updateUserInfo(
@@ -41,14 +42,10 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
       reason
     );
 
-    res.json({
-      success: true,
-      message: '用户信息更新成功',
-      user: updatedUser
-    });
+    return sendOk(res, { user: updatedUser }, '用户信息更新成功');
   } catch (error) {
     console.error('修改用户信息失败:', error);
-    res.status(400).json({ error: error.message });
+    return sendError(res, error, { bizMessage: '修改用户信息失败' });
   }
 });
 
@@ -59,24 +56,15 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
     const { role, reason } = req.body;
 
     if (!role) {
-      return res.status(400).json({ error: '角色不能为空' });
+      return sendBizError(res, 'VALIDATION_ERROR', '角色不能为空', null);
     }
 
-    const updatedUser = await userService.updateUserRole(
-      req.user.id,
-      parseInt(userId, 10),
-      role,
-      reason
-    );
+    const updatedUser = await userService.updateUserRole(req.user.id, parseInt(userId, 10), role, reason);
 
-    res.json({
-      success: true,
-      message: '用户角色更新成功',
-      user: updatedUser
-    });
+    return sendOk(res, { user: updatedUser }, '用户角色更新成功');
   } catch (error) {
     console.error('修改用户角色失败:', error);
-    res.status(400).json({ error: error.message });
+    return sendError(res, error, { bizMessage: '修改用户角色失败' });
   }
 });
 
@@ -87,44 +75,41 @@ router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
     const { isActive } = req.body;
 
     if (typeof isActive !== 'boolean') {
-      return res.status(400).json({ error: 'isActive 必须为 boolean' });
+      return sendBizError(res, 'VALIDATION_ERROR', 'isActive 必须为 boolean', null);
     }
 
-    const updatedUser = await userService.updateUserActive(
-      req.user.id,
-      parseInt(userId, 10),
-      isActive
-    );
+    const updatedUser = await userService.updateUserActive(req.user.id, parseInt(userId, 10), isActive);
 
-    res.json({
-      success: true,
-      message: isActive ? '用户已解封' : '用户已封禁',
-      user: updatedUser
-    });
+    return sendOk(res, { user: updatedUser }, isActive ? '用户已解封' : '用户已封禁');
   } catch (error) {
     console.error('封禁/解封用户失败:', error);
-    res.status(400).json({ error: error.message });
+    return sendError(res, error, { bizMessage: '封禁/解封用户失败' });
   }
 });
 
 // 用户管理审计日志（仅系统管理员）
-router.get('/api/user-admin-audit-logs', authenticateToken, requirePermission('view_all_users'), async (req, res) => {
-  try {
-    const { action, targetUserId, operatorId, limit, offset } = req.query;
+router.get(
+  '/api/user-admin-audit-logs',
+  authenticateToken,
+  requirePermission('view_all_users'),
+  async (req, res) => {
+    try {
+      const { action, targetUserId, operatorId, limit, offset } = req.query;
 
-    const logs = await userService.getUserAdminAuditLogs({
-      action: action || null,
-      targetUserId: targetUserId || null,
-      operatorId: operatorId || null,
-      limit: limit || 200,
-      offset: offset || 0
-    });
+      const logs = await userService.getUserAdminAuditLogs({
+        action: action || null,
+        targetUserId: targetUserId || null,
+        operatorId: operatorId || null,
+        limit: limit || 200,
+        offset: offset || 0
+      });
 
-    res.json({ logs });
-  } catch (error) {
-    console.error('获取用户管理审计日志失败:', error);
-    res.status(500).json({ error: '获取用户管理审计日志失败' });
+      return sendOk(res, { logs }, 'ok');
+    } catch (error) {
+      console.error('获取用户管理审计日志失败:', error);
+      return sendError(res, error, { httpMessage: '获取用户管理审计日志失败', bizMessage: '获取用户管理审计日志失败' });
+    }
   }
-});
+);
 
 export default router;
