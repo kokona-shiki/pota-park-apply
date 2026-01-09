@@ -1,0 +1,19 @@
+curl 'https://api.pota.app/admin/park/edit' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: zh-CN,zh;q=0.9,ar-EG;q=0.8,ar;q=0.7,zh-TW;q=0.6,en-US;q=0.5,en;q=0.4,zh-HK;q=0.3,ja-JP;q=0.2,ja;q=0.1' \
+  -H 'authorization: eyJraWQiOiJORmJaeHMyTE5uS3ZUVGlUTFwvSGhZS1BiQlZQZjFHWnhESllMSFFyeURycz0iLCJhbGciOiJSUzI1NiJ9.eyJhdF9oYXNoIjoiMkhSdmNWVkVRRkJQaTg2bW5OWGh6ZyIsInN1YiI6IjdlN2ZmNjRkLTgwOWMtNDlmNS1iNWVmLTRmZjU5ZGJmMjRkYSIsInBvdGE6ZW1haWwiOiJiaDN4enRAR21haWwuY29tIiwicG90YTpncm91cHMiOiIiLCJjb2duaXRvOmdyb3VwcyI6WyJQYXJrIENyZWF0b3IiLCJQYXJrIE1hbmFnZXIgQ04iLCJQYXJrIE1hbmFnZXIgSEsiLCJQYXJrIE1hbmFnZXIgTU8iLCJQYXJrIE1hbmFnZXIgVFciLCJVcGxvYWQiXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy1lYXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtZWFzdC0yX25BNWpaMGtsaCIsImNvZ25pdG86dXNlcm5hbWUiOiI3ZTdmZjY0ZC04MDljLTQ5ZjUtYjVlZi00ZmY1OWRiZjI0ZGEiLCJhdWQiOiI3aGx1cWN0MG4ybmNraWI3aTdzZDU3NTNvYSIsImV2ZW50X2lkIjoiZjAxYzczOWYtMTUxOS00ODY1LTkyNmItMzE3MjQ4YjhiMjZjIiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE3NjYyODg1NTgsInBvdGE6ZnVsbG5hbWUiOiLnjovmlL8iLCJwb3RhOmlkIjoiMjQ0NDYiLCJwb3RhOmNhbGxzaWduIjoiQkgzWFpUIiwiZXhwIjoxNzY2Mjk1ODE0LCJpYXQiOjE3NjYyOTIyMTQsImVtYWlsIjoiMTI4OTQzNDQxM0BxcS5jb20ifQ.h-VlOgMWuRs0Nl4tL_FbBFOCWGgNpD8JijyRE6al2jM0nRlwug8xvGmuI5m1y_AXY6SOIrWFkmN280kKfxA-FNdTgmYmtY107TjJjg3b7BGxiyLdh_3MYTB49ZUrOsXFXelXTmToVgYle8tjrZxlhN6KxD2DOuv-bTIA3OFDSXp7LWu_Mju3lFDa1BHSFy6OO7fn6FRbkmHdJq7uIv15oni_aPETjKhLSuIGI1DUTHzjgzeY6Mn2QBhEIgldu9Pax7n6sGKQyNoixHdFJR6XmjLYzH-8oPEJjsodKFmjU1NKZwdpUDT91-oGjh7Auphl4uUivitK2LzfykGSsGbLRA' \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -H 'dnt: 1' \
+  -H 'origin: https://pota.app' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://pota.app/' \
+  -H 'sec-ch-ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-site' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36' \
+  --data-raw '{"prefix":"CN","reference":"CN-0806","entity":"China","name":"河南嵩山国家森林公园","parktype":"National Forest","locations":["CN-HA"],"latitude":34.5193,"longitude":113.02,"website":"","accessMethods":["Automobile","Foot","Other"],"activationMethods":["Automobile","Other","Pedestrian"],"comments":"","active":true}'
