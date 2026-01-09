@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "packageManager": "pnpm@8.15.0",
   "scripts": {
-    "dev:frontend": "pnpm --filter frontend dev",
-    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter ./frontend dev",
+    "dev:backend": "pnpm --filter ./backend dev",
     "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
-    "build": "pnpm --filter frontend build",
-    "lint": "pnpm --filter frontend lint",
+    "build": "pnpm --filter ./frontend build",
+    "lint": "pnpm --filter ./frontend lint",
     "clean": "pnpm -r clean",
     "reinstall": "pnpm -r clean && pnpm install"
   },
