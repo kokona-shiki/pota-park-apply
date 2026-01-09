@@ -1,12 +1,12 @@
 // src/components/TopBar.tsx
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { AppBar, Toolbar, IconButton, Typography, Avatar, Menu, MenuItem, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { useAuth } from '../auth/useAuth';
 
 function TopBar({ isSidebarOpen, setIsSidebarOpen }: any) {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
 

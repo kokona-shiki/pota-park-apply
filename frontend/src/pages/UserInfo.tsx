@@ -1,10 +1,11 @@
 // src/pages/UserInfo.tsx
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { Button, Box, Typography } from '@mui/material';
-import { AuthContext } from '../App';
+import { useAuth } from '../auth/useAuth';
+import { getApiErrorMessage } from '../utils/error';
 
 function UserInfo() {
-  const { user, refreshSession } = useContext(AuthContext);
+  const { user, refreshSession } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleRefreshRole = async () => {
@@ -13,7 +14,7 @@ function UserInfo() {
       await refreshSession();
       alert('刷新成功');
     } catch (e: any) {
-      alert(e?.response?.data?.error || e?.message || '刷新失败');
+      alert(getApiErrorMessage(e, '刷新失败'));
     } finally {
       setLoading(false);
     }

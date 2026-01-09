@@ -12,6 +12,41 @@ import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
 
+// CSP（安全补偿措施）：
+// - 禁用内联脚本：script-src 'self'
+// - 允许 Vite dev server 的 HMR/WebSocket（仅开发环境）
+// 注意：生产环境建议由反代/网关层注入 CSP，这里先在后端兜底。
+app.use((_req, res, next) => {
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  const connectSrc = ["'self'"];
+  if (isDev) {
+    // Vite HMR
+    connectSrc.push('ws:', 'wss:', 'http://localhost:*');
+  }
+
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "script-src 'self'",
+    `connect-src ${connectSrc.join(' ')}`,
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "form-action 'self'"
+  ].join('; ');
+
+  res.setHeader('Content-Security-Policy', csp);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'geolocation=(self)');
+
+  // 如果你未来把前端静态资源也交给后端托管，这里也适用。
+  next();
+});
+
 // 在反向代理/容器环境下获取真实客户端 IP
 // - 设为 1：信任一层代理（例如 Nginx / Vite dev server），避免 express-rate-limit 的 permissive trust proxy 报错
 app.set('trust proxy', 1);

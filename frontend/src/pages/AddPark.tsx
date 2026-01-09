@@ -24,6 +24,7 @@ import parkTypeMappingData from '../assets/park_type_mapping.json';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
+import { getApiErrorMessage } from '../utils/error';
 import L from 'leaflet';
 import regionData from '../assets/region.json';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -484,10 +485,8 @@ function AddPark() {
       console.error(err);
       if (err.code === 'ECONNABORTED') {
         setError('提交超时，请检查网络后重试');
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
       } else {
-        setError('提交失败，请检查网络后重试');
+        setError(getApiErrorMessage(err, '提交失败，请检查网络后重试'));
       }
       submitRequestRef.current = false;
     } finally {

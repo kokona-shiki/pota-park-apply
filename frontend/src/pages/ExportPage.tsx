@@ -1,14 +1,13 @@
 // src/pages/ExportPage.tsx
-import { useContext } from 'react';
 import { Button } from '@mui/material';
-import { AuthContext } from '../App';
 import axios from 'axios';
+import { useAuth } from '../auth/useAuth';
 
 type ExportType = 'csv' | 'kml';
 type ExportScope = 'self' | 'all';
 
 function ExportPage() {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const isAdmin =
     user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
 

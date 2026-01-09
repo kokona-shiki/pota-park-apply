@@ -1,6 +1,6 @@
 // src/pages/Home.tsx
-import { useEffect, useState, useRef, useContext } from 'react';
-import { AuthContext } from '../App';
+import { useEffect, useState, useRef } from 'react';
+import { useAuth } from '../auth/useAuth';
 import type { ChangeEvent } from 'react';
 import {
   Table,
@@ -24,7 +24,7 @@ type PotaPark = {
 };
 
 function Home() {
-  const { user, isAuthLoading } = useContext(AuthContext);
+  const { user, isAuthLoading } = useAuth();
 
   const [parks, setParks] = useState<PotaPark[]>([]);
   const [page, setPage] = useState(0);

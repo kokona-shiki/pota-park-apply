@@ -126,6 +126,11 @@ router.post('/api/login', authLimiter, async (req, res) => {
 // 刷新 token（refreshToken 重放检测 + rotation）
 router.post('/api/refresh-token', authLimiter, async (req, res) => {
   try {
+    if (process.env.NODE_ENV !== 'production') {
+      const tabId = req.get('X-Tab-Id') || null;
+      console.log('[refresh-token]', { tabId, ip: req.ip });
+    }
+
     const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');
 
     if (!refreshToken) {

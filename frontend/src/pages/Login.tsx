@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { useMemo, useState, useContext } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
@@ -18,7 +18,9 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AuthContext, REDIRECT_KEY } from '../App';
+import { REDIRECT_KEY } from '../auth/context';
+import { useAuth } from '../auth/useAuth';
+import { getApiErrorMessage } from '../utils/error';
 
 const AUTH_DATA_KEY = 'pota_auth_data'; // 与 App.tsx 保持一致
 
@@ -30,7 +32,7 @@ function Login() {
   const [error, setError] = useState<string | null>(null);
   const [dismissedReason, setDismissedReason] = useState(false);
 
-  const { setUser, setAccessToken } = useContext(AuthContext);
+  const { setUser, setAccessToken } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as any;
 
@@ -89,7 +91,7 @@ function Login() {
         navigate(redirectTo, { replace: true });
       })
       .catch((err) => {
-        setError(err?.response?.data?.error || '登录失败');
+        setError(getApiErrorMessage(err, '登录失败'));
       })
       .finally(() => {
         setSubmitting(false);

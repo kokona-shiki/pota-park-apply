@@ -1,5 +1,5 @@
 // src/pages/MyUploads.tsx
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Table,
@@ -11,7 +11,8 @@ import {
   Typography
 } from '@mui/material';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { useAuth } from '../auth/useAuth';
+import { getApiErrorMessage } from '../utils/error';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
 
@@ -28,7 +29,7 @@ type ParkApplication = {
 };
 
 function MyUploads() {
-  const { user, isAuthLoading } = useContext(AuthContext);
+  const { user, isAuthLoading } = useAuth();
 
   const [uploads, setUploads] = useState<ParkApplication[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,7 +61,7 @@ function MyUploads() {
         const res = await axios.get('/api/my-applications');
         setUploads(res.data?.applications || []);
       } catch (e: any) {
-        setError(e?.response?.data?.error || '获取我的上传失败');
+        setError(getApiErrorMessage(e, '获取我的上传失败'));
       } finally {
         setLoading(false);
       }

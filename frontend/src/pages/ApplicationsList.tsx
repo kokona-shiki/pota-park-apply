@@ -1,5 +1,5 @@
 // src/pages/ApplicationsList.tsx
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Table,
@@ -24,7 +24,8 @@ import {
   Divider
 } from '@mui/material';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { useAuth } from '../auth/useAuth';
+import { getApiErrorMessage } from '../utils/error';
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
 
@@ -53,7 +54,7 @@ type ParkApplicationDetail = ParkApplication & {
 };
 
 function ApplicationsList() {
-  const { user, isAuthLoading } = useContext(AuthContext);
+  const { user, isAuthLoading } = useAuth();
 
   const [applications, setApplications] = useState<ParkApplication[]>([]);
   const [filter, setFilter] = useState('all');
@@ -91,7 +92,8 @@ function ApplicationsList() {
     if (isAuthLoading || !user) return;
 
     console.log('[ApplicationsList] isAuthLoading:', isAuthLoading, 'user:', !!user, '开始请求数据');
-    console.log('[ApplicationsList] 当前 Authorization header:', axios.defaults.headers.common.Authorization?.substring(0, 50) + '...' || 'none');
+    const authHeader = axios.defaults.headers.common.Authorization;
+    console.log('[ApplicationsList] 当前 Authorization header:', authHeader ? String(authHeader).substring(0, 50) + '...' : 'none');
 
     // 使用 ref 确保组件挂载时只请求一次
     if (hasRequestedRef.current) return;
@@ -107,7 +109,7 @@ function ApplicationsList() {
         setApplications(res.data?.applications || []);
       } catch (e: any) {
         console.error('[ApplicationsList] 请求失败:', e?.response?.status, e?.response?.data);
-        setError(e?.response?.data?.error || '获取申请列表失败');
+        setError(getApiErrorMessage(e, '获取申请列表失败'));
       } finally {
         setLoading(false);
       }
@@ -146,7 +148,7 @@ function ApplicationsList() {
       const res = await axios.get(`/api/park-applications/${app.id}`);
       setSelected(res.data?.application || null);
     } catch (e: any) {
-      setDetailError(e?.response?.data?.error || '获取申请详情失败');
+      setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
     } finally {
       setDetailLoading(false);
     }
@@ -204,7 +206,7 @@ function ApplicationsList() {
 
       setDetailOpen(false);
     } catch (e: any) {
-      setDetailError(e?.response?.data?.error || '审核失败');
+      setDetailError(getApiErrorMessage(e, '审核失败'));
     } finally {
       setReviewSubmitting(false);
       reviewRequestRef.current[selected.id] = false;

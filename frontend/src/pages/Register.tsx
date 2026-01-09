@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiErrorMessage } from '../utils/error';
 
 function Register() {
   const [callsign, setCallsign] = useState('');
@@ -25,7 +26,7 @@ function Register() {
         navigate('/login', { replace: true, state: { from: location?.state?.from, reason: '注册成功，请使用新账号登录' } });
       })
       .catch((err) => {
-        setError(err?.response?.data?.error || '注册失败');
+        setError(getApiErrorMessage(err, '注册失败'));
       })
       .finally(() => {
         setSubmitting(false);

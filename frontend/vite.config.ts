@@ -10,9 +10,25 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.VITE_BACKEND_PORT || '3101'
   const backendTarget = `http://localhost:${backendPort}`
 
+  // NOTE:
+  // `@vitejs/plugin-react` 在开发时会往 `index.html` 注入一个“内联 preamble 脚本”以启用 React Refresh。
+  // 若 CSP 使用 `script-src 'self'` 禁止内联脚本，会导致浏览器报：
+  // "@vitejs/plugin-react can't detect preamble"。
+  // 因此：开发环境放宽 `script-src`；生产环境的 CSP 建议由反代/部署平台统一下发。
+  const csp =
+    mode === 'development'
+      ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
+      : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
+
   return {
     plugins: [react()],
     server: {
+      headers: {
+        'Content-Security-Policy': csp,
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'no-referrer'
+      },
+
       // 让前端用同域 /api 调用后端（避免 CORS，并支持 curl 直接打到 Vite 端口）
       proxy: {
         '/api': {

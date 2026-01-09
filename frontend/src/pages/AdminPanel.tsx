@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.tsx
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -20,7 +20,8 @@ import {
   Divider
 } from '@mui/material';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { useAuth } from '../auth/useAuth';
+import { getApiErrorMessage } from '../utils/error';
 
 const ROLE_OPTIONS = [
   { value: 'user', label: '普通用户' },
@@ -50,7 +51,7 @@ type UserAdminAuditLog = {
 };
 
 function AdminPanel() {
-  const { user: currentUser, isAuthLoading } = useContext(AuthContext);
+  const { user: currentUser, isAuthLoading } = useAuth();
   const [tab, setTab] = useState(0);
 
   const [users, setUsers] = useState<any[]>([]);
@@ -79,7 +80,7 @@ function AdminPanel() {
       const res = await axios.get('/api/users');
       setUsers(res.data.users || []);
     } catch (e: any) {
-      alert(e?.response?.data?.error || '获取用户列表失败');
+      alert(getApiErrorMessage(e, '获取用户列表失败'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +93,7 @@ function AdminPanel() {
       const res = await axios.get('/api/user-admin-audit-logs', { params: { limit: 200 } });
       setLogs(res.data.logs || []);
     } catch (e: any) {
-      setLogsError(e?.response?.data?.error || '获取操作日志失败');
+      setLogsError(getApiErrorMessage(e, '获取操作日志失败'));
     } finally {
       setLogsLoading(false);
     }
@@ -125,7 +126,7 @@ function AdminPanel() {
       const updated = res.data.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
-      alert(e?.response?.data?.error || '修改角色失败');
+      alert(getApiErrorMessage(e, '修改角色失败'));
     } finally {
       roleChangeRequestRef.current[targetUser.id] = false;
     }
@@ -140,7 +141,7 @@ function AdminPanel() {
       const updated = res.data.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
-      alert(e?.response?.data?.error || '封禁/解封失败');
+      alert(getApiErrorMessage(e, '封禁/解封失败'));
     } finally {
       activeChangeRequestRef.current[targetUser.id] = false;
     }
