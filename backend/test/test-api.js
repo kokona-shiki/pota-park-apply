@@ -1,7 +1,8 @@
 // 简单的 API 测试脚本
 import fetch from 'node-fetch';
 
-const BASE_URL = 'http://localhost:3001';
+const PORT = process.env.PORT || 3101;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // 测试基本接口
 async function testBasicEndpoints() {
@@ -110,7 +111,6 @@ async function testDatabaseEndpoints() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          dx_entity: 'K-9999',
           park_name: '测试公园',
           park_type: '测试类型',
           province_iso_code: 'CN-GD',
