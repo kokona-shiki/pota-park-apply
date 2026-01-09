@@ -1,5 +1,5 @@
 import { testConnection, getOne, closePool } from '../config/database.js';
-import { initializeDatabase, ensureInitialSystemAdmin } from '../config/initDatabase.js';
+import { initializeDatabase, ensureInitialSystemAdmin, migrateSchemaToLatest } from '../config/initDatabase.js';
 
 const init = async () => {
   console.log('🚀 开始初始化 POTA 公园申请系统数据库...');
@@ -35,10 +35,18 @@ const init = async () => {
         if (regs?.app_meta && regs?.users) {
           const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
 
-          if (schemaVersion?.value === '2') {
-            console.log('✅ 检测到数据库已初始化（schema_version=2），跳过建表/建索引，仅确保初始系统管理员存在...');
+          if (schemaVersion?.value === '3') {
+            console.log('✅ 检测到数据库已初始化（schema_version=3），跳过建表/建索引，仅确保初始系统管理员存在...');
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库检查完成！');
+            return;
+          }
+
+          if (schemaVersion?.value === '2') {
+            console.log('🛠️ 检测到旧数据库（schema_version=2），执行迁移（移除 dx_entity）后跳过建表/建索引...');
+            await migrateSchemaToLatest();
+            await ensureInitialSystemAdmin();
+            console.log('🎉 数据库迁移完成！');
             return;
           }
         }

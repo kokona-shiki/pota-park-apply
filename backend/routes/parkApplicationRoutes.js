@@ -11,7 +11,7 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
   try {
     const applicationData = req.body;
 
-    const requiredFields = ['dx_entity', 'park_name', 'province_iso_code', 'latitude', 'longitude'];
+    const requiredFields = ['park_name', 'province_iso_code', 'latitude', 'longitude'];
     const missingFields = requiredFields.filter((field) => !applicationData[field]);
 
     if (missingFields.length > 0) {

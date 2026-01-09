@@ -33,7 +33,7 @@ export const createTables = async () => {
     // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '2')
+      VALUES ('schema_version', '3')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -189,7 +189,6 @@ export const createTables = async () => {
     await query(`
       CREATE TABLE IF NOT EXISTS park_applications (
         id SERIAL PRIMARY KEY,
-        dx_entity VARCHAR(20) NOT NULL,
         park_name VARCHAR(255) NOT NULL,
         park_type VARCHAR(100),
         province_iso_code VARCHAR(10) NOT NULL REFERENCES provinces(iso_code),
@@ -231,26 +230,8 @@ export const createTables = async () => {
       )
     `);
 
-    // 兼容旧 schema：早期版本误把 dx_entity 做成了 UNIQUE（但它其实是 DXCC entity，可重复）
-    // 这里做一次幂等迁移：如果存在 (dx_entity) 的 unique constraint 就删除。
-    await query(`
-      DO $$
-      DECLARE
-        c TEXT;
-      BEGIN
-        SELECT conname INTO c
-        FROM pg_constraint
-        WHERE conrelid = 'park_applications'::regclass
-          AND contype = 'u'
-          AND pg_get_constraintdef(oid) LIKE '%(dx_entity)%'
-        LIMIT 1;
-
-        IF c IS NOT NULL THEN
-          EXECUTE format('ALTER TABLE park_applications DROP CONSTRAINT %I', c);
-        END IF;
-      END
-      $$;
-    `);
+    // 兼容旧 schema：移除早期版本遗留的 dx_entity 字段（现已废弃）
+    await query(`ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity`);
 
     // 8. 申请审核记录表
     await query(`
@@ -319,7 +300,6 @@ export const createIndexes = async () => {
     // 公园申请表索引
     await query('CREATE INDEX IF NOT EXISTS idx_park_location_4326 ON park_applications USING GIST (location)');
     await query('CREATE INDEX IF NOT EXISTS idx_park_name_text ON park_applications USING GIN (to_tsvector(\'chinese\', park_name))');
-    await query('CREATE INDEX IF NOT EXISTS idx_dx_entity ON park_applications(dx_entity)');
     await query('CREATE INDEX IF NOT EXISTS idx_applicant_status ON park_applications(applicant_id, status)');
     await query('CREATE INDEX IF NOT EXISTS idx_province_status ON park_applications(province_iso_code, status)');
     await query('CREATE INDEX IF NOT EXISTS idx_coordinates ON park_applications(latitude, longitude)');
@@ -465,6 +445,39 @@ export const createFunctionsAndTriggers = async () => {
     console.log('✅ 函数和触发器创建完成');
   } catch (error) {
     console.error('❌ 创建函数和触发器失败:', error);
+    throw error;
+  }
+};
+
+export const migrateSchemaToLatest = async () => {
+  try {
+    const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
+    const v = schemaVersion?.value;
+
+    if (!v || v === '3') {
+      return;
+    }
+
+    if (v === '2') {
+      console.log('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
+      await query('DROP INDEX IF EXISTS idx_dx_entity');
+      await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '3')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=3）');
+      return;
+    }
+
+    console.warn(`⚠️ 未识别的 schema_version: ${String(v)}`);
+  } catch (error) {
+    console.error('❌ schema 迁移失败:', error);
     throw error;
   }
 };
@@ -655,6 +668,7 @@ export const initializeData = async () => {
 export const initializeDatabase = async () => {
   try {
     await createTables();
+    await migrateSchemaToLatest();
     await createIndexes();
     await createFunctionsAndTriggers();
     await initializeData();

@@ -160,7 +160,6 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "dx_entity": "CN",  // DXCC entity（允许重复）
   "park_name": "广东中山国家森林公园",
   "park_type": "国家森林公园",
   "province_iso_code": "CN-GD",

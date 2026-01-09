@@ -4,7 +4,6 @@ import { checkUserPermission } from '../utils/auth.js';
 // 提交公园申请
 export const submitParkApplication = async (userId, applicationData) => {
   const {
-    dx_entity,
     park_name,
     park_type,
     province_iso_code,
@@ -29,7 +28,6 @@ export const submitParkApplication = async (userId, applicationData) => {
     throw err;
   }
   
-  // dx_entity 是 DXCC entity（允许重复），这里不做唯一性检查
   // 验证访问方法和激活方法格式
   if (!Array.isArray(access_methods) || access_methods.length === 0) {
     const err = new Error('至少需要选择一个访问方法');
@@ -49,16 +47,16 @@ export const submitParkApplication = async (userId, applicationData) => {
     // 创建公园申请
     const application = await client.query(`
       INSERT INTO park_applications (
-        dx_entity, park_name, park_type, province_iso_code,
+        park_name, park_type, province_iso_code,
         location, latitude, longitude, website, description,
         access_methods, activation_methods, applicant_id, confirmed_authenticity
       ) VALUES (
-        $1, $2, $3, $4,
-        ST_SetSRID(ST_MakePoint($6, $5), 4326), $5, $6, $7, $8,
-        $9, $10, $11, $12
+        $1, $2, $3,
+        ST_SetSRID(ST_MakePoint($5, $4), 4326), $4, $5, $6, $7,
+        $8, $9, $10, $11
       ) RETURNING *
     `, [
-      dx_entity, park_name, park_type, province_iso_code,
+      park_name, park_type, province_iso_code,
       latitude, longitude, website, description,
       JSON.stringify(access_methods), JSON.stringify(activation_methods),
       userId, confirmed_authenticity
@@ -404,7 +402,7 @@ export const createReviewReminder = async (userId, applicationId, reminderType, 
 export const getReviewReminders = async (userId, applicationId = null, acknowledged = null) => {
   let query = `
     SELECT rr.*, 
-           app.dx_entity, app.park_name,
+           app.park_name,
            reminder.email as reminded_by_email, reminder.callsign as reminded_by_callsign,
            reminded.email as reminded_to_email, reminded.callsign as reminded_to_callsign
     FROM review_reminders rr
