@@ -1,5 +1,6 @@
 // src/pages/AddPark.jsx
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -225,6 +226,7 @@ function AddPark() {
   const [mapCenter, setMapCenter] = useState<LatLngTuple>(savedState?.mapCenter || [39.9042, 116.4074]); // 北京
   const [mapZoom, setMapZoom] = useState(savedState?.mapZoom || 13);
   const submitRequestRef = useRef(false);
+  const navigate = useNavigate();
 
   // 保存表单状态到 localStorage
   const saveFormState = () => {
@@ -437,10 +439,53 @@ function AddPark() {
   };
 
   const handleSubmit = async () => {
-    if (!confirmed) {
-      setError('请确认公园真实性');
+    // 前端必填校验（避免无效请求）
+    const name = parkName.trim();
+    const dx = dxEntity.trim();
+    const type = parkType.trim();
+    const prov = province.trim();
+    const latNum = Number.parseFloat(String(latitude).trim());
+    const lonNum = Number.parseFloat(String(longitude).trim());
+    const access = (accessMethods || []).map((s) => String(s).trim()).filter(Boolean);
+    const activation = (activationMethods || []).map((s) => String(s).trim()).filter(Boolean);
+
+    if (!name) {
+      setError('请填写公园名称');
       return;
     }
+    if (!dx) {
+      setError('请选择 DX 实体');
+      return;
+    }
+    if (!type) {
+      setError('请选择公园类型');
+      return;
+    }
+    if (!prov) {
+      setError('请选择省份');
+      return;
+    }
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
+      setError('请填写有效的经纬度');
+      return;
+    }
+    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
+      setError('经纬度超出范围（纬度 -90～90，经度 -180～180）');
+      return;
+    }
+    if (access.length === 0) {
+      setError('请选择至少一个访问方法');
+      return;
+    }
+    if (activation.length === 0) {
+      setError('请选择至少一个激活方法');
+      return;
+    }
+    if (!confirmed) {
+      setError('请勾选确认公园真实性');
+      return;
+    }
+
     if (submitRequestRef.current) return;
 
     submitRequestRef.current = true;
@@ -464,23 +509,10 @@ function AddPark() {
       // 清除保存的表单状态
       clearFormState();
 
-      // 重置表单
-      setDxEntity('CN');
-      setParkName('');
-      setParkType('');
-      setProvince('');
-      setLatitude('');
-      setLongitude('');
-      setWebsite('');
-      setAccessMethods(['汽车', '步行', '其他']);
-      setActivationMethods(['步行', '车载', '其他']);
-      setConfirmed(false);
-      setIsPotaPark(false);
-      setSearchResults([]);
-      setMapCenter([39.9042, 116.4074]);
-      setMapZoom(13);
-
       submitRequestRef.current = false;
+
+      // 跳转到“我的上传”，让用户立刻看到已提交的申请
+      navigate('/my-uploads');
     } catch (err: any) {
       console.error(err);
       if (err.code === 'ECONNABORTED') {
@@ -883,7 +915,8 @@ function AddPark() {
             >
               <MapController center={mapCenter} onZoomChange={setMapZoom} />
               <MapBoundsController bounds={mapBounds} />
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {/* 通过后端同源代理加载瓦片，避免 CSP 放开外域 */}
+              <TileLayer url="/proxy-api/tiles/osm/{z}/{x}/{y}.png" />
               <LocationMarker />
               {mapPOIs.map((poi) => (
                 <Marker
