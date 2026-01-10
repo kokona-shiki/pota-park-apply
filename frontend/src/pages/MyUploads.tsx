@@ -17,6 +17,7 @@ import {
   LinearProgress,
   Paper,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
@@ -25,10 +26,12 @@ import {
   TablePagination,
   TableRow,
   TableSortLabel,
+  Tabs,
   TextField,
   Tooltip,
   Typography
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
@@ -100,6 +103,217 @@ type LatLngTuple = [number, number];
 function toFiniteNumber(input: unknown) {
   const n = Number.parseFloat(String(input));
   return Number.isFinite(n) ? n : null;
+}
+
+function truncateText(input: string, maxLen: number) {
+  const raw = String(input || '');
+  if (raw.length <= maxLen) return raw;
+  return raw.slice(0, maxLen).trimEnd() + '…';
+}
+
+type AuditFlowNodeId = 'submitted' | 'pending' | 'approved' | 'pota_synced' | 'rejected';
+
+const AUDIT_FLOW_LABELS: Record<AuditFlowNodeId, string> = {
+  submitted: '提交申请',
+  pending: '待审核',
+  approved: '已通过',
+  pota_synced: '已上传 POTA',
+  rejected: '未通过'
+};
+
+function getNormalFlowCurrentNext(status: ApplicationStatus): {
+  current: Extract<AuditFlowNodeId, 'submitted' | 'pending' | 'approved' | 'pota_synced'> | null;
+  next: Extract<AuditFlowNodeId, 'submitted' | 'pending' | 'approved' | 'pota_synced'> | null;
+} {
+  // 只高亮“正常流程”：提交申请 -> 待审核 -> 已通过 -> 已上传 POTA
+  switch (status) {
+    case 'pending':
+      return { current: 'pending', next: 'approved' };
+    case 'approved':
+      return { current: 'approved', next: 'pota_synced' };
+    case 'pota_synced':
+      return { current: 'pota_synced', next: null };
+    case 'rejected':
+      return { current: null, next: null };
+    default:
+      return { current: null, next: null };
+  }
+}
+
+function AuditFlowChart({ status }: { status: ApplicationStatus }) {
+  const theme = useTheme();
+  const { current, next } = getNormalFlowCurrentNext(status);
+
+  const baseFill = theme.palette.background.paper;
+  const baseStroke = theme.palette.divider;
+  const baseText = theme.palette.text.primary;
+
+  const currentFill = alpha(theme.palette.primary.main, 0.14);
+  const currentStroke = theme.palette.primary.main;
+  const currentText = theme.palette.primary.dark;
+
+  const nextFill = alpha(theme.palette.success.main, 0.14);
+  const nextStroke = theme.palette.success.main;
+  const nextText = theme.palette.success.dark;
+
+  const rejectedFill = alpha(theme.palette.error.main, 0.08);
+  const rejectedStroke = theme.palette.error.main;
+  const rejectedText = theme.palette.error.dark;
+
+  const nodes: Array<{ id: AuditFlowNodeId; x: number; y: number }> = [
+    { id: 'submitted', x: 20, y: 28 },
+    { id: 'pending', x: 190, y: 28 },
+    { id: 'approved', x: 360, y: 28 },
+    { id: 'pota_synced', x: 530, y: 28 },
+    // 分叉：未通过（不参与“正常流程”高亮）
+    { id: 'rejected', x: 190, y: 112 }
+  ];
+
+  const nodeW = 140;
+  const nodeH = 44;
+  const rx = 12;
+
+  const edges: Array<{ from: AuditFlowNodeId; to: AuditFlowNodeId }> = [
+    { from: 'submitted', to: 'pending' },
+    { from: 'pending', to: 'approved' },
+    { from: 'approved', to: 'pota_synced' },
+    { from: 'pending', to: 'rejected' }
+  ];
+
+  const getNodeStyle = (id: AuditFlowNodeId) => {
+    if (id === 'rejected') {
+      return { fill: rejectedFill, stroke: rejectedStroke, text: rejectedText };
+    }
+
+    if (id === current) {
+      return { fill: currentFill, stroke: currentStroke, text: currentText };
+    }
+
+    if (id === next) {
+      return { fill: nextFill, stroke: nextStroke, text: nextText };
+    }
+
+    return { fill: baseFill, stroke: baseStroke, text: baseText };
+  };
+
+  const findNode = (id: AuditFlowNodeId) => nodes.find((n) => n.id === id)!;
+
+  return (
+    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+      <Box sx={{ minWidth: 700 }}>
+        <svg
+          width="100%"
+          height={180}
+          viewBox="0 0 700 180"
+          role="img"
+          aria-label="审核流程图"
+          style={{ display: 'block' }}
+        >
+          <defs>
+            <marker
+              id="arrow"
+              markerWidth="10"
+              markerHeight="10"
+              refX="8"
+              refY="5"
+              orient="auto"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.palette.text.secondary} />
+            </marker>
+          </defs>
+
+          {edges.map((e) => {
+            const from = findNode(e.from);
+            const to = findNode(e.to);
+
+            // 默认：水平连接（从右侧中点 → 左侧中点）
+            let x1 = from.x + nodeW;
+            let y1 = from.y + nodeH / 2;
+            let x2 = to.x;
+            let y2 = to.y + nodeH / 2;
+
+            // 分叉边：从“待审核”下沿引出，走折线到“未通过”上沿，避免线条穿越节点内部。
+            if (e.from === 'pending' && e.to === 'rejected') {
+              x1 = from.x + nodeW / 2;
+              y1 = from.y + nodeH;
+              x2 = to.x + nodeW / 2;
+              y2 = to.y;
+            }
+
+            const elbowY = y1 + Math.max(10, Math.min(24, (y2 - y1) / 2));
+            const isBranch = e.from === 'pending' && e.to === 'rejected';
+
+            const d = isBranch
+              ? `M ${x1} ${y1} L ${x1} ${elbowY} L ${x2} ${elbowY} L ${x2} ${y2}`
+              : `M ${x1} ${y1} L ${x2} ${y2}`;
+
+            return (
+              <path
+                key={`${e.from}->${e.to}`}
+                d={d}
+                fill="none"
+                stroke={theme.palette.text.secondary}
+                strokeWidth={1.5}
+                markerEnd="url(#arrow)"
+                opacity={0.8}
+              />
+            );
+          })}
+
+          {nodes.map((n) => {
+            const st = getNodeStyle(n.id);
+
+            return (
+              <g key={n.id}>
+                <rect
+                  x={n.x}
+                  y={n.y}
+                  width={nodeW}
+                  height={nodeH}
+                  rx={rx}
+                  fill={st.fill}
+                  stroke={st.stroke}
+                  strokeWidth={n.id === current || n.id === next ? 2 : 1}
+                />
+                <text
+                  x={n.x + nodeW / 2}
+                  y={n.y + nodeH / 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={st.text}
+                  fontSize={13}
+                  fontFamily={theme.typography.fontFamily}
+                >
+                  {AUDIT_FLOW_LABELS[n.id]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </Box>
+
+      <Stack direction="row" spacing={1.5} sx={{ mt: 1 }} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.primary.main, 0.6) }} />
+          <Typography variant="caption" color="text.secondary">
+            当前节点（正常流程）
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.success.main, 0.6) }} />
+          <Typography variant="caption" color="text.secondary">
+            下一节点（正常流程）
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.error.main, 0.4) }} />
+          <Typography variant="caption" color="text.secondary">
+            未通过（分叉）
+          </Typography>
+        </Stack>
+      </Stack>
+    </Box>
+  );
 }
 
 function ResetViewControl({ center, zoom }: { center: LatLngTuple; zoom: number }) {
@@ -238,6 +452,21 @@ function MyUploads() {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<ParkApplication | null>(null);
+  const [flowTarget, setFlowTarget] = useState<ParkApplication | null>(null);
+  const [flowTab, setFlowTab] = useState(0);
+  const [auditLogs, setAuditLogs] = useState<Array<{
+    id: number;
+    action: string;
+    operator_email: string;
+    operator_callsign: string;
+    operator_role: string;
+    old_status: string | null;
+    new_status: string | null;
+    notes: string | null;
+    created_at: string;
+  }>>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
 
   const hasRequestedRef = useRef(false);
   const userIdRef = useRef<number | null>(null);
@@ -305,6 +534,40 @@ function MyUploads() {
     const next = Number.parseInt(e.target.value, 10);
     setRowsPerPage(next);
     setPage(0);
+  };
+
+  const loadAuditLogs = useCallback(async (applicationId: number) => {
+    try {
+      setAuditLogsLoading(true);
+      setAuditLogsError(null);
+      const res = await axios.get<{ logs?: Array<{
+        id: number;
+        action: string;
+        operator_email: string;
+        operator_callsign: string;
+        operator_role: string;
+        old_status: string | null;
+        new_status: string | null;
+        notes: string | null;
+        created_at: string;
+      }> }>(`/api/park-applications/${applicationId}/audit-logs`);
+      setAuditLogs(res.data?.logs ?? []);
+    } catch (e: unknown) {
+      setAuditLogsError(getApiErrorMessage(e, '获取审核记录失败'));
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }, []);
+
+  const handleFlowTargetChange = (app: ParkApplication | null) => {
+    setFlowTarget(app);
+    setFlowTab(0);
+    if (app) {
+      loadAuditLogs(app.id);
+    } else {
+      setAuditLogs([]);
+      setAuditLogsError(null);
+    }
   };
 
   return (
@@ -426,16 +689,22 @@ function MyUploads() {
               paged.map((app) => {
                 const statusMeta = getStatusMeta(app.status);
                 const notes = app.rejection_reason || app.pota_notes || '';
+                const notesPreview = notes ? truncateText(notes, 48) : '';
+                const showNotesTooltip = !!notes && notesPreview !== notes;
 
                 return (
                   <TableRow key={app.id} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(app.created_at)}</TableCell>
-                    <TableCell>
-                      <Tooltip title={app.park_name || ''} placement="top" arrow>
-                        <Typography noWrap sx={{ maxWidth: 260 }}>
-                          {app.park_name || '-'}
-                        </Typography>
-                      </Tooltip>
+                    <TableCell sx={{ maxWidth: 360 }}>
+                      <Typography
+                        sx={{
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere'
+                        }}
+                      >
+                        {app.park_name || '-'}
+                      </Typography>
                     </TableCell>
                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>{app.province_name || '-'}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -444,20 +713,46 @@ function MyUploads() {
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{app.status === 'pota_synced' ? '是' : '否'}</TableCell>
                     <TableCell>
                       {notes ? (
-                        <Tooltip title={notes} placement="top" arrow>
+                        showNotesTooltip ? (
+                          <Tooltip title={notes} placement="top" arrow>
+                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                              <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                              <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 280 }}>
+                                {notesPreview}
+                              </Typography>
+                            </Stack>
+                          </Tooltip>
+                        ) : (
                           <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
                             <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                             <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 280 }}>
-                              {notes}
+                              {notesPreview}
                             </Typography>
                           </Stack>
-                        </Tooltip>
+                        )
                       ) : (
                         <Typography color="text.secondary">-</Typography>
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ justifyContent: 'flex-end', alignItems: { sm: 'center' } }}
+                      >
+                        <Button
+                          size="small"
+                          variant="text"
+                          sx={{
+                            minWidth: 112,
+                            px: 1.25,
+                            py: 0.5,
+                            justifyContent: 'flex-end'
+                          }}
+                          onClick={() => handleFlowTargetChange(app)}
+                        >
+                          流程信息
+                        </Button>
                         <Button
                           size="small"
                           sx={{
@@ -470,7 +765,7 @@ function MyUploads() {
                         >
                           详情
                         </Button>
-                      </Box>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 );
@@ -607,6 +902,140 @@ function MyUploads() {
           >
             关闭
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!flowTarget}
+        onClose={() => handleFlowTargetChange(null)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>流程信息</DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          {flowTarget ? (
+            <Box>
+              <Tabs value={flowTab} onChange={(_, newValue) => setFlowTab(newValue)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tab label="流程图" />
+                <Tab label="流程节点变动信息" />
+              </Tabs>
+
+              <Box sx={{ p: 2 }}>
+                {flowTab === 0 && (
+                  <Stack spacing={1.5}>
+                    <Typography variant="body2" color="text.secondary">
+                      当前状态：{getStatusMeta(flowTarget.status).label}
+                    </Typography>
+
+                    {flowTarget.status === 'rejected' ? (
+                      <Alert severity="info" variant="outlined">
+                        该申请当前处于"未通过"，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传 POTA）上，因此不会高亮当前/下一节点。
+                      </Alert>
+                    ) : null}
+
+                    <AuditFlowChart status={flowTarget.status} />
+                  </Stack>
+                )}
+
+                {flowTab === 1 && (
+                  <Stack spacing={2}>
+                    {auditLogsLoading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                        <CircularProgress />
+                      </Box>
+                    ) : auditLogsError ? (
+                      <Alert severity="error" onClose={() => setAuditLogsError(null)}>
+                        {auditLogsError}
+                      </Alert>
+                    ) : auditLogs.length === 0 ? (
+                      <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                        暂无流程节点变动记录
+                      </Typography>
+                    ) : (
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>时间</TableCell>
+                              <TableCell>操作</TableCell>
+                              <TableCell>操作者</TableCell>
+                              <TableCell>角色</TableCell>
+                              <TableCell>旧状态</TableCell>
+                              <TableCell>新状态</TableCell>
+                              <TableCell>备注</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {auditLogs.map((log) => {
+                              const getActionLabel = (action: string) => {
+                                switch (action) {
+                                  case 'submitted':
+                                    return '提交申请';
+                                  case 'approved':
+                                    return '审核通过';
+                                  case 'rejected':
+                                    return '审核拒绝';
+                                  case 'reverted_approved':
+                                    return '重新审核通过';
+                                  case 'reverted_rejected':
+                                    return '重新审核拒绝';
+                                  case 'pota_synced':
+                                    return '同步到 POTA';
+                                  default:
+                                    return action;
+                                }
+                              };
+
+                              const getStatusLabel = (status: string | null) => {
+                                if (!status) return '-';
+                                return getStatusMeta(status as ApplicationStatus).label;
+                              };
+
+                              return (
+                                <TableRow key={log.id}>
+                                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                    {formatDateTime(log.created_at)}
+                                  </TableCell>
+                                  <TableCell>{getActionLabel(log.action)}</TableCell>
+                                  <TableCell>
+                                    {log.operator_callsign || log.operator_email || '-'}
+                                  </TableCell>
+                                  <TableCell>{log.operator_role || '-'}</TableCell>
+                                  <TableCell>{getStatusLabel(log.old_status)}</TableCell>
+                                  <TableCell>{getStatusLabel(log.new_status)}</TableCell>
+                                  <TableCell>
+                                    {log.notes ? (
+                                      <Tooltip title={log.notes} placement="top" arrow>
+                                        <Typography
+                                          noWrap
+                                          sx={{
+                                            color: 'text.secondary',
+                                            maxWidth: 200,
+                                            cursor: 'help'
+                                          }}
+                                        >
+                                          {log.notes}
+                                        </Typography>
+                                      </Tooltip>
+                                    ) : (
+                                      <Typography color="text.secondary">-</Typography>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )}
+                  </Stack>
+                )}
+              </Box>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => handleFlowTargetChange(null)}>关闭</Button>
         </DialogActions>
       </Dialog>
     </Paper>
