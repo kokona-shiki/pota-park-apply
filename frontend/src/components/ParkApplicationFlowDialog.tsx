@@ -24,6 +24,7 @@ import axios from 'axios';
 import type { ParkApplication, AuditLog, ApplicationStatus } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { getApiErrorMessage } from '../utils/error';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 type AuditFlowNodeId = 'submitted' | 'pending' | 'approved' | 'pota_synced' | 'rejected';
 
@@ -339,7 +340,7 @@ export function ParkApplicationFlowDialog({
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(log.created_at)}</TableCell>
                         <TableCell>{log.action}</TableCell>
                         <TableCell>
-                          {log.operator_callsign} ({log.operator_role})
+                          {log.operator_callsign} ({getRoleDisplayName(log.operator_role)})
                         </TableCell>
                         <TableCell>
                           {log.old_status ? `${log.old_status} → ${log.new_status}` : log.new_status}

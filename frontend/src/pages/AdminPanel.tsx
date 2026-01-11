@@ -22,14 +22,9 @@ import {
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
+import { getRoleOptions, getRoleDisplayName } from '../utils/roleDisplay';
 
-const ROLE_OPTIONS = [
-  { value: 'user', label: '普通用户' },
-  { value: 'park_reviewer', label: '地图审核员' },
-  { value: 'pota_representative', label: 'POTA地图代表' },
-  { value: 'system_admin', label: '系统管理员' },
-  { value: 'banned', label: '封禁用户(可登录但权限受限)' }
-];
+const ROLE_OPTIONS = getRoleOptions();
 
 type UserAdminAuditLog = {
   id: number;
@@ -255,8 +250,8 @@ function AdminPanel() {
                       <TableCell>{new Date(l.created_at).toLocaleString()}</TableCell>
                       <TableCell>{l.operator_callsign || l.operator_email || '-'}</TableCell>
                       <TableCell>{l.target_callsign || l.target_email || '-'}</TableCell>
-                      <TableCell>{l.old_role || '-'}</TableCell>
-                      <TableCell>{l.new_role || '-'}</TableCell>
+                      <TableCell>{l.old_role ? getRoleDisplayName(l.old_role) : '-'}</TableCell>
+                      <TableCell>{l.new_role ? getRoleDisplayName(l.new_role) : '-'}</TableCell>
                       <TableCell>{l.reason || '-'}</TableCell>
                     </TableRow>
                   ))}
