@@ -27,11 +27,12 @@ interface SideBarProps {
   isPotaRepresentative: boolean;
 }
 
-function SideBar({ isOpen, isAdmin, isSysAdmin, isPotaRepresentative }: SideBarProps) {
+function SideBar({ isOpen, isAdmin: _isAdmin, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
 
   // 系统管理员只能进行用户管理，不显示其他功能入口
+  // _isAdmin 参数保留以符合接口定义，未来可能需要使用
 
   return (
     <>

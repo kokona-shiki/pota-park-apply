@@ -1,4 +1,4 @@
-import { TileProviderType, GeocodingProviderType } from '../services/map/types';
+import { TileProviderType } from '../services/map/types';
 
 /**
  * 从环境变量读取地图服务提供商
@@ -15,11 +15,10 @@ export const getMapProvider = (): 'osm' | 'amap' | 'baidu' => {
  * 当前地图配置
  */
 export const mapConfig = {
-  tileProvider: getMapProvider() as TileProviderType,
-  geocodingProvider: getMapProvider() as GeocodingProviderType,
+  provider: getMapProvider() as TileProviderType,
   defaultCenter: {
     latitude: 39.9042,
-    longitude: 116.4074
+    longitude: 116.4074,
   },
-  defaultZoom: 13
+  defaultZoom: 13,
 };

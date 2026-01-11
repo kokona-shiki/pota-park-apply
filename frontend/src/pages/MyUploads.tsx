@@ -7,436 +7,29 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   IconButton,
   InputAdornment,
   LinearProgress,
   Paper,
   Stack,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TableSortLabel,
-  Tabs,
   TextField,
-  Tooltip,
-  Typography
+  Typography,
 } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
-import type { SxProps, Theme } from '@mui/material/styles';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import axios from 'axios';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import shadow from 'leaflet/dist/images/marker-shadow.png';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
-
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: iconRetina,
-  iconUrl: icon,
-  shadowUrl: shadow
-});
-
-type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
-
-type ParkApplication = {
-  id: number;
-  park_name: string;
-  province_name: string;
-  status: ApplicationStatus;
-  created_at: string;
-
-  latitude?: number | string | null;
-  longitude?: number | string | null;
-
-  rejection_reason?: string | null;
-  pota_notes?: string | null;
-};
+import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
+import { ParkApplicationTable } from '../components/ParkApplicationTable';
+import { ParkApplicationDetailDialog } from '../components/ParkApplicationDetailDialog';
+import { ParkApplicationFlowDialog } from '../components/ParkApplicationFlowDialog';
+import { stableSort } from '../utils/parkApplication';
 
 type Order = 'asc' | 'desc';
 type OrderBy = 'created_at' | 'park_name' | 'province_name' | 'status';
-
-type HeadCell = {
-  id: OrderBy;
-  label: string;
-  sortable?: boolean;
-  align?: 'left' | 'right' | 'center' | 'inherit' | 'justify';
-  sx?: SxProps<Theme>;
-};
-
-const STATUS_RANK: Record<ApplicationStatus, number> = {
-  pending: 1,
-  approved: 2,
-  pota_synced: 3,
-  rejected: 4
-};
-
-const HEAD_CELLS: HeadCell[] = [
-  { id: 'created_at', label: '上传时间', sortable: true, sx: { whiteSpace: 'nowrap' } },
-  { id: 'park_name', label: '公园名称', sortable: true },
-  { id: 'province_name', label: '省份', sortable: true, sx: { whiteSpace: 'nowrap', display: { xs: 'none', sm: 'table-cell' } } },
-  { id: 'status', label: '状态', sortable: true, sx: { whiteSpace: 'nowrap' } }
-];
-
-const DEFAULT_DETAIL_MAP_ZOOM = 13;
-
-type LatLngTuple = [number, number];
-
-function toFiniteNumber(input: unknown) {
-  const n = Number.parseFloat(String(input));
-  return Number.isFinite(n) ? n : null;
-}
-
-function truncateText(input: string, maxLen: number) {
-  const raw = String(input || '');
-  if (raw.length <= maxLen) return raw;
-  return raw.slice(0, maxLen).trimEnd() + '…';
-}
-
-type AuditFlowNodeId = 'submitted' | 'pending' | 'approved' | 'pota_synced' | 'rejected';
-
-const AUDIT_FLOW_LABELS: Record<AuditFlowNodeId, string> = {
-  submitted: '提交申请',
-  pending: '待审核',
-  approved: '已通过',
-  pota_synced: '已上传 POTA',
-  rejected: '未通过'
-};
-
-function getNormalFlowCurrentNext(status: ApplicationStatus): {
-  current: Extract<AuditFlowNodeId, 'submitted' | 'pending' | 'approved' | 'pota_synced'> | null;
-  next: Extract<AuditFlowNodeId, 'submitted' | 'pending' | 'approved' | 'pota_synced'> | null;
-} {
-  // 只高亮“正常流程”：提交申请 -> 待审核 -> 已通过 -> 已上传 POTA
-  switch (status) {
-    case 'pending':
-      return { current: 'pending', next: 'approved' };
-    case 'approved':
-      return { current: 'approved', next: 'pota_synced' };
-    case 'pota_synced':
-      return { current: 'pota_synced', next: null };
-    case 'rejected':
-      return { current: null, next: null };
-    default:
-      return { current: null, next: null };
-  }
-}
-
-function AuditFlowChart({ status }: { status: ApplicationStatus }) {
-  const theme = useTheme();
-  const { current, next } = getNormalFlowCurrentNext(status);
-
-  const baseFill = theme.palette.background.paper;
-  const baseStroke = theme.palette.divider;
-  const baseText = theme.palette.text.primary;
-
-  const currentFill = alpha(theme.palette.primary.main, 0.14);
-  const currentStroke = theme.palette.primary.main;
-  const currentText = theme.palette.primary.dark;
-
-  const nextFill = alpha(theme.palette.success.main, 0.14);
-  const nextStroke = theme.palette.success.main;
-  const nextText = theme.palette.success.dark;
-
-  const rejectedFill = alpha(theme.palette.error.main, 0.08);
-  const rejectedStroke = theme.palette.error.main;
-  const rejectedText = theme.palette.error.dark;
-
-  const nodes: Array<{ id: AuditFlowNodeId; x: number; y: number }> = [
-    { id: 'submitted', x: 20, y: 28 },
-    { id: 'pending', x: 190, y: 28 },
-    { id: 'approved', x: 360, y: 28 },
-    { id: 'pota_synced', x: 530, y: 28 },
-    // 分叉：未通过（不参与“正常流程”高亮）
-    { id: 'rejected', x: 190, y: 112 }
-  ];
-
-  const nodeW = 140;
-  const nodeH = 44;
-  const rx = 12;
-
-  const edges: Array<{ from: AuditFlowNodeId; to: AuditFlowNodeId }> = [
-    { from: 'submitted', to: 'pending' },
-    { from: 'pending', to: 'approved' },
-    { from: 'approved', to: 'pota_synced' },
-    { from: 'pending', to: 'rejected' }
-  ];
-
-  const getNodeStyle = (id: AuditFlowNodeId) => {
-    if (id === 'rejected') {
-      return { fill: rejectedFill, stroke: rejectedStroke, text: rejectedText };
-    }
-
-    if (id === current) {
-      return { fill: currentFill, stroke: currentStroke, text: currentText };
-    }
-
-    if (id === next) {
-      return { fill: nextFill, stroke: nextStroke, text: nextText };
-    }
-
-    return { fill: baseFill, stroke: baseStroke, text: baseText };
-  };
-
-  const findNode = (id: AuditFlowNodeId) => nodes.find((n) => n.id === id)!;
-
-  return (
-    <Box sx={{ width: '100%', overflowX: 'auto' }}>
-      <Box sx={{ minWidth: 700 }}>
-        <svg
-          width="100%"
-          height={180}
-          viewBox="0 0 700 180"
-          role="img"
-          aria-label="审核流程图"
-          style={{ display: 'block' }}
-        >
-          <defs>
-            <marker
-              id="arrow"
-              markerWidth="10"
-              markerHeight="10"
-              refX="8"
-              refY="5"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.palette.text.secondary} />
-            </marker>
-          </defs>
-
-          {edges.map((e) => {
-            const from = findNode(e.from);
-            const to = findNode(e.to);
-
-            // 默认：水平连接（从右侧中点 → 左侧中点）
-            let x1 = from.x + nodeW;
-            let y1 = from.y + nodeH / 2;
-            let x2 = to.x;
-            let y2 = to.y + nodeH / 2;
-
-            // 分叉边：从“待审核”下沿引出，走折线到“未通过”上沿，避免线条穿越节点内部。
-            if (e.from === 'pending' && e.to === 'rejected') {
-              x1 = from.x + nodeW / 2;
-              y1 = from.y + nodeH;
-              x2 = to.x + nodeW / 2;
-              y2 = to.y;
-            }
-
-            const elbowY = y1 + Math.max(10, Math.min(24, (y2 - y1) / 2));
-            const isBranch = e.from === 'pending' && e.to === 'rejected';
-
-            const d = isBranch
-              ? `M ${x1} ${y1} L ${x1} ${elbowY} L ${x2} ${elbowY} L ${x2} ${y2}`
-              : `M ${x1} ${y1} L ${x2} ${y2}`;
-
-            return (
-              <path
-                key={`${e.from}->${e.to}`}
-                d={d}
-                fill="none"
-                stroke={theme.palette.text.secondary}
-                strokeWidth={1.5}
-                markerEnd="url(#arrow)"
-                opacity={0.8}
-              />
-            );
-          })}
-
-          {nodes.map((n) => {
-            const st = getNodeStyle(n.id);
-
-            return (
-              <g key={n.id}>
-                <rect
-                  x={n.x}
-                  y={n.y}
-                  width={nodeW}
-                  height={nodeH}
-                  rx={rx}
-                  fill={st.fill}
-                  stroke={st.stroke}
-                  strokeWidth={n.id === current || n.id === next ? 2 : 1}
-                />
-                <text
-                  x={n.x + nodeW / 2}
-                  y={n.y + nodeH / 2}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill={st.text}
-                  fontSize={13}
-                  fontFamily={theme.typography.fontFamily}
-                >
-                  {AUDIT_FLOW_LABELS[n.id]}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </Box>
-
-      <Stack direction="row" spacing={1.5} sx={{ mt: 1 }} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.primary.main, 0.6) }} />
-          <Typography variant="caption" color="text.secondary">
-            当前节点（正常流程）
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.success.main, 0.6) }} />
-          <Typography variant="caption" color="text.secondary">
-            下一节点（正常流程）
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.error.main, 0.4) }} />
-          <Typography variant="caption" color="text.secondary">
-            未通过（分叉）
-          </Typography>
-        </Stack>
-      </Stack>
-    </Box>
-  );
-}
-
-function ResetViewControl({ center, zoom }: { center: LatLngTuple; zoom: number }) {
-  const map = useMap();
-  const [lat, lon] = center;
-
-  useEffect(() => {
-    const ResetControl = L.Control.extend({
-      onAdd: () => {
-        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-        const btn = L.DomUtil.create('a', 'leaflet-control-reset-view', container);
-
-        btn.href = '#';
-        btn.title = '回位';
-        btn.setAttribute('role', 'button');
-        btn.setAttribute('aria-label', '回位');
-
-        // 使用 SVG 画“准星”，线条更粗且可精确居中
-        btn.innerHTML = `
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-            <circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2" />
-            <line x1="9" y1="1.5" x2="9" y2="5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <line x1="9" y1="13" x2="9" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <line x1="1.5" y1="9" x2="5" y2="9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <line x1="13" y1="9" x2="16.5" y2="9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <circle cx="9" cy="9" r="0.9" fill="currentColor" />
-          </svg>
-        `;
-
-        // 让按钮尺寸/排版更接近 Leaflet 默认缩放按钮，并保证图标严格居中
-        btn.style.width = '30px';
-        btn.style.height = '30px';
-        btn.style.display = 'flex';
-        btn.style.alignItems = 'center';
-        btn.style.justifyContent = 'center';
-        btn.style.lineHeight = 'normal';
-        btn.style.color = '#000';
-
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-        L.DomEvent.on(btn, 'click', (e) => {
-          L.DomEvent.preventDefault(e);
-          L.DomEvent.stopPropagation(e);
-          map.setView([lat, lon], zoom);
-        });
-
-        return container;
-      }
-    });
-
-    const control = new ResetControl({ position: 'bottomright' }) as L.Control;
-    control.addTo(map);
-
-    return () => {
-      control.remove();
-    };
-  }, [map, lat, lon, zoom]);
-
-  return null;
-}
-
-function formatDateTime(input: string) {
-  const d = new Date(input);
-  if (Number.isNaN(d.getTime())) return input;
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(d);
-}
-
-function getStatusMeta(status: ApplicationStatus) {
-  switch (status) {
-    case 'pending':
-      return { label: '待审核', color: 'warning' as const };
-    case 'approved':
-      return { label: '已通过（待上传）', color: 'info' as const };
-    case 'pota_synced':
-      return { label: '已上传 POTA', color: 'success' as const };
-    case 'rejected':
-      return { label: '未通过', color: 'error' as const };
-    default:
-      return { label: status, color: 'default' as const };
-  }
-}
-
-function getComparableValue(app: ParkApplication, orderBy: OrderBy) {
-  switch (orderBy) {
-    case 'created_at':
-      return new Date(app.created_at).getTime();
-    case 'park_name':
-      return app.park_name;
-    case 'province_name':
-      return app.province_name;
-    case 'status':
-      return STATUS_RANK[app.status] ?? 999;
-    default:
-      return '';
-  }
-}
-
-function compare(a: ParkApplication, b: ParkApplication, orderBy: OrderBy) {
-  const va = getComparableValue(a, orderBy);
-  const vb = getComparableValue(b, orderBy);
-
-  if (typeof va === 'number' && typeof vb === 'number') {
-    return va - vb;
-  }
-
-  return String(va).localeCompare(String(vb), 'zh-CN');
-}
-
-function stableSort(items: ParkApplication[], order: Order, orderBy: OrderBy) {
-  const stabilized = items.map((el, index) => [el, index] as const);
-  stabilized.sort((a, b) => {
-    const cmp = compare(a[0], b[0], orderBy);
-    if (cmp !== 0) return order === 'asc' ? cmp : -cmp;
-    return a[1] - b[1];
-  });
-  return stabilized.map((el) => el[0]);
-}
 
 function MyUploads() {
   const { user, isAuthLoading } = useAuth();
@@ -451,22 +44,10 @@ function MyUploads() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<ParkApplication | null>(null);
+  const [selected, setSelected] = useState<ParkApplicationDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [flowTarget, setFlowTarget] = useState<ParkApplication | null>(null);
-  const [flowTab, setFlowTab] = useState(0);
-  const [auditLogs, setAuditLogs] = useState<Array<{
-    id: number;
-    action: string;
-    operator_email: string;
-    operator_callsign: string;
-    operator_role: string;
-    old_status: string | null;
-    new_status: string | null;
-    notes: string | null;
-    created_at: string;
-  }>>([]);
-  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
-  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
 
   const hasRequestedRef = useRef(false);
   const userIdRef = useRef<number | null>(null);
@@ -509,18 +90,18 @@ function MyUploads() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return uploads;
-    return uploads.filter((u) => String(u.park_name || '').toLowerCase().includes(q));
+    return uploads.filter((u) =>
+      String(u.park_name || '')
+        .toLowerCase()
+        .includes(q)
+    );
   }, [query, uploads]);
 
   const sorted = useMemo(() => stableSort(filtered, order, orderBy), [filtered, order, orderBy]);
-  const paged = useMemo(() => {
-    const start = page * rowsPerPage;
-    return sorted.slice(start, start + rowsPerPage);
-  }, [page, rowsPerPage, sorted]);
 
   const pendingCount = filtered.filter((u) => u.status === 'pending').length;
 
-  const handleRequestSort = (_: MouseEvent, property: OrderBy) => {
+  const handleRequestSort = (_: MouseEvent<unknown>, property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
@@ -536,39 +117,25 @@ function MyUploads() {
     setPage(0);
   };
 
-  const loadAuditLogs = useCallback(async (applicationId: number) => {
+  const handleDetailClick = useCallback(async (app: ParkApplication) => {
+    setSelected(null);
+    setDetailError(null);
     try {
-      setAuditLogsLoading(true);
-      setAuditLogsError(null);
-      const res = await axios.get<{ logs?: Array<{
-        id: number;
-        action: string;
-        operator_email: string;
-        operator_callsign: string;
-        operator_role: string;
-        old_status: string | null;
-        new_status: string | null;
-        notes: string | null;
-        created_at: string;
-      }> }>(`/api/park-applications/${applicationId}/audit-logs`);
-      setAuditLogs(res.data?.logs ?? []);
+      setDetailLoading(true);
+      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
+        `/api/park-applications/${app.id}`
+      );
+      setSelected(res.data?.application ?? null);
     } catch (e: unknown) {
-      setAuditLogsError(getApiErrorMessage(e, '获取审核记录失败'));
+      setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
     } finally {
-      setAuditLogsLoading(false);
+      setDetailLoading(false);
     }
   }, []);
 
-  const handleFlowTargetChange = (app: ParkApplication | null) => {
+  const handleFlowClick = useCallback((app: ParkApplication) => {
     setFlowTarget(app);
-    setFlowTab(0);
-    if (app) {
-      loadAuditLogs(app.id);
-    } else {
-      setAuditLogs([]);
-      setAuditLogsError(null);
-    }
-  };
+  }, []);
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
@@ -583,11 +150,19 @@ function MyUploads() {
             <Typography variant="h5">我的上传</Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 1 }}>
               <Chip size="small" label={`显示 ${filtered.length} / ${uploads.length} 条`} />
-              <Chip size="small" color={pendingCount > 0 ? 'warning' : 'default'} label={`待审核 ${pendingCount} 条`} />
+              <Chip
+                size="small"
+                color={pendingCount > 0 ? 'warning' : 'default'}
+                label={`待审核 ${pendingCount} 条`}
+              />
             </Stack>
           </Box>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
             <TextField
               size="small"
               value={query}
@@ -596,24 +171,30 @@ function MyUploads() {
                 setPage(0);
               }}
               placeholder="按公园名称搜索"
-              inputProps={{ 'aria-label': '按公园名称搜索' }}
               sx={{ minWidth: { xs: '100%', sm: 260 } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: query ? (
-                  <InputAdornment position="end">
-                    <IconButton aria-label="清空搜索" size="small" onClick={() => {
-                      setQuery('');
-                      setPage(0);
-                    }}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null
+              slotProps={{
+                input: {
+                  'aria-label': '按公园名称搜索',
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: query ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="清空搜索"
+                        size="small"
+                        onClick={() => {
+                          setQuery('');
+                          setPage(0);
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                },
               }}
             />
 
@@ -638,406 +219,41 @@ function MyUploads() {
       {loading && <LinearProgress />}
       <Divider />
 
-      <TableContainer sx={{ maxHeight: 640 }}>
-        <Table stickyHeader size="small" aria-label="我的上传表格" sx={{ minWidth: 760 }}>
-          <TableHead>
-            <TableRow>
-              {HEAD_CELLS.map((headCell) => (
-                <TableCell
-                  key={headCell.id}
-                  sortDirection={orderBy === headCell.id ? order : false}
-                  align={headCell.align}
-                  sx={headCell.sx}
-                >
-                  {headCell.sortable ? (
-                    <TableSortLabel
-                      active={orderBy === headCell.id}
-                      direction={orderBy === headCell.id ? order : 'asc'}
-                      onClick={(e) => handleRequestSort(e, headCell.id)}
-                    >
-                      {headCell.label}
-                    </TableSortLabel>
-                  ) : (
-                    headCell.label
-                  )}
-                </TableCell>
-              ))}
-
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>同步到 POTA</TableCell>
-              <TableCell>备注</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', pr: 1.25 }}>操作</Box>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {!loading && paged.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={HEAD_CELLS.length + 3} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">
-                    {query.trim() ? '未找到匹配的公园' : '暂无上传记录'}
-                  </Typography>
-                  {query.trim() && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      关键词：{query.trim()}
-                    </Typography>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              paged.map((app) => {
-                const statusMeta = getStatusMeta(app.status);
-                const notes = app.rejection_reason || app.pota_notes || '';
-                const notesPreview = notes ? truncateText(notes, 48) : '';
-                const showNotesTooltip = !!notes && notesPreview !== notes;
-
-                return (
-                  <TableRow key={app.id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(app.created_at)}</TableCell>
-                    <TableCell sx={{ maxWidth: 360 }}>
-                      <Typography
-                        sx={{
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'anywhere'
-                        }}
-                      >
-                        {app.park_name || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>{app.province_name || '-'}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Chip size="small" label={statusMeta.label} color={statusMeta.color} variant="outlined" />
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{app.status === 'pota_synced' ? '是' : '否'}</TableCell>
-                    <TableCell>
-                      {notes ? (
-                        showNotesTooltip ? (
-                          <Tooltip title={notes} placement="top" arrow>
-                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                              <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                              <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 280 }}>
-                                {notesPreview}
-                              </Typography>
-                            </Stack>
-                          </Tooltip>
-                        ) : (
-                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                            <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 280 }}>
-                              {notesPreview}
-                            </Typography>
-                          </Stack>
-                        )
-                      ) : (
-                        <Typography color="text.secondary">-</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={1}
-                        sx={{ justifyContent: 'flex-end', alignItems: { sm: 'center' } }}
-                      >
-                        <Button
-                          size="small"
-                          variant="text"
-                          sx={{
-                            minWidth: 112,
-                            px: 1.25,
-                            py: 0.5,
-                            justifyContent: 'flex-end'
-                          }}
-                          onClick={() => handleFlowTargetChange(app)}
-                        >
-                          流程信息
-                        </Button>
-                        <Button
-                          size="small"
-                          sx={{
-                            minWidth: 64,
-                            px: 1.25,
-                            py: 0.5,
-                            justifyContent: 'flex-end'
-                          }}
-                          onClick={() => setSelected(app)}
-                        >
-                          详情
-                        </Button>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <TablePagination
-        component="div"
-        count={sorted.length}
+      <ParkApplicationTable
+        applications={sorted}
+        loading={loading}
         page={page}
-        onPageChange={handleChangePage}
         rowsPerPage={rowsPerPage}
+        onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[10, 25, 50]}
-        labelRowsPerPage="每页行数"
+        order={order}
+        orderBy={orderBy}
+        onRequestSort={handleRequestSort}
+        columnConfig={{
+          showApplicantCallsign: false, // 普通用户查看自己的申请，不显示申请者呼号列
+          showActions: true,
+          showReviewButton: false, // 普通用户没有审核权限
+        }}
+        onDetailClick={handleDetailClick}
+        onFlowClick={handleFlowClick}
+        emptyMessage={query.trim() ? '未找到匹配的公园' : '暂无上传记录'}
+        searchQuery={query.trim() || undefined}
       />
 
-      <Dialog
+      <ParkApplicationDetailDialog
         open={!!selected}
-        onClose={() => {
-          setSelected(null);
-        }}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>上传详情</DialogTitle>
-        <DialogContent dividers>
-          {selected ? (
-            <Stack spacing={1.25}>
-              <Stack direction="row" justifyContent="space-between" gap={2}>
-                <Typography fontWeight={700} sx={{ minWidth: 0 }} noWrap title={selected.park_name}>
-                  {selected.park_name || '-'}
-                </Typography>
-                <Chip size="small" label={getStatusMeta(selected.status).label} color={getStatusMeta(selected.status).color} />
-              </Stack>
+        onClose={() => setSelected(null)}
+        application={selected}
+        loading={detailLoading}
+        error={detailError}
+        mode="detail"
+      />
 
-              <Typography variant="body2" color="text.secondary">
-                上传时间：{formatDateTime(selected.created_at)}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                省份：{selected.province_name || '-'}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                WGS84 坐标：
-                {(() => {
-                  const lat = toFiniteNumber(selected.latitude);
-                  const lon = toFiniteNumber(selected.longitude);
-
-                  if (lat === null || lon === null) return '-';
-
-                  return `纬度 ${lat.toFixed(6)}，经度 ${lon.toFixed(6)}`;
-                })()}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                同步到 POTA：{selected.status === 'pota_synced' ? '是' : '否'}
-              </Typography>
-
-              <Divider sx={{ my: 1 }} />
-
-              {selected.rejection_reason ? (
-                <Alert severity="error" variant="outlined">
-                  未通过原因：{selected.rejection_reason}
-                </Alert>
-              ) : selected.pota_notes ? (
-                <Alert severity="info" variant="outlined">
-                  备注：{selected.pota_notes}
-                </Alert>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  备注：-
-                </Typography>
-              )}
-
-              {(() => {
-                const lat = toFiniteNumber(selected.latitude);
-                const lon = toFiniteNumber(selected.longitude);
-
-                if (lat === null || lon === null) {
-                  return (
-                    <Alert severity="warning" variant="outlined">
-                      缺少经纬度，无法显示地图
-                    </Alert>
-                  );
-                }
-
-                const center: LatLngTuple = [lat, lon];
-
-                return (
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      地图
-                    </Typography>
-
-                    <Box
-                      sx={{
-                        position: 'relative',
-                        height: 320,
-                        width: '100%',
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        border: '1px solid',
-                        borderColor: 'divider'
-                      }}
-                    >
-                      <MapContainer
-                        key={`detail-map-${selected.id}`}
-                        center={center}
-                        zoom={DEFAULT_DETAIL_MAP_ZOOM}
-                        style={{ height: '100%', width: '100%' }}
-                        scrollWheelZoom
-                      >
-                        <TileLayer url="/proxy-api/tiles/osm/{z}/{x}/{y}.png" />
-                        <Marker position={center} />
-                        <ResetViewControl center={center} zoom={DEFAULT_DETAIL_MAP_ZOOM} />
-                      </MapContainer>
-                    </Box>
-                  </Box>
-                );
-              })()}
-            </Stack>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setSelected(null);
-            }}
-          >
-            关闭
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
+      <ParkApplicationFlowDialog
         open={!!flowTarget}
-        onClose={() => handleFlowTargetChange(null)}
-        fullWidth
-        maxWidth="md"
-      >
-        <DialogTitle>流程信息</DialogTitle>
-        <DialogContent dividers sx={{ p: 0 }}>
-          {flowTarget ? (
-            <Box>
-              <Tabs value={flowTab} onChange={(_, newValue) => setFlowTab(newValue)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tab label="流程图" />
-                <Tab label="流程节点变动信息" />
-              </Tabs>
-
-              <Box sx={{ p: 2 }}>
-                {flowTab === 0 && (
-                  <Stack spacing={1.5}>
-                    <Typography variant="body2" color="text.secondary">
-                      当前状态：{getStatusMeta(flowTarget.status).label}
-                    </Typography>
-
-                    {flowTarget.status === 'rejected' ? (
-                      <Alert severity="info" variant="outlined">
-                        该申请当前处于"未通过"，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传 POTA）上，因此不会高亮当前/下一节点。
-                      </Alert>
-                    ) : null}
-
-                    <AuditFlowChart status={flowTarget.status} />
-                  </Stack>
-                )}
-
-                {flowTab === 1 && (
-                  <Stack spacing={2}>
-                    {auditLogsLoading ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                        <CircularProgress />
-                      </Box>
-                    ) : auditLogsError ? (
-                      <Alert severity="error" onClose={() => setAuditLogsError(null)}>
-                        {auditLogsError}
-                      </Alert>
-                    ) : auditLogs.length === 0 ? (
-                      <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                        暂无流程节点变动记录
-                      </Typography>
-                    ) : (
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>时间</TableCell>
-                              <TableCell>操作</TableCell>
-                              <TableCell>操作者</TableCell>
-                              <TableCell>角色</TableCell>
-                              <TableCell>旧状态</TableCell>
-                              <TableCell>新状态</TableCell>
-                              <TableCell>备注</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {auditLogs.map((log) => {
-                              const getActionLabel = (action: string) => {
-                                switch (action) {
-                                  case 'submitted':
-                                    return '提交申请';
-                                  case 'approved':
-                                    return '审核通过';
-                                  case 'rejected':
-                                    return '审核拒绝';
-                                  case 'reverted_approved':
-                                    return '重新审核通过';
-                                  case 'reverted_rejected':
-                                    return '重新审核拒绝';
-                                  case 'pota_synced':
-                                    return '同步到 POTA';
-                                  default:
-                                    return action;
-                                }
-                              };
-
-                              const getStatusLabel = (status: string | null) => {
-                                if (!status) return '-';
-                                return getStatusMeta(status as ApplicationStatus).label;
-                              };
-
-                              return (
-                                <TableRow key={log.id}>
-                                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                                    {formatDateTime(log.created_at)}
-                                  </TableCell>
-                                  <TableCell>{getActionLabel(log.action)}</TableCell>
-                                  <TableCell>
-                                    {log.operator_callsign || log.operator_email || '-'}
-                                  </TableCell>
-                                  <TableCell>{log.operator_role || '-'}</TableCell>
-                                  <TableCell>{getStatusLabel(log.old_status)}</TableCell>
-                                  <TableCell>{getStatusLabel(log.new_status)}</TableCell>
-                                  <TableCell>
-                                    {log.notes ? (
-                                      <Tooltip title={log.notes} placement="top" arrow>
-                                        <Typography
-                                          noWrap
-                                          sx={{
-                                            color: 'text.secondary',
-                                            maxWidth: 200,
-                                            cursor: 'help'
-                                          }}
-                                        >
-                                          {log.notes}
-                                        </Typography>
-                                      </Tooltip>
-                                    ) : (
-                                      <Typography color="text.secondary">-</Typography>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
-                  </Stack>
-                )}
-              </Box>
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => handleFlowTargetChange(null)}>关闭</Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => setFlowTarget(null)}
+        application={flowTarget}
+      />
     </Paper>
   );
 }

@@ -23,10 +23,12 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import parkTypeMappingData from '../assets/park_type_mapping.json';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { UnifiedTileLayer } from '../components/UnifiedTileLayer';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import { getApiErrorMessage } from '../utils/error';
+import { ServiceFactory } from '../services/ServiceFactory';
 import L from 'leaflet';
 import regionData from '../assets/region.json';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -369,18 +371,10 @@ function AddPark() {
     setSearchingMap(true);
 
     try {
-      const res = await axios.get<Array<{
-        place_id: number;
-        lat: string;
-        lon: string;
-        display_name: string;
-        name: string;
-      }>>(
-        `/proxy-api/geocoding/osm/search?q=${encodeURIComponent(parkName)}&format=json`,
-        { timeout: 5000 }
-      );
+      const mapService = ServiceFactory.createMapService();
+      const results = await mapService.geocode(parkName, { limit: 10 });
 
-      if (!res.data || res.data.length === 0) {
+      if (!results || results.length === 0) {
         setError('未找到匹配的地点');
         setMapPOIs([]);
         setSelectedPOIId(null);
@@ -388,16 +382,16 @@ function AddPark() {
       }
 
       // 转换为 MapPOI 类型
-      const pois: MapPOI[] = res.data.map((item) => {
-        const parsed = parseOSMDisplayName(item.display_name);
+      const pois: MapPOI[] = results.map((item, index) => {
+        const parsed = parseOSMDisplayName(item.displayName || item.address);
         return {
-          id: item.place_id,
-          name: item.name || '',
-          displayName: item.display_name,
+          id: index, // 使用索引作为 ID，因为 geocode 结果没有 place_id
+          name: item.displayName || item.address,
+          displayName: item.displayName || item.address,
           province: parsed?.province || '',
           city: parsed?.city || '',
-          lat: Number.parseFloat(item.lat),
-          lon: Number.parseFloat(item.lon),
+          lat: item.location.latitude,
+          lon: item.location.longitude,
         };
       });
 
@@ -913,8 +907,8 @@ function AddPark() {
             >
               <MapController center={mapCenter} onZoomChange={setMapZoom} />
               <MapBoundsController bounds={mapBounds} />
-              {/* 通过后端同源代理加载瓦片，避免 CSP 放开外域 */}
-              <TileLayer url="/proxy-api/tiles/osm/{z}/{x}/{y}.png" />
+              {/* 使用统一的瓦片服务 */}
+              <UnifiedTileLayer />
               <LocationMarker />
               {mapPOIs.map((poi) => (
                 <Marker

@@ -7,10 +7,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   FormControl,
   InputLabel,
@@ -19,78 +15,21 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TablePagination,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
   Typography
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
-
-type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
-
-type ParkApplication = {
-  id: number;
-  park_name: string;
-  province_name: string;
-  status: ApplicationStatus;
-  created_at: string;
-
-  applicant_callsign: string;
-
-  rejection_reason?: string | null;
-  pota_notes?: string | null;
-  pota_synced_at?: string | null;
-};
-
-type ParkApplicationDetail = ParkApplication & {
-  province_iso_code?: string;
-  park_type?: string | null;
-  latitude?: number | string | null;
-  longitude?: number | string | null;
-  website?: string | null;
-  description?: string | null;
-};
+import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
+import { ParkApplicationTable } from '../components/ParkApplicationTable';
+import { ParkApplicationDetailDialog } from '../components/ParkApplicationDetailDialog';
+import { ParkApplicationFlowDialog } from '../components/ParkApplicationFlowDialog';
+import { stableSort } from '../utils/parkApplication';
 
 type FilterValue = 'all' | 'pending' | 'approved' | 'rejected' | 'uploaded';
 
 type DialogMode = 'detail' | 'review';
-
-function formatDateTime(input: string) {
-  const d = new Date(input);
-  if (Number.isNaN(d.getTime())) return input;
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(d);
-}
-
-function getStatusMeta(status: ApplicationStatus) {
-  switch (status) {
-    case 'pending':
-      return { label: '待审核', color: 'warning' as const };
-    case 'approved':
-      return { label: '已通过（待上传）', color: 'info' as const };
-    case 'pota_synced':
-      return { label: '已上传 POTA', color: 'success' as const };
-    case 'rejected':
-      return { label: '未通过', color: 'error' as const };
-    default:
-      return { label: status, color: 'default' as const };
-  }
-}
 
 function ApplicationsList() {
   const { user, isAuthLoading } = useAuth();
@@ -108,6 +47,7 @@ function ApplicationsList() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ParkApplicationDetail | null>(null);
+  const [flowTarget, setFlowTarget] = useState<ParkApplication | null>(null);
 
   const [reviewNotes, setReviewNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -160,15 +100,12 @@ function ApplicationsList() {
     });
   }, [applications, filter]);
 
-  const pagedApps = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredApps.slice(start, start + rowsPerPage);
-  }, [filteredApps, page, rowsPerPage]);
+  const sortedApps = useMemo(() => stableSort(filteredApps, 'desc', 'created_at'), [filteredApps]);
 
-  const openDialog = useCallback(
-    async (app: ParkApplication, mode: DialogMode) => {
+  const handleDetailClick = useCallback(
+    async (app: ParkApplication) => {
       setDetailOpen(true);
-      setDialogMode(mode);
+      setDialogMode('detail');
       setSelected(null);
       setDetailError(null);
       setReviewNotes('');
@@ -186,6 +123,32 @@ function ApplicationsList() {
     },
     []
   );
+
+  const handleReviewClick = useCallback(
+    async (app: ParkApplication) => {
+      setDetailOpen(true);
+      setDialogMode('review');
+      setSelected(null);
+      setDetailError(null);
+      setReviewNotes('');
+      setRejectionReason('');
+
+      try {
+        setDetailLoading(true);
+        const res = await axios.get<{ application?: ParkApplicationDetail | null }>(`/api/park-applications/${app.id}`);
+        setSelected(res.data?.application ?? null);
+      } catch (e: unknown) {
+        setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleFlowClick = useCallback((app: ParkApplication) => {
+    setFlowTarget(app);
+  }, []);
 
   const closeDetail = () => {
     if (reviewSubmitting) return;
@@ -310,195 +273,46 @@ function ApplicationsList() {
       {loading && <LinearProgress />}
       <Divider />
 
-      <TableContainer sx={{ maxHeight: 680 }}>
-        <Table stickyHeader size="small" aria-label="申请列表" sx={{ minWidth: 920 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>申请时间</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap', display: { xs: 'none', sm: 'table-cell' } }}>申请者呼号</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>省份</TableCell>
-              <TableCell>公园名称</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>状态</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap', display: { xs: 'none', md: 'table-cell' } }}>同步到 POTA</TableCell>
-              <TableCell>备注</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
-                操作
-              </TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {!loading && pagedApps.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">暂无符合条件的申请</Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              pagedApps.map((app) => {
-                const statusMeta = getStatusMeta(app.status);
-                const notes = app.rejection_reason || app.pota_notes || '';
-
-                return (
-                  <TableRow key={app.id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(app.created_at)}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>{app.applicant_callsign}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{app.province_name || '-'}</TableCell>
-                    <TableCell>
-                      <Tooltip title={app.park_name || ''} placement="top" arrow>
-                        <Typography noWrap sx={{ maxWidth: 320 }}>
-                          {app.park_name || '-'}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Chip size="small" label={statusMeta.label} color={statusMeta.color} variant="outlined" />
-                    </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{app.status === 'pota_synced' ? '是' : '否'}</TableCell>
-                    <TableCell>
-                      {notes ? (
-                        <Tooltip title={notes} placement="top" arrow>
-                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                            <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 320 }}>
-                              {notes}
-                            </Typography>
-                          </Stack>
-                        </Tooltip>
-                      ) : (
-                        <Typography color="text.secondary">-</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', pr: 2 }}>
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" variant="outlined" onClick={() => openDialog(app, 'detail')}>
-                          详情
-                        </Button>
-                        {isReviewer && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => openDialog(app, 'review')}
-                            disabled={app.status !== 'pending'}
-                          >
-                            审核
-                          </Button>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <TablePagination
-        component="div"
-        count={filteredApps.length}
+      <ParkApplicationTable
+        applications={sortedApps}
+        loading={loading}
         page={page}
-        onPageChange={handleChangePage}
         rowsPerPage={rowsPerPage}
+        onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[10, 25, 50]}
-        labelRowsPerPage="每页行数"
+        columnConfig={{
+          showApplicantCallsign: true, // 审核员可以看到申请者呼号
+          showActions: true,
+          showReviewButton: isReviewer // 审核员和POTA代表显示审核按钮
+        }}
+        onDetailClick={handleDetailClick}
+        onFlowClick={handleFlowClick}
+        onReviewClick={handleReviewClick}
+        emptyMessage="暂无符合条件的申请"
       />
 
-      <Dialog open={detailOpen} onClose={closeDetail} fullWidth maxWidth="md">
-        <DialogTitle>{dialogMode === 'review' ? '审核申请' : '申请详情'}</DialogTitle>
-        <DialogContent dividers>
-          {detailLoading && <LinearProgress sx={{ mb: 2 }} />}
-          {detailError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDetailError(null)}>
-              {detailError}
-            </Alert>
-          )}
+      <ParkApplicationDetailDialog
+        open={detailOpen}
+        onClose={closeDetail}
+        application={selected}
+        loading={detailLoading}
+        error={detailError}
+        mode={dialogMode}
+        showReviewForm={dialogMode === 'review' && isReviewer && selected?.status === 'pending'}
+        reviewNotes={reviewNotes}
+        reviewRejectionReason={rejectionReason}
+        onReviewNotesChange={setReviewNotes}
+        onReviewRejectionReasonChange={setRejectionReason}
+        onApprove={() => handleReview('approved')}
+        onReject={() => handleReview('rejected')}
+        reviewSubmitting={reviewSubmitting}
+      />
 
-          {selected ? (
-            <Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, minWidth: 0 }} noWrap title={selected.park_name}>
-                  {selected.park_name}
-                </Typography>
-                <Chip size="small" label={getStatusMeta(selected.status).label} color={getStatusMeta(selected.status).color} />
-              </Stack>
-
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                申请者：{selected.applicant_callsign} | 申请时间：{formatDateTime(selected.created_at)}
-              </Typography>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField label="申请编号" value={String(selected.id)} InputProps={{ readOnly: true }} />
-                <TextField label="省份" value={selected.province_name} InputProps={{ readOnly: true }} />
-                <TextField label="省份代码" value={selected.province_iso_code || ''} InputProps={{ readOnly: true }} />
-                <TextField label="公园类型" value={selected.park_type || ''} InputProps={{ readOnly: true }} />
-                <TextField label="纬度" value={String(selected.latitude ?? '')} InputProps={{ readOnly: true }} />
-                <TextField label="经度" value={String(selected.longitude ?? '')} InputProps={{ readOnly: true }} />
-                <TextField
-                  label="网站"
-                  value={selected.website || ''}
-                  InputProps={{ readOnly: true }}
-                  sx={{ gridColumn: { xs: '1 / -1' } }}
-                />
-                <TextField
-                  label="描述"
-                  value={selected.description || ''}
-                  InputProps={{ readOnly: true }}
-                  multiline
-                  minRows={2}
-                  sx={{ gridColumn: { xs: '1 / -1' } }}
-                />
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              {dialogMode === 'review' && isReviewer && selected.status === 'pending' && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
-                  <TextField
-                    label="审核备注（必填）"
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    multiline
-                    minRows={2}
-                  />
-                  <TextField
-                    label="拒绝原因（拒绝时必填）"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    multiline
-                    minRows={2}
-                  />
-                </Box>
-              )}
-
-              {dialogMode === 'review' && !isReviewer && (
-                <Typography variant="body2" color="text.secondary">
-                  你的角色没有审核权限。
-                </Typography>
-              )}
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDetail} disabled={reviewSubmitting}>
-            关闭
-          </Button>
-
-          {dialogMode === 'review' && isReviewer && selected?.status === 'pending' && (
-            <>
-              <Button onClick={() => handleReview('rejected')} color="error" disabled={reviewSubmitting}>
-                拒绝
-              </Button>
-              <Button onClick={() => handleReview('approved')} variant="contained" disabled={reviewSubmitting}>
-                通过
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </Dialog>
+      <ParkApplicationFlowDialog
+        open={!!flowTarget}
+        onClose={() => setFlowTarget(null)}
+        application={flowTarget}
+      />
     </Paper>
   );
 }

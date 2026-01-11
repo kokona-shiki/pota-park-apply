@@ -165,7 +165,7 @@ export const parseOSMDisplayName = (displayName: string): { province: string; ci
 };
 
 // 根据省份和地市名称获取省份代码（ISO-3166 格式）
-export const getProvinceCodeFromNames = (provinceName: string, cityName: string): string => {
+export const getProvinceCodeFromNames = (provinceName: string, _cityName: string): string => {
   // 省份名称到 ISO-3166 代码的映射
   const provinceNameMap: { [key: string]: string } = {
     '北京': 'CN-BJ',
