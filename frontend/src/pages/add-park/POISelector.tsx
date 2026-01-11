@@ -12,7 +12,12 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import type { MapPOI, PotaParkInfo } from './types';
-import { mapLocationToProvince, mapAccessMethods, mapActivationMethods, getProvinceCodeFromNames } from '../../utils/potaMapping';
+import {
+  mapLocationToProvince,
+  mapAccessMethods,
+  mapActivationMethods,
+  getProvinceCodeFromNames,
+} from '../../utils/potaMapping';
 
 interface POISelectorProps {
   mapPOIs: MapPOI[];

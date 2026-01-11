@@ -98,7 +98,7 @@ export const useSearch = () => {
         };
       });
 
-      return { pois, parksMap: new Map(validParks.map(park => [park.parkId, park])) };
+      return { pois, parksMap: new Map(validParks.map((park) => [park.parkId, park])) };
     } finally {
       setSearchingPota(false);
     }

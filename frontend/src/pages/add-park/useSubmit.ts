@@ -2,7 +2,10 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
 import { getApiErrorMessage } from '../../utils/error';
-import { mapAccessMethodsWithBothLangs, mapActivationMethodsWithBothLangs } from '../../utils/potaMapping';
+import {
+  mapAccessMethodsWithBothLangs,
+  mapActivationMethodsWithBothLangs,
+} from '../../utils/potaMapping';
 
 interface SubmitParams {
   parkName: string;

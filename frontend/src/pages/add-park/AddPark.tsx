@@ -17,20 +17,20 @@ import type { SelectChangeEvent } from '@mui/material/Select';
 import { Autocomplete } from '@mui/material';
 import Pinyin from 'pinyin-match';
 
-import parkTypeMappingData from '../assets/park_type_mapping.json';
-import regionData from '../assets/region.json';
+import parkTypeMappingData from '../../assets/park_type_mapping.json';
+import regionData from '../../assets/region.json';
 import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
-import { UnifiedTileLayer } from '../components/UnifiedTileLayer';
+import { UnifiedTileLayer } from '../../components/UnifiedTileLayer';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-import POISelector from './add-park/POISelector';
-import SearchButtons from './add-park/SearchButtons';
-import { useFormState, clearFormState } from './add-park/useFormState';
-import { useSearch } from './add-park/useSearch';
-import { useSubmit } from './add-park/useSubmit';
-import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './add-park/types';
-import { getApiErrorMessage } from '../utils/error';
+import POISelector from './POISelector';
+import SearchButtons from './SearchButtons';
+import { useFormState, clearFormState } from './useFormState';
+import { useSearch } from './useSearch';
+import { useSubmit } from './useSubmit';
+import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
+import { getApiErrorMessage } from '../../utils/error';
 
 // 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -293,15 +293,15 @@ function AddPark() {
           selectedPOIId={selectedPOIId}
           setSelectedPOIId={setSelectedPOIId}
           potaParks={potaParks}
-          setProvince={(province) => updateFormState({ province })}
-          setParkName={(name) => updateFormState({ parkName: name })}
-          setParkType={(type) => updateFormState({ parkType: type })}
-          setWebsite={(url) => updateFormState({ website: url })}
-          setAccessMethods={(methods) => updateFormState({ accessMethods: methods })}
-          setActivationMethods={(methods) => updateFormState({ activationMethods: methods })}
-          setIsPotaPark={(isPota) => updateFormState({ isPotaPark: isPota })}
-          setLatitude={(lat) => updateFormState({ latitude: lat })}
-          setLongitude={(lon) => updateFormState({ longitude: lon })}
+          setProvince={(province: string) => updateFormState({ province })}
+          setParkName={(name: string) => updateFormState({ parkName: name })}
+          setParkType={(type: string) => updateFormState({ parkType: type })}
+          setWebsite={(url: string) => updateFormState({ website: url })}
+          setAccessMethods={(methods: string[]) => updateFormState({ accessMethods: methods })}
+          setActivationMethods={(methods: string[]) => updateFormState({ activationMethods: methods })}
+          setIsPotaPark={(isPota: boolean) => updateFormState({ isPotaPark: isPota })}
+          setLatitude={(lat: string) => updateFormState({ latitude: lat })}
+          setLongitude={(lon: string) => updateFormState({ longitude: lon })}
           error={error}
           setError={setError}
         />

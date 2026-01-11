@@ -35,8 +35,10 @@ export const useFormState = (initialState: Partial<FormState> = {}) => {
     latitude: savedState?.latitude || initialState.latitude || '',
     longitude: savedState?.longitude || initialState.longitude || '',
     website: savedState?.website || initialState.website || '',
-    accessMethods: savedState?.accessMethods || initialState.accessMethods || ['汽车', '步行', '其他'],
-    activationMethods: savedState?.activationMethods || initialState.activationMethods || ['步行', '车载', '其他'],
+    accessMethods: savedState?.accessMethods ||
+      initialState.accessMethods || ['汽车', '步行', '其他'],
+    activationMethods: savedState?.activationMethods ||
+      initialState.activationMethods || ['步行', '车载', '其他'],
     confirmed: savedState?.confirmed || initialState.confirmed || false,
     isPotaPark: savedState?.isPotaPark || initialState.isPotaPark || false,
     mapCenter: savedState?.mapCenter || initialState.mapCenter || [39.9042, 116.4074], // 北京
@@ -44,7 +46,7 @@ export const useFormState = (initialState: Partial<FormState> = {}) => {
   });
 
   const updateFormState = useCallback((newState: Partial<FormState>) => {
-    setFormState(prev => {
+    setFormState((prev) => {
       const updated = { ...prev, ...newState };
       saveFormState(updated);
       return updated;

@@ -28,10 +28,7 @@ const SearchButtons: React.FC<SearchButtonsProps> = ({
         {searchingMap ? '搜索中...' : '搜索地图'}
       </Button>
       {hasContent && (
-        <Button
-          onClick={onReset}
-          color="secondary"
-        >
+        <Button onClick={onReset} color="secondary">
           清空
         </Button>
       )}
