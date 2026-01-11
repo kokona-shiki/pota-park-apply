@@ -20,7 +20,7 @@ import Pinyin from 'pinyin-match';
 
 import parkTypeMappingData from '../../assets/park_type_mapping.json';
 import regionData from '../../assets/region.json';
-import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMap } from 'react-leaflet';
 import { UnifiedTileLayer } from '../../components/UnifiedTileLayer';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -34,58 +34,11 @@ import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 
 import { getApiErrorMessage } from '../../utils/error';
 
-// LocationMarker 组件
-interface LocationMarkerProps {
-  isPotaPark: boolean;
-  mapPOIs: MapPOI[];
-  updateFormState: (
-    state: Partial<Record<string, string | boolean | [number, number] | number | string[]>>
-  ) => void;
-  latitude: string;
-  longitude: string;
-}
-
-const LocationMarkerInner: React.FC<LocationMarkerProps> = ({
-  isPotaPark,
-  mapPOIs,
-  updateFormState,
-  latitude,
-  longitude,
-}) => {
-  useMapEvents({
-    click(e) {
-      // 如果有地图搜索结果,不允许点击修改位置
-      if (isPotaPark || mapPOIs.length > 0) return;
-      const lat = e.latlng.lat;
-      const lon = e.latlng.lng;
-      updateFormState({ latitude: String(lat), longitude: String(lon) });
-      // 移除 setMapCenter 调用，不重置地图中心
-    },
-  });
-
-  // 显示手动选择的标记（当没有地图搜索结果时）
-  if (mapPOIs.length === 0) {
-    const lat = Number.parseFloat(latitude);
-    const lon = Number.parseFloat(longitude);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return null;
-    }
-
-    return <Marker position={[lat, lon]} />;
-  }
-
-  return null;
-};
-
-const LocationMarkerComponent: React.FC<LocationMarkerProps> = (props) => {
-  return <LocationMarkerInner {...props} />;
-};
-
 // 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import shadow from 'leaflet/dist/images/marker-shadow.png';
+import LocationMarker from './LocationMarker';
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 
@@ -572,7 +525,7 @@ function AddPark() {
             <MapBoundsController bounds={mapBounds} />
             {/* 使用统一的瓦片服务 */}
             <UnifiedTileLayer />
-            <LocationMarkerComponent
+            <LocationMarker
               isPotaPark={isPotaPark}
               mapPOIs={mapPOIs}
               updateFormState={updateFormState}
