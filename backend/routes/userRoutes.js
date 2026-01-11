@@ -112,4 +112,32 @@ router.get(
   }
 );
 
+// 修改用户密码（仅限修改自己的密码）
+router.put('/api/users/:userId/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { newPassword, reason } = req.body;
+
+    if (!newPassword) {
+      return sendBizError(res, 'VALIDATION_ERROR', '新密码不能为空', null);
+    }
+
+    if (newPassword.length < 6) {
+      return sendBizError(res, 'VALIDATION_ERROR', '密码长度至少为6位', null);
+    }
+
+    // 确保用户只能修改自己的密码
+    if (req.user.id !== parseInt(userId, 10)) {
+      return sendBizError(res, 'PERMISSION_ERROR', '只能修改自己的密码', null);
+    }
+
+    const updatedUser = await userService.updateUserPassword(req.user.id, newPassword, reason);
+
+    return sendOk(res, { user: updatedUser }, '密码更新成功');
+  } catch (error) {
+    console.error('修改用户密码失败:', error);
+    return sendError(res, error, { bizMessage: '修改用户密码失败' });
+  }
+});
+
 export default router;

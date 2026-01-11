@@ -478,3 +478,42 @@ export const deleteUser = async (operatorId, targetUserId) => {
 
   return deletedUser;
 };
+
+// 更新用户密码
+export const updateUserPassword = async (userId, newPassword, reason) => {
+  // 验证新密码
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('密码长度至少为6位');
+  }
+
+  // 为新密码生成哈希
+  const newPasswordHash = await hashPassword(newPassword);
+
+  // 更新用户密码
+  const updatedUser = await update(
+    `
+    UPDATE users
+    SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
+  `,
+    [newPasswordHash, userId]
+  );
+
+  if (!updatedUser) {
+    throw new Error('用户不存在');
+  }
+
+  // 记录密码变更日志
+  await insert(
+    `
+    INSERT INTO user_info_changes (user_id, field_name, old_value, new_value, change_reason)
+    VALUES ($1, $2, 'PASSWORD_HASH_REDACTED', 'PASSWORD_HASH_REDACTED', $3)
+  `,
+    [userId, 'password_hash', reason || '用户修改密码']
+  );
+
+  // 删除旧的密码哈希，只返回用户基本信息
+  delete updatedUser.password_hash;
+  return updatedUser;
+};
