@@ -31,10 +31,7 @@ function SideBar({ isOpen, isAdmin, isSysAdmin, isPotaRepresentative }: SideBarP
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
 
-  // 所有登录用户都可以查看申请列表（普通用户只能看到自己的申请；审核员可看到全部）
-  // 用 void 显式引用，避免 TS/ESLint 报 unused
-  void isAdmin;
-  void isSysAdmin;
+  // 系统管理员只能进行用户管理，不显示其他功能入口
 
   return (
     <>
@@ -60,33 +57,38 @@ function SideBar({ isOpen, isAdmin, isSysAdmin, isPotaRepresentative }: SideBarP
             <ListItemText primary="首页" />
           </ListItemButton>
 
-          <ListItemButton onClick={() => navigate('/add-park')}>
-            <ListItemIcon>
-              <AddIcon />
-            </ListItemIcon>
-            <ListItemText primary="申请添加公园" />
-          </ListItemButton>
+          {/* 系统管理员只能看到用户管理，隐藏其他功能入口 */}
+          {!isSysAdmin && (
+            <>
+              <ListItemButton onClick={() => navigate('/add-park')}>
+                <ListItemIcon>
+                  <AddIcon />
+                </ListItemIcon>
+                <ListItemText primary="申请添加公园" />
+              </ListItemButton>
 
-          <ListItemButton onClick={() => navigate('/applications')}>
-            <ListItemIcon>
-              <ListIcon />
-            </ListItemIcon>
-            <ListItemText primary="申请列表" />
-          </ListItemButton>
+              <ListItemButton onClick={() => navigate('/applications')}>
+                <ListItemIcon>
+                  <ListIcon />
+                </ListItemIcon>
+                <ListItemText primary="申请列表" />
+              </ListItemButton>
 
-          <ListItemButton onClick={() => navigate('/my-uploads')}>
-            <ListItemIcon>
-              <UploadIcon />
-            </ListItemIcon>
-            <ListItemText primary="我的上传" />
-          </ListItemButton>
+              <ListItemButton onClick={() => navigate('/my-uploads')}>
+                <ListItemIcon>
+                  <UploadIcon />
+                </ListItemIcon>
+                <ListItemText primary="我的上传" />
+              </ListItemButton>
 
-          <ListItemButton onClick={() => navigate('/export')}>
-            <ListItemIcon>
-              <DownloadIcon />
-            </ListItemIcon>
-            <ListItemText primary="导出" />
-          </ListItemButton>
+              <ListItemButton onClick={() => navigate('/export')}>
+                <ListItemIcon>
+                  <DownloadIcon />
+                </ListItemIcon>
+                <ListItemText primary="导出" />
+              </ListItemButton>
+            </>
+          )}
 
           {isSysAdmin && (
             <ListItemButton onClick={() => navigate('/admin-panel')}>

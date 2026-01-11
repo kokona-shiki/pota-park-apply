@@ -175,6 +175,44 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
   return children;
 }
 
+/**
+ * 禁止系统管理员访问的路由保护
+ * 系统管理员只能进行用户管理，不能访问其他功能页面
+ */
+function RequireNotSysAdmin({ children }: { children: ReactElement }) {
+  const { user, isAuthLoading } = useAuthRequired();
+  const location = useLocation();
+
+  // 如果正在加载认证状态,显示加载提示
+  if (isAuthLoading) {
+    return (
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+      >
+        <Typography>加载中...</Typography>
+      </Box>
+    );
+  }
+
+  // 认证加载完成,检查用户是否登录
+  if (!user) {
+    // 保存目标路径到 localStorage,以便登录后跳转
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
+    }
+    return (
+      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
+    );
+  }
+
+  // 如果是系统管理员，重定向到用户管理页面
+  if (user?.role === 'system_admin') {
+    return <Navigate to="/admin-panel" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -643,33 +681,33 @@ function App() {
             <Route
               path="/add-park"
               element={
-                <RequireAuth>
+                <RequireNotSysAdmin>
                   <AddPark />
-                </RequireAuth>
+                </RequireNotSysAdmin>
               }
             />
             <Route
               path="/applications"
               element={
-                <RequireAuth>
+                <RequireNotSysAdmin>
                   <ApplicationsList />
-                </RequireAuth>
+                </RequireNotSysAdmin>
               }
             />
             <Route
               path="/my-uploads"
               element={
-                <RequireAuth>
+                <RequireNotSysAdmin>
                   <MyUploads />
-                </RequireAuth>
+                </RequireNotSysAdmin>
               }
             />
             <Route
               path="/export"
               element={
-                <RequireAuth>
+                <RequireNotSysAdmin>
                   <ExportPage />
-                </RequireAuth>
+                </RequireNotSysAdmin>
               }
             />
             <Route path="/about" element={<About />} />

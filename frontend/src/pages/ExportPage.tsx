@@ -8,8 +8,9 @@ type ExportScope = 'self' | 'all';
 
 function ExportPage() {
   const { user } = useAuth();
+  // 系统管理员不能访问此页面（已在路由层面保护）
   const isAdmin =
-    user?.role === 'park_reviewer' || user?.role === 'pota_representative' || user?.role === 'system_admin';
+    user?.role === 'park_reviewer' || user?.role === 'pota_representative';
 
   const handleExport = (type: ExportType, scope: ExportScope) => {
     axios
