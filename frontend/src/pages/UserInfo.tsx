@@ -13,7 +13,11 @@ import {
   InputLabel,
   OutlinedInput,
   InputAdornment,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../auth/useAuth';
@@ -32,6 +36,8 @@ function UserInfo() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [openEmailDialog, setOpenEmailDialog] = useState(false);
+  const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   
   // 如果用户未登录，不显示任何内容
   if (!user) return null;
@@ -86,6 +92,7 @@ function UserInfo() {
       // 更新成功后刷新用户信息
       await refreshSession();
       setSuccessMessage('邮箱更新成功');
+      handleCloseEmailDialog(); // 关闭对话框
     } catch (error: unknown) {
       setErrorMessage(getApiErrorMessage(error, '更新邮箱失败'));
     } finally {
@@ -136,6 +143,7 @@ function UserInfo() {
       setNewPassword('');
       setConfirmPassword('');
       setSuccessMessage('密码更新成功');
+      handleClosePasswordDialog(); // 关闭对话框
     } catch (error: unknown) {
       setErrorMessage(getApiErrorMessage(error, '更新密码失败'));
     } finally {
@@ -161,6 +169,33 @@ function UserInfo() {
   const handleClickShowConfirmPassword = () => setShowConfirmPassword(!showConfirmPassword);
   const handleMouseDownPassword = () => {};
 
+  // 打开/关闭邮箱对话框
+  const handleOpenEmailDialog = () => {
+    setOpenEmailDialog(true);
+    setEmail(user.email || ''); // 初始化对话框中的邮箱值
+  };
+
+  const handleCloseEmailDialog = () => {
+    setOpenEmailDialog(false);
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  // 打开/关闭密码对话框
+  const handleOpenPasswordDialog = () => {
+    setOpenPasswordDialog(true);
+  };
+
+  const handleClosePasswordDialog = () => {
+    setOpenPasswordDialog(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
       <Card>
@@ -184,9 +219,8 @@ function UserInfo() {
               <TextField
                 fullWidth
                 label="邮箱"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
+                value={user.email || ''}
+                disabled
               />
               <TextField
                 fullWidth
@@ -194,78 +228,28 @@ function UserInfo() {
                 value={getRoleDisplayName(user.role || '')}
                 disabled
               />
-              <FormControl fullWidth variant="outlined" disabled={loading}>
-                <InputLabel htmlFor="new-password">新密码</InputLabel>
-                <OutlinedInput
-                  id="new-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  endAdornment={
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={handleClickShowPassword}
-                        onMouseDown={handleMouseDownPassword}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  }
-                  label="新密码"
-                />
-              </FormControl>
-              <FormControl fullWidth variant="outlined" disabled={loading}>
-                <InputLabel htmlFor="confirm-password">确认密码</InputLabel>
-                <OutlinedInput
-                  id="confirm-password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  endAdornment={
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle confirm password visibility"
-                        onClick={handleClickShowConfirmPassword}
-                        onMouseDown={handleMouseDownPassword}
-                        edge="end">
-                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  }
-                  label="确认密码"
-                />
-              </FormControl>
             </Box>
             
             <Typography variant="body2" color="text.secondary">
               状态: {user.is_active ? '启用' : '禁用'}
             </Typography>
             
-            {errorMessage && (
-              <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>
-            )}
-            {successMessage && (
-              <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>
-            )}
-            
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
-                onClick={handleEmailUpdate}
+                onClick={handleOpenEmailDialog}
                 disabled={loading}
                 sx={{ mt: 1 }}
               >
-                更新邮箱
+                修改邮箱
               </Button>
               <Button
                 variant="contained"
-                onClick={handlePasswordUpdate}
+                onClick={handleOpenPasswordDialog}
                 disabled={loading}
                 sx={{ mt: 1 }}
               >
-                更新密码
+                修改密码
               </Button>
               <Button
                 variant="outlined"
@@ -276,9 +260,104 @@ function UserInfo() {
                 刷新用户信息
               </Button>
             </Box>
+            
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>
+            )}
+            {successMessage && (
+              <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>
+            )}
           </Box>
         </CardContent>
       </Card>
+      
+      {/* 修改邮箱对话框 */}
+      <Dialog open={openEmailDialog} onClose={handleCloseEmailDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>修改邮箱</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="当前邮箱"
+              value={user.email || ''}
+              disabled
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="新邮箱"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              error={!!errorMessage}
+              helperText={errorMessage}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEmailDialog} disabled={loading}>取消</Button>
+          <Button onClick={handleEmailUpdate} disabled={loading} variant="contained">确认修改</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* 修改密码对话框 */}
+      <Dialog open={openPasswordDialog} onClose={handleClosePasswordDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>修改密码</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
+              <InputLabel htmlFor="dialog-new-password">新密码</InputLabel>
+              <OutlinedInput
+                id="dialog-new-password"
+                type={showPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+                label="新密码"
+              />
+            </FormControl>
+            <FormControl fullWidth variant="outlined" disabled={loading}>
+              <InputLabel htmlFor="dialog-confirm-password">确认密码</InputLabel>
+              <OutlinedInput
+                id="dialog-confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={handleClickShowConfirmPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end">
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+                label="确认密码"
+              />
+            </FormControl>
+            {errorMessage && (
+              <Alert severity="error" sx={{ mt: 1 }}>{errorMessage}</Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePasswordDialog} disabled={loading}>取消</Button>
+          <Button onClick={handlePasswordUpdate} disabled={loading} variant="contained">确认修改</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
