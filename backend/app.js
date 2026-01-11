@@ -8,6 +8,7 @@ import userRoutes from './routes/userRoutes.js';
 import callsignRoutes from './routes/callsignRoutes.js';
 import parkApplicationRoutes from './routes/parkApplicationRoutes.js';
 import provinceRoutes from './routes/provinceRoutes.js';
+import potaRoutes from './routes/potaRoutes.js';
 import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
@@ -88,6 +89,7 @@ app.use(userRoutes);
 app.use(callsignRoutes);
 app.use(parkApplicationRoutes);
 app.use(provinceRoutes);
+app.use(potaRoutes);
 
 // 404 处理
 app.use('*', (_req, res) => {

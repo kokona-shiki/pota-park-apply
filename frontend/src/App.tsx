@@ -132,7 +132,9 @@ function RequireAuth({ children }: { children: ReactElement }) {
   // 如果正在加载认证状态,显示加载提示
   if (isAuthLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+      >
         <Typography>加载中...</Typography>
       </Box>
     );
@@ -144,7 +146,9 @@ function RequireAuth({ children }: { children: ReactElement }) {
     if (location.pathname !== '/login' && location.pathname !== '/register') {
       localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
     }
-    return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
+    return (
+      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
+    );
   }
 
   return children;
@@ -159,7 +163,9 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
     if (location.pathname !== '/login' && location.pathname !== '/register') {
       localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
     }
-    return <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />;
+    return (
+      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
+    );
   }
 
   if (user?.role !== 'system_admin') {
@@ -208,7 +214,10 @@ function App() {
     if (accessToken) {
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
       isTokenReadyRef.current = true;
-      console.log('[App] Authorization header 已设置:', axios.defaults.headers.common.Authorization.substring(0, 50) + '...');
+      console.log(
+        '[App] Authorization header 已设置:',
+        axios.defaults.headers.common.Authorization.substring(0, 50) + '...'
+      );
     }
     // 不要在 accessToken 为 null 时清除 header，避免初始加载时的竞态条件
   }, [accessToken]);
@@ -367,7 +376,13 @@ function App() {
 
       throw new Error('等待刷新完成后仍无有效 token');
     },
-    [getCurrentAccessToken, performRefreshAsLeader, rejectAllWaiters, resolveAllWaiters, waitForTokenFromOtherTab]
+    [
+      getCurrentAccessToken,
+      performRefreshAsLeader,
+      rejectAllWaiters,
+      resolveAllWaiters,
+      waitForTokenFromOtherTab,
+    ]
   );
 
   const refreshSession = useCallback(() => {
@@ -501,7 +516,10 @@ function App() {
         // 否则在“跨 iframe 并发”场景下，第二个拿到锁的上下文会被 forceRefresh 逼着再刷一次。
         const newToken = await ensureValidAccessToken();
         if (newToken) {
-          (config.headers as any) = { ...(config.headers as any), Authorization: `Bearer ${newToken}` };
+          (config.headers as any) = {
+            ...(config.headers as any),
+            Authorization: `Bearer ${newToken}`,
+          };
         }
       } catch {
         // 不在这里强制跳转，交给 response 401 兜底
@@ -560,7 +578,7 @@ function App() {
             if (token) {
               originalRequest.headers = {
                 ...(originalRequest.headers || {}),
-                Authorization: `Bearer ${token}`
+                Authorization: `Bearer ${token}`,
               };
             }
             return axios(originalRequest);
@@ -584,6 +602,7 @@ function App() {
 
   const isAdmin = user?.role === 'park_reviewer' || user?.role === 'pota_representative';
   const isSysAdmin = user?.role === 'system_admin';
+  const isPotaRepresentative = user?.role === 'pota_representative';
 
   return (
     <AuthContext.Provider
@@ -595,12 +614,21 @@ function App() {
         refreshSession,
         logout,
         isAuthLoading,
-        isTokenReady: isTokenReadyRef.current
+        isTokenReady: isTokenReadyRef.current,
       }}
     >
       <Box sx={{ display: 'flex' }}>
-        {!isAuthPage && <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
-        {!isAuthPage && <SideBar isOpen={isSidebarOpen} isAdmin={isAdmin} isSysAdmin={isSysAdmin} />}
+        {!isAuthPage && (
+          <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+        )}
+        {!isAuthPage && (
+          <SideBar
+            isOpen={isSidebarOpen}
+            isAdmin={isAdmin}
+            isSysAdmin={isSysAdmin}
+            isPotaRepresentative={isPotaRepresentative}
+          />
+        )}
         <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
           {!isAuthPage && <Toolbar />}
           <Routes>
@@ -663,7 +691,6 @@ function App() {
                 </RequireSysAdmin>
               }
             />
-
           </Routes>
         </Box>
       </Box>

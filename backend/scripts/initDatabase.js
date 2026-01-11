@@ -35,11 +35,16 @@ const init = async () => {
         if (regs?.app_meta && regs?.users) {
           const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
 
-          if (schemaVersion?.value === '3') {
-            console.log('✅ 检测到数据库已初始化（schema_version=3），跳过建表/建索引，仅确保初始系统管理员存在...');
+          if (schemaVersion?.value === '4') {
+            console.log('✅ 检测到数据库已初始化（schema_version=4），跳过建表/建索引，仅确保初始系统管理员存在...');
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库检查完成！');
             return;
+          }
+
+          if (schemaVersion?.value === '3') {
+            console.log('🛠️ 检测到数据库版本 3，需要升级到版本 4（添加 POTA 认证表）...');
+            // 继续执行初始化，会创建新表并更新版本号
           }
 
           if (schemaVersion?.value === '2') {

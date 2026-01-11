@@ -62,6 +62,13 @@ const startServer = async () => {
       console.log('');
       console.log('📍 基础数据:');
       console.log('GET  /api/provinces - 获取省份列表');
+      console.log('');
+      console.log('🔗 POTA 认证:');
+      console.log('POST /api/pota/init-auth - 初始化 POTA 认证');
+      console.log('POST /api/pota/callback - POTA 认证回调');
+      console.log('GET  /api/pota/token - 获取 POTA token（自动刷新）');
+      console.log('GET  /api/pota/status - 获取 POTA 连接状态');
+      console.log('DELETE /api/pota/token - 断开 POTA 连接');
     });
   } catch (error) {
     console.error('启动服务器失败:', error);

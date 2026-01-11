@@ -404,6 +404,44 @@ CREATE TABLE pota_tokens (
 
 ---
 
+## Cookie 使用说明
+
+### 发现
+
+从抓包日志中发现，POTA 在认证流程中使用了 Cookie：
+
+- `amplify-redirected-from-hosted-ui=true`
+- `amplify-signin-with-hostedUI=true`
+- `POTA_SETTINGS={...}`
+
+### 影响分析
+
+**关键观察**：
+
+- ✅ API 调用使用 `Authorization: Bearer {id_token}` header（从 `create.log` 确认）
+- ❓ Cookie 的作用尚不明确（可能是前端状态管理）
+
+**最可能的情况**：
+
+- POTA API 使用 `Authorization` header 进行认证
+- Cookie 主要用于前端状态管理
+- **我们的方案不受影响**
+
+**如果确实需要 Cookie**：
+
+- 需要调整后端代理，维护 Cookie Session
+- 使用 axios cookie jar 或 Puppeteer 管理 Cookie
+- 实现复杂度会增加
+
+**建议**：
+
+1. 先按原方案实现（使用 Authorization header）
+2. 测试 API 调用是否成功
+3. 如果失败，再考虑 Cookie 方案
+
+详细分析请参考：`COOKIE_ANALYSIS.md`
+
 ## 更新记录
 
+- 2025-01-10: 添加 Cookie 使用说明和影响分析
 - 2025-01-XX: 初始文档，提供 4 个技术方案对比

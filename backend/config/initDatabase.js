@@ -31,9 +31,10 @@ export const createTables = async () => {
     `);
 
     // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
+    // 版本 4: 添加 POTA 认证相关表（pota_pkce, pota_tokens）
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '3')
+      VALUES ('schema_version', '4')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -276,6 +277,29 @@ export const createTables = async () => {
       )
     `);
 
+    // 10. POTA PKCE 参数临时存储表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_pkce (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        code_verifier TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 11. POTA Token 存储表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_tokens (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        id_token_encrypted TEXT NOT NULL,
+        access_token_encrypted TEXT,
+        refresh_token_encrypted TEXT NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ 数据库表创建完成');
   } catch (error) {
     console.error('❌ 创建数据库表失败:', error);
@@ -298,41 +322,93 @@ export const createIndexes = async () => {
     await query('CREATE INDEX IF NOT EXISTS idx_provinces_active ON provinces(is_active)');
 
     // 公园申请表索引
-    await query('CREATE INDEX IF NOT EXISTS idx_park_location_4326 ON park_applications USING GIST (location)');
-    await query('CREATE INDEX IF NOT EXISTS idx_park_name_text ON park_applications USING GIN (to_tsvector(\'chinese\', park_name))');
-    await query('CREATE INDEX IF NOT EXISTS idx_applicant_status ON park_applications(applicant_id, status)');
-    await query('CREATE INDEX IF NOT EXISTS idx_province_status ON park_applications(province_iso_code, status)');
-    await query('CREATE INDEX IF NOT EXISTS idx_coordinates ON park_applications(latitude, longitude)');
-    await query('CREATE INDEX IF NOT EXISTS idx_access_methods ON park_applications USING GIN (access_methods)');
-    await query('CREATE INDEX IF NOT EXISTS idx_activation_methods ON park_applications USING GIN (activation_methods)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_park_location_4326 ON park_applications USING GIST (location)'
+    );
+    await query(
+      "CREATE INDEX IF NOT EXISTS idx_park_name_text ON park_applications USING GIN (to_tsvector('chinese', park_name))"
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_applicant_status ON park_applications(applicant_id, status)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_province_status ON park_applications(province_iso_code, status)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_coordinates ON park_applications(latitude, longitude)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_access_methods ON park_applications USING GIN (access_methods)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_activation_methods ON park_applications USING GIN (activation_methods)'
+    );
 
     // 审核记录表索引
-    await query('CREATE INDEX IF NOT EXISTS idx_audit_application ON application_audit_logs (application_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_audit_operator ON application_audit_logs (operator_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_audit_action ON application_audit_logs (action, created_at DESC)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_application ON application_audit_logs (application_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_operator ON application_audit_logs (operator_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_action ON application_audit_logs (action, created_at DESC)'
+    );
 
     // 呼号变更申请表索引
-    await query('CREATE INDEX IF NOT EXISTS idx_callsign_requests_user ON callsign_change_requests (user_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_callsign_requests_status ON callsign_change_requests (status, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_callsign_requests_callsign ON callsign_change_requests (requested_callsign)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_user ON callsign_change_requests (user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_status ON callsign_change_requests (status, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_callsign ON callsign_change_requests (requested_callsign)'
+    );
 
     // 用户信息修改记录表索引
-    await query('CREATE INDEX IF NOT EXISTS idx_user_changes_user ON user_info_changes (user_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_user_changes_field ON user_info_changes (field_name, status, created_at DESC)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_changes_user ON user_info_changes (user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_changes_field ON user_info_changes (field_name, status, created_at DESC)'
+    );
 
     // Refresh token 索引
-    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id, revoked_at, expires_at)');
-    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id, revoked_at)');
-    await query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_absolute_exp ON refresh_tokens (absolute_expires_at)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id, revoked_at, expires_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id, revoked_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_absolute_exp ON refresh_tokens (absolute_expires_at)'
+    );
 
     // 用户管理审计日志索引
-    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_target ON user_admin_audit_logs (target_user_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_operator ON user_admin_audit_logs (operator_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_user_admin_audit_action ON user_admin_audit_logs (action, created_at DESC)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_target ON user_admin_audit_logs (target_user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_operator ON user_admin_audit_logs (operator_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_action ON user_admin_audit_logs (action, created_at DESC)'
+    );
 
     // 审核提醒表索引
-    await query('CREATE INDEX IF NOT EXISTS idx_reminder_application ON review_reminders (application_id, created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_reminder_to ON review_reminders (reminded_to, is_acknowledged, created_at DESC)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_reminder_application ON review_reminders (application_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_reminder_to ON review_reminders (reminded_to, is_acknowledged, created_at DESC)'
+    );
+
+    // POTA 相关索引
+    await query('CREATE INDEX IF NOT EXISTS idx_pota_pkce_user ON pota_pkce (user_id, created_at)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_pota_tokens_user ON pota_tokens (user_id, expires_at)'
+    );
 
     console.log('✅ 索引创建完成');
   } catch (error) {
@@ -534,7 +610,9 @@ export const ensureInitialSystemAdmin = async () => {
       [existingUser.id, passwordHash]
     );
 
-    console.log(`✅ 已将用户提升为初始系统管理员: ${existingUser.callsign} <${existingUser.email}>`);
+    console.log(
+      `✅ 已将用户提升为初始系统管理员: ${existingUser.callsign} <${existingUser.email}>`
+    );
     return;
   }
 
