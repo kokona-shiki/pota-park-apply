@@ -6,6 +6,7 @@ import {
   mapAccessMethodsWithBothLangs,
   mapActivationMethodsWithBothLangs,
 } from '../../utils/potaMapping';
+import { isValidUrl } from '../../utils/urlValidation';
 
 interface SubmitParams {
   parkName: string;
@@ -56,6 +57,11 @@ export const useSubmit = () => {
     }
     if (!params.confirmed) {
       throw new Error('请勾选确认公园真实性');
+    }
+
+    // 验证网站URL格式
+    if (params.website && params.website.trim() !== '' && !isValidUrl(params.website.trim())) {
+      throw new Error('公园网址格式不对');
     }
 
     if (submitRequestRef.current) {
