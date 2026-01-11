@@ -50,11 +50,6 @@ function UserInfo() {
   // 如果用户未登录，不显示任何内容
   if (!user) return null;
   
-  // 初始化邮箱状态
-  if (email === '' && user.email) {
-    setEmail(user.email);
-  }
-  
   // 如果用户被禁用（banned），不显示内容
   if (user.role === 'banned') {
     return (
