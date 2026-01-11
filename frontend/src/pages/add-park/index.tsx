@@ -32,47 +32,54 @@ import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 
-
 import { getApiErrorMessage } from '../../utils/error';
 
 // LocationMarker 组件
 interface LocationMarkerProps {
   isPotaPark: boolean;
   mapPOIs: MapPOI[];
-  updateFormState: (state: Partial<Record<string, string | boolean | [number, number] | number | string[]>>) => void;
+  updateFormState: (
+    state: Partial<Record<string, string | boolean | [number, number] | number | string[]>>
+  ) => void;
   latitude: string;
   longitude: string;
 }
 
-const LocationMarkerComponent: React.FC<LocationMarkerProps> = ({ isPotaPark, mapPOIs, updateFormState, latitude, longitude }) => {
-  const LocationMarkerInner = () => {
-    useMapEvents({
-      click(e) {
-        // 如果有地图搜索结果,不允许点击修改位置
-        if (isPotaPark || mapPOIs.length > 0) return;
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
-        updateFormState({ latitude: String(lat), longitude: String(lon) });
-        // 移除 setMapCenter 调用，不重置地图中心
-      },
-    });
+const LocationMarkerInner: React.FC<LocationMarkerProps> = ({
+  isPotaPark,
+  mapPOIs,
+  updateFormState,
+  latitude,
+  longitude,
+}) => {
+  useMapEvents({
+    click(e) {
+      // 如果有地图搜索结果,不允许点击修改位置
+      if (isPotaPark || mapPOIs.length > 0) return;
+      const lat = e.latlng.lat;
+      const lon = e.latlng.lng;
+      updateFormState({ latitude: String(lat), longitude: String(lon) });
+      // 移除 setMapCenter 调用，不重置地图中心
+    },
+  });
 
-    // 显示手动选择的标记（当没有地图搜索结果时）
-    if (mapPOIs.length === 0) {
-      const lat = Number.parseFloat(latitude);
-      const lon = Number.parseFloat(longitude);
+  // 显示手动选择的标记（当没有地图搜索结果时）
+  if (mapPOIs.length === 0) {
+    const lat = Number.parseFloat(latitude);
+    const lon = Number.parseFloat(longitude);
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return null;
-      }
-
-      return <Marker position={[lat, lon]} />;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return null;
     }
 
-    return null;
-  };
-  
-  return <LocationMarkerInner />;
+    return <Marker position={[lat, lon]} />;
+  }
+
+  return null;
+};
+
+const LocationMarkerComponent: React.FC<LocationMarkerProps> = (props) => {
+  return <LocationMarkerInner {...props} />;
 };
 
 // 修复 Leaflet 默认图标问题
@@ -304,10 +311,6 @@ function AddPark() {
 
     return bounds;
   }, [mapPOIs]);
-
-  
-
-    
 
   return (
     <Box sx={{ display: { xs: 'block', md: 'flex' }, gap: 2 }}>
@@ -569,12 +572,13 @@ function AddPark() {
             <MapBoundsController bounds={mapBounds} />
             {/* 使用统一的瓦片服务 */}
             <UnifiedTileLayer />
-            <LocationMarkerComponent 
-                        isPotaPark={isPotaPark}
-                        mapPOIs={mapPOIs}
-                        updateFormState={updateFormState}
-                        latitude={latitude}
-                        longitude={longitude} />
+            <LocationMarkerComponent
+              isPotaPark={isPotaPark}
+              mapPOIs={mapPOIs}
+              updateFormState={updateFormState}
+              latitude={latitude}
+              longitude={longitude}
+            />
             {mapPOIs.map((poi) => (
               <Marker
                 key={poi.id}
