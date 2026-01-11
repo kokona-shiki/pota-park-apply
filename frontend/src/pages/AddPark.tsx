@@ -667,19 +667,15 @@ function AddPark() {
               }}
               disabled={isPotaPark}
               getOptionLabel={(option) => {
-                const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
-                  (entry) => entry.englishName === option.en
-                );
-                const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
+                // 使用选项本身的中文名称
+                const zh = option.zh;
                 return `${zh} (${option.en})`;
               }}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
                 return options.filter((option) => {
-                  const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
-                    (entry) => entry.englishName === option.en
-                  );
-                  const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
+                  // 使用选项本身的中文名称进行匹配，而不是从英文到中文的映射中获取
+                  const zh = option.zh;
                   
                   // 对输入值进行多种方式的匹配
                   try {

@@ -15,14 +15,12 @@ const PARK_TYPE_OPTIONS = PARK_TYPE_MAPPING.chinese_to_english.map(
   })
 );
 
-// 模拟 filterOptions 函数
+// 模拟修复后的 filterOptions 函数
 const filterOptions = (options: typeof PARK_TYPE_OPTIONS, inputValue: string) => {
   if (!inputValue) return options;
   return options.filter((option) => {
-    const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
-      (entry) => entry.englishName === option.en
-    );
-    const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
+    // 修复后的逻辑：直接使用选项本身的中文名称，而不是从英文到中文的映射中获取
+    const zh = option.zh;
 
     // 对输入值进行多种方式的匹配
     try {
@@ -106,5 +104,20 @@ describe('Pinyin Match Functionality', () => {
     const matchedTypes = results.map(option => option.zh);
     expect(matchedTypes).toContain('国家森林公园');
     expect(results.length).toBe(1);
+  });
+
+  test('should match only "国家湿地公园" for input "gjsdgy"', () => {
+    const inputValue = 'gjsdgy';
+    const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
+    
+    // 检查结果中是否只包含"国家湿地公园"
+    const matchedTypes = results.map(option => option.zh);
+    
+    expect(matchedTypes).toContain('国家湿地公园');
+    expect(matchedTypes).not.toContain('省级湿地公园');
+    
+    // 确保只匹配到一个结果
+    expect(results.length).toBe(1);
+    expect(results[0].zh).toBe('国家湿地公园');
   });
 });
