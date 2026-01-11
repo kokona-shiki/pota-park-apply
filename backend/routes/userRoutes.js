@@ -28,10 +28,15 @@ router.get('/api/users', authenticateToken, requirePermission('view_all_users'),
 router.put('/api/users/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { field, value, reason } = req.body;
+    const { field, value, reason, oldPassword } = req.body;
 
     if (!field || value === undefined || value === null) {
       return sendBizError(res, 'VALIDATION_ERROR', '字段名和新值不能为空', null);
+    }
+
+    // 如果是修改邮箱，需要验证原密码
+    if (field === 'email' && !oldPassword) {
+      return sendBizError(res, 'VALIDATION_ERROR', '修改邮箱需要提供原密码', null);
     }
 
     const updatedUser = await userService.updateUserInfo(
@@ -39,7 +44,8 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
       parseInt(userId, 10),
       field,
       value,
-      reason
+      reason,
+      oldPassword
     );
 
     return sendOk(res, { user: updatedUser }, '用户信息更新成功');

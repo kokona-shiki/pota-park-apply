@@ -39,6 +39,8 @@ function UserInfo() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailOldPassword, setEmailOldPassword] = useState('');
+  const [showEmailOldPassword, setShowEmailOldPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -64,6 +66,11 @@ function UserInfo() {
 
   // 处理邮箱更新
   const handleEmailUpdate = async () => {
+    if (!emailOldPassword) {
+      setErrorMessage('请输入原密码');
+      return;
+    }
+
     if (!email || email === user.email) {
       setErrorMessage('邮箱未改变或无效');
       return;
@@ -85,7 +92,8 @@ function UserInfo() {
         body: JSON.stringify({
           field: 'email',
           value: email,
-          reason: '用户自行修改邮箱'
+          reason: '用户自行修改邮箱',
+          oldPassword: emailOldPassword
         }),
       });
       
@@ -97,6 +105,7 @@ function UserInfo() {
       
       // 更新成功后刷新用户信息
       await refreshSession();
+      setEmailOldPassword('');
       setSuccessMessage('邮箱更新成功');
       handleCloseEmailDialog(); // 关闭对话框
     } catch (error: unknown) {
@@ -189,6 +198,9 @@ function UserInfo() {
 
   // 切换原密码可见性
   const handleClickShowOldPassword = () => setShowOldPassword(!showOldPassword);
+
+  // 切换邮箱原密码可见性
+  const handleClickShowEmailOldPassword = () => setShowEmailOldPassword(!showEmailOldPassword);
 
   // 打开/关闭邮箱对话框
   const handleOpenEmailDialog = () => {
@@ -313,8 +325,30 @@ function UserInfo() {
               disabled={loading}
               error={!!errorMessage}
               helperText={errorMessage}
-              sx={{ mt: 1 }}
+              sx={{ mb: 2 }}
             />
+            <FormControl fullWidth variant="outlined" disabled={loading}>
+              <InputLabel htmlFor="email-old-password">原密码</InputLabel>
+              <OutlinedInput
+                id="email-old-password"
+                type={showEmailOldPassword ? 'text' : 'password'}
+                value={emailOldPassword}
+                onChange={(e) => setEmailOldPassword(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle email old password visibility"
+                      onClick={handleClickShowEmailOldPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showEmailOldPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+                label="原密码"
+              />
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>

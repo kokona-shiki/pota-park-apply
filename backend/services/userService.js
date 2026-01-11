@@ -118,15 +118,24 @@ export const loginUser = async (identifier, password) => {
 };
 
 // 更新用户信息
-export const updateUserInfo = async (operatorId, targetUserId, field, newValue, reason) => {
+export const updateUserInfo = async (operatorId, targetUserId, field, newValue, reason, oldPassword = null) => {
   const canModify = await checkUserModificationPermission(operatorId, targetUserId, field);
   if (!canModify) {
     throw new Error('没有权限修改该用户信息');
   }
 
-  const currentUser = await getOne(`SELECT ${field} as current_value FROM users WHERE id = $1`, [targetUserId]);
+  const currentUser = await getOne(`SELECT ${field} as current_value, password_hash FROM users WHERE id = $1`, [targetUserId]);
   if (!currentUser) {
     throw new Error('用户不存在');
+  }
+
+  // 如果是修改邮箱或密码，需要验证原密码
+  if (field === 'email' && oldPassword !== null) {
+    // 验证原密码
+    const isValidOldPassword = await verifyPassword(oldPassword, currentUser.password_hash);
+    if (!isValidOldPassword) {
+      throw new Error('原密码不正确');
+    }
   }
 
   return await transaction(async (client) => {
