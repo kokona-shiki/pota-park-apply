@@ -21,6 +21,8 @@ import {
   ListItemText,
   Autocomplete,
 } from '@mui/material';
+
+import Pinyin from 'pinyin-match';
 import CloseIcon from '@mui/icons-material/Close';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import parkTypeMappingData from '../assets/park_type_mapping.json';
@@ -131,7 +133,8 @@ const PARK_TYPE_MAPPING = parkTypeMappingData as {
 };
 
 const PARK_TYPE_OPTIONS = PARK_TYPE_MAPPING.chinese_to_english.map(
-  ({ chineseName: zh, englishName: en }) => ({
+  ({ chineseName: zh, englishName: en }, index) => ({
+    id: index,
     zh,
     en,
   })
@@ -670,9 +673,26 @@ function AddPark() {
                 const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
                 return `${zh} (${option.en})`;
               }}
+              filterOptions={(options, { inputValue }) => {
+                if (!inputValue) return options;
+                return options.filter((option) => {
+                  const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
+                    (entry) => entry.englishName === option.en
+                  );
+                  const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
+                  
+                  // 对输入值进行多种方式的匹配
+                  try {
+                    return Pinyin.match(zh, inputValue) !== false;
+                  } catch {
+                    // 如果出现异常，回退到基本匹配，但只匹配中文名称
+                    return zh.toLowerCase().includes(inputValue.toLowerCase());
+                  }
+                });
+              }}
               renderInput={(params) => <TextField {...params} label="公园类型" />}
               renderOption={(props, option) => (
-                <li {...props}>
+                <li {...props} key={option.id}>
                   <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
                       {option.zh}
@@ -829,6 +849,12 @@ function AddPark() {
             }}
             disabled={isPotaPark}
             getOptionLabel={(option) => `(${option.code}) ${option.name}`}
+            filterOptions={(options, { inputValue }) => {
+              if (!inputValue) return options;
+              return options.filter((option) =>
+                Pinyin.match(`${option.code} ${option.name}`, inputValue) !== false
+              );
+            }}
             renderInput={(params) => <TextField {...params} label="省份" helperText="目前仅支持31个省、直辖市、自治区，不支持港澳台地区" />}
             isOptionEqualToValue={(option, value) => option.code === value.code}
           />
