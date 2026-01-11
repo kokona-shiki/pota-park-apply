@@ -216,14 +216,7 @@ function UserInfo() {
                 <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
                 <ListItemText
                   primary="呼号"
-                  secondary={
-                    <Box>
-                      {user.callsign || ''}
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        呼号不可更改
-                      </Typography>
-                    </Box>
-                  }
+                  secondary={`${user.callsign || ''} (呼号不可更改)`}
                   sx={{ flex: 1 }}
                 />
               </ListItem>
