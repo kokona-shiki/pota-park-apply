@@ -6,7 +6,7 @@ import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
 import Home from './pages/Home';
-import AddPark from './pages/add-park/index';
+import AddPark from './pages/add-park';
 import ApplicationsList from './pages/ApplicationsList';
 import MyUploads from './pages/MyUploads';
 import ExportPage from './pages/ExportPage';
