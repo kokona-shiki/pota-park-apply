@@ -325,11 +325,11 @@ function UserInfo() {
                   email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
                 }
               />
-              {email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
-                <FormHelperText error>
-                  请输入有效的邮箱地址
-                </FormHelperText>
-              )}
+              {email !== '' &&
+                email !== user.email &&
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
+                  <FormHelperText error>请输入有效的邮箱地址</FormHelperText>
+                )}
             </FormControl>
             <FormControl fullWidth variant="outlined" disabled={loading}>
               <InputLabel htmlFor="email-old-password">原密码</InputLabel>

@@ -7,7 +7,7 @@ import {
   checkUserPermission,
   normalizeCallsign,
   normalizeEmail,
-  revokeAllRefreshTokensForUser
+  revokeAllRefreshTokensForUser,
 } from '../utils/auth.js';
 
 // -----------------
@@ -22,7 +22,7 @@ export const logUserAdminAudit = async ({
   oldIsActive = null,
   newIsActive = null,
   reason = null,
-  metadata = {}
+  metadata = {},
 }) => {
   await query(
     `
@@ -38,17 +38,7 @@ export const logUserAdminAudit = async ({
       metadata
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
   `,
-    [
-      action,
-      operatorId,
-      targetUserId,
-      oldRole,
-      newRole,
-      oldIsActive,
-      newIsActive,
-      reason,
-      metadata
-    ]
+    [action, operatorId, targetUserId, oldRole, newRole, oldIsActive, newIsActive, reason, metadata]
   );
 };
 
@@ -59,12 +49,16 @@ export const registerUser = async (userData) => {
   const { password, role = 'user' } = userData;
 
   // 优先返回邮箱冲突
-  const existingEmail = await getOne(`SELECT id FROM users WHERE lower(email) = lower($1)`, [email]);
+  const existingEmail = await getOne(`SELECT id FROM users WHERE lower(email) = lower($1)`, [
+    email,
+  ]);
   if (existingEmail) {
     throw new Error('邮箱已被使用');
   }
 
-  const existingCallsign = await getOne(`SELECT id FROM users WHERE upper(callsign) = upper($1)`, [callsign]);
+  const existingCallsign = await getOne(`SELECT id FROM users WHERE upper(callsign) = upper($1)`, [
+    callsign,
+  ]);
   if (existingCallsign) {
     throw new Error('呼号已被使用');
   }
@@ -118,13 +112,23 @@ export const loginUser = async (identifier, password) => {
 };
 
 // 更新用户信息
-export const updateUserInfo = async (operatorId, targetUserId, field, newValue, reason, oldPassword = null) => {
+export const updateUserInfo = async (
+  operatorId,
+  targetUserId,
+  field,
+  newValue,
+  reason,
+  oldPassword = null
+) => {
   const canModify = await checkUserModificationPermission(operatorId, targetUserId, field);
   if (!canModify) {
     throw new Error('没有权限修改该用户信息');
   }
 
-  const currentUser = await getOne(`SELECT ${field} as current_value, password_hash FROM users WHERE id = $1`, [targetUserId]);
+  const currentUser = await getOne(
+    `SELECT ${field} as current_value, password_hash FROM users WHERE id = $1`,
+    [targetUserId]
+  );
   if (!currentUser) {
     throw new Error('用户不存在');
   }
@@ -252,7 +256,7 @@ export const reviewCallsignChange = async (reviewerId, requestId, status, review
 
     return {
       request: { ...request, status, review_notes: reviewNotes },
-      updatedUser
+      updatedUser,
     };
   });
 };
@@ -284,7 +288,7 @@ export const getUserAdminAuditLogs = async ({
   targetUserId = null,
   operatorId = null,
   limit = 200,
-  offset = 0
+  offset = 0,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
   const safeOffset = Math.max(0, Number(offset) || 0);
@@ -367,7 +371,9 @@ export const updateUserRole = async (operatorId, targetUserId, newRole, reason) 
   }
 
   // 业务限制：目标用户被禁用时，不允许改角色
-  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [targetUserId]);
+  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [
+    targetUserId,
+  ]);
   if (!target) throw new Error('用户不存在');
   if (!target.is_active) throw new Error('用户已被禁用，无法修改角色');
 
@@ -413,7 +419,9 @@ export const updateUserActive = async (operatorId, targetUserId, isActive) => {
     throw new Error('不能修改自己的启用状态');
   }
 
-  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [targetUserId]);
+  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [
+    targetUserId,
+  ]);
   if (!target) throw new Error('用户不存在');
 
   // 权限校验：只有系统管理员
@@ -447,7 +455,14 @@ export const updateUserActive = async (operatorId, targetUserId, isActive) => {
         metadata
       ) VALUES ($1, $2, $3, $4, $5, $6)
     `,
-      [newIsActive ? 'user_enabled' : 'user_disabled', operatorId, targetUserId, target.is_active, newIsActive, {}]
+      [
+        newIsActive ? 'user_enabled' : 'user_disabled',
+        operatorId,
+        targetUserId,
+        target.is_active,
+        newIsActive,
+        {},
+      ]
     );
 
     return updated.rows[0];
@@ -496,10 +511,7 @@ export const updateUserPassword = async (userId, oldPassword, newPassword, reaso
   }
 
   // 获取当前用户信息以验证原密码
-  const user = await getOne(
-    `SELECT id, password_hash FROM users WHERE id = $1`,
-    [userId]
-  );
+  const user = await getOne(`SELECT id, password_hash FROM users WHERE id = $1`, [userId]);
 
   if (!user) {
     throw new Error('用户不存在');

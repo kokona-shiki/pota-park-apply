@@ -7,22 +7,30 @@ import { sendBizError, sendError, sendOk } from '../utils/response.js';
 const router = express.Router();
 
 // 获取用户列表（仅管理员）
-router.get('/api/users', authenticateToken, requirePermission('view_all_users'), async (req, res) => {
-  try {
-    const { role, isActive } = req.query;
+router.get(
+  '/api/users',
+  authenticateToken,
+  requirePermission('view_all_users'),
+  async (req, res) => {
+    try {
+      const { role, isActive } = req.query;
 
-    let isActiveParsed = null;
-    if (isActive === 'true') isActiveParsed = true;
-    if (isActive === 'false') isActiveParsed = false;
+      let isActiveParsed = null;
+      if (isActive === 'true') isActiveParsed = true;
+      if (isActive === 'false') isActiveParsed = false;
 
-    const users = await userService.getUsers(role || null, isActiveParsed);
+      const users = await userService.getUsers(role || null, isActiveParsed);
 
-    return sendOk(res, { users }, 'ok');
-  } catch (error) {
-    console.error('获取用户列表失败:', error);
-    return sendError(res, error, { httpMessage: '获取用户列表失败', bizMessage: '获取用户列表失败' });
+      return sendOk(res, { users }, 'ok');
+    } catch (error) {
+      console.error('获取用户列表失败:', error);
+      return sendError(res, error, {
+        httpMessage: '获取用户列表失败',
+        bizMessage: '获取用户列表失败',
+      });
+    }
   }
-});
+);
 
 // 修改用户信息
 router.put('/api/users/:userId', authenticateToken, async (req, res) => {
@@ -65,7 +73,12 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
       return sendBizError(res, 'VALIDATION_ERROR', '角色不能为空', null);
     }
 
-    const updatedUser = await userService.updateUserRole(req.user.id, parseInt(userId, 10), role, reason);
+    const updatedUser = await userService.updateUserRole(
+      req.user.id,
+      parseInt(userId, 10),
+      role,
+      reason
+    );
 
     return sendOk(res, { user: updatedUser }, '用户角色更新成功');
   } catch (error) {
@@ -84,7 +97,11 @@ router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
       return sendBizError(res, 'VALIDATION_ERROR', 'isActive 必须为 boolean', null);
     }
 
-    const updatedUser = await userService.updateUserActive(req.user.id, parseInt(userId, 10), isActive);
+    const updatedUser = await userService.updateUserActive(
+      req.user.id,
+      parseInt(userId, 10),
+      isActive
+    );
 
     return sendOk(res, { user: updatedUser }, isActive ? '用户已解封' : '用户已封禁');
   } catch (error) {
@@ -107,13 +124,16 @@ router.get(
         targetUserId: targetUserId || null,
         operatorId: operatorId || null,
         limit: limit || 200,
-        offset: offset || 0
+        offset: offset || 0,
       });
 
       return sendOk(res, { logs }, 'ok');
     } catch (error) {
       console.error('获取用户管理审计日志失败:', error);
-      return sendError(res, error, { httpMessage: '获取用户管理审计日志失败', bizMessage: '获取用户管理审计日志失败' });
+      return sendError(res, error, {
+        httpMessage: '获取用户管理审计日志失败',
+        bizMessage: '获取用户管理审计日志失败',
+      });
     }
   }
 );
@@ -141,7 +161,12 @@ router.put('/api/users/:userId/change-password', authenticateToken, async (req, 
       return sendBizError(res, 'PERMISSION_ERROR', '只能修改自己的密码', null);
     }
 
-    const updatedUser = await userService.updateUserPassword(req.user.id, oldPassword, newPassword, reason);
+    const updatedUser = await userService.updateUserPassword(
+      req.user.id,
+      oldPassword,
+      newPassword,
+      reason
+    );
 
     return sendOk(res, { user: updatedUser }, '密码更新成功');
   } catch (error) {
