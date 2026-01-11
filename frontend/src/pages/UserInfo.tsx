@@ -71,8 +71,13 @@ function UserInfo() {
       return;
     }
 
-    if (!email || email === user.email) {
-      setErrorMessage('邮箱未改变或无效');
+    if (!email) {
+      setErrorMessage('邮箱不能为空');
+      return;
+    }
+
+    if (email === user.email) {
+      setErrorMessage('新邮箱不能与当前邮箱相同');
       return;
     }
 
