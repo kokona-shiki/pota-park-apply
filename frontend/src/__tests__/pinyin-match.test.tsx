@@ -36,16 +36,16 @@ describe('Pinyin Match Functionality', () => {
   test('should match only "国家森林公园" for input "gjslgy"', () => {
     const inputValue = 'gjslgy';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 检查结果中是否只包含"国家森林公园"
-    const matchedTypes = results.map(option => option.zh);
-    
+    const matchedTypes = results.map((option) => option.zh);
+
     expect(matchedTypes).toContain('国家森林公园');
     expect(matchedTypes).not.toContain('国家湿地公园');
     expect(matchedTypes).not.toContain('省级地质公园');
     expect(matchedTypes).not.toContain('国家草原公园');
     expect(matchedTypes).not.toContain('国家沙漠公园');
-    
+
     // 确保只匹配到一个结果
     expect(results.length).toBe(1);
     expect(results[0].zh).toBe('国家森林公园');
@@ -54,10 +54,10 @@ describe('Pinyin Match Functionality', () => {
   test('should match multiple options for partial input', () => {
     const inputValue = '国家';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 检查是否匹配到多个包含"国家"的选项
-    const matchedTypes = results.map(option => option.zh);
-    
+    const matchedTypes = results.map((option) => option.zh);
+
     expect(matchedTypes.length).toBeGreaterThan(1);
     expect(matchedTypes).toContain('国家森林公园');
     expect(matchedTypes).toContain('国家湿地公园');
@@ -71,19 +71,19 @@ describe('Pinyin Match Functionality', () => {
   test('should match options with pinyin abbreviation', () => {
     const inputValue = 'gjgy';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 检查是否匹配到"国家公园"
-    const matchedTypes = results.map(option => option.zh);
+    const matchedTypes = results.map((option) => option.zh);
     expect(matchedTypes).toContain('国家公园');
   });
 
   test('should not match unrelated options', () => {
     const inputValue = 'gjslgy';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 确保没有匹配到不相关的选项
-    const matchedTypes = results.map(option => option.zh);
-    
+    const matchedTypes = results.map((option) => option.zh);
+
     expect(matchedTypes.length).toBe(1);
     expect(matchedTypes[0]).toBe('国家森林公园');
   });
@@ -91,7 +91,7 @@ describe('Pinyin Match Functionality', () => {
   test('should handle empty input', () => {
     const inputValue = '';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 空输入应该返回所有选项
     expect(results.length).toBe(PARK_TYPE_OPTIONS.length);
   });
@@ -99,9 +99,9 @@ describe('Pinyin Match Functionality', () => {
   test('should handle case insensitive input', () => {
     const inputValue = 'GJSLGY';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 检查大写输入是否也能正确匹配
-    const matchedTypes = results.map(option => option.zh);
+    const matchedTypes = results.map((option) => option.zh);
     expect(matchedTypes).toContain('国家森林公园');
     expect(results.length).toBe(1);
   });
@@ -109,13 +109,13 @@ describe('Pinyin Match Functionality', () => {
   test('should match only "国家湿地公园" for input "gjsdgy"', () => {
     const inputValue = 'gjsdgy';
     const results = filterOptions(PARK_TYPE_OPTIONS, inputValue);
-    
+
     // 检查结果中是否只包含"国家湿地公园"
-    const matchedTypes = results.map(option => option.zh);
-    
+    const matchedTypes = results.map((option) => option.zh);
+
     expect(matchedTypes).toContain('国家湿地公园');
     expect(matchedTypes).not.toContain('省级湿地公园');
-    
+
     // 确保只匹配到一个结果
     expect(results.length).toBe(1);
     expect(results[0].zh).toBe('国家湿地公园');
