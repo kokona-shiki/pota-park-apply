@@ -3,19 +3,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Autocomplete,
   Box,
-  Typography,
-  TextField,
-  FormControl,
   Button,
-  Select,
-  MenuItem,
-  InputLabel,
   Checkbox,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
-import { Autocomplete } from '@mui/material';
 import Pinyin from 'pinyin-match';
 
 import parkTypeMappingData from '../../assets/park_type_mapping.json';
@@ -31,7 +31,49 @@ import { useFormState, clearFormState } from './useFormState';
 import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
+
+
 import { getApiErrorMessage } from '../../utils/error';
+
+// LocationMarker 组件
+interface LocationMarkerProps {
+  isPotaPark: boolean;
+  mapPOIs: MapPOI[];
+  updateFormState: (state: Partial<Record<string, string | boolean | [number, number] | number | string[]>>) => void;
+  latitude: string;
+  longitude: string;
+}
+
+const LocationMarkerComponent: React.FC<LocationMarkerProps> = ({ isPotaPark, mapPOIs, updateFormState, latitude, longitude }) => {
+  const LocationMarkerInner = () => {
+    useMapEvents({
+      click(e) {
+        // 如果有地图搜索结果,不允许点击修改位置
+        if (isPotaPark || mapPOIs.length > 0) return;
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        updateFormState({ latitude: String(lat), longitude: String(lon) });
+        // 移除 setMapCenter 调用，不重置地图中心
+      },
+    });
+
+    // 显示手动选择的标记（当没有地图搜索结果时）
+    if (mapPOIs.length === 0) {
+      const lat = Number.parseFloat(latitude);
+      const lon = Number.parseFloat(longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return null;
+      }
+
+      return <Marker position={[lat, lon]} />;
+    }
+
+    return null;
+  };
+  
+  return <LocationMarkerInner />;
+};
 
 // 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -137,7 +179,7 @@ function AddPark() {
   const { formState, updateFormState, resetFormState } = useFormState();
   const { searchingPota, searchingMap, handleSearchPOTA, handleSearchMap } = useSearch();
   const { submitting, handleSubmit } = useSubmit();
-  
+
   const [error, setError] = useState<string | null>(null);
   const [mapPOIs, setMapPOIs] = useState<MapPOI[]>([]);
   const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
@@ -161,22 +203,29 @@ function AddPark() {
     mapZoom,
   } = formState;
 
+  // 计算按钮文本以避免嵌套三元运算符警告
+  const buttonText = (() => {
+    if (submitting) return '提交中...';
+    if (isPotaPark) return '已存在 POTA 公园';
+    return '提交审核';
+  })();
+
   // 地图搜索相关的状态
   const [searchResults, setSearchResults] = useState<string[]>([]);
 
   // 处理访问方法变更
   const handleAccessMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
-    updateFormState({ 
-      accessMethods: typeof value === 'string' ? value.split(',') : value 
+    updateFormState({
+      accessMethods: typeof value === 'string' ? value.split(',') : value,
     });
   };
 
   // 处理激活方法变更
   const handleActivationMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
-    updateFormState({ 
-      activationMethods: typeof value === 'string' ? value.split(',') : value 
+    updateFormState({
+      activationMethods: typeof value === 'string' ? value.split(',') : value,
     });
   };
 
@@ -256,33 +305,9 @@ function AddPark() {
     return bounds;
   }, [mapPOIs]);
 
-  // LocationMarker 组件
-  const LocationMarker = () => {
-    useMapEvents({
-      click(e) {
-        // 如果有地图搜索结果,不允许点击修改位置
-        if (isPotaPark || mapPOIs.length > 0) return;
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
-        updateFormState({ latitude: String(lat), longitude: String(lon) });
-        // 移除 setMapCenter 调用，不重置地图中心
-      },
-    });
+  
 
-    // 显示手动选择的标记（当没有地图搜索结果时）
-    if (mapPOIs.length === 0) {
-      const lat = Number.parseFloat(latitude);
-      const lon = Number.parseFloat(longitude);
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return null;
-      }
-
-      return <Marker position={[lat, lon]} />;
-    }
-
-    return null;
-  };
+    
 
   return (
     <Box sx={{ display: { xs: 'block', md: 'flex' }, gap: 2 }}>
@@ -322,7 +347,7 @@ function AddPark() {
               disablePortal
               options={PARK_TYPE_OPTIONS}
               value={PARK_TYPE_OPTIONS.find((option) => option.en === parkType) || null}
-              onChange={(event, newValue) => {
+              onChange={(_, newValue) => {
                 updateFormState({ parkType: newValue ? newValue.en : '' });
               }}
               disabled={isPotaPark}
@@ -423,7 +448,7 @@ function AddPark() {
             disablePortal
             options={provinces}
             value={provinces.find((p) => p.code === province) || null}
-            onChange={(event, newValue) => {
+            onChange={(_, newValue) => {
               updateFormState({ province: newValue ? newValue.code : '' });
             }}
             disabled={isPotaPark}
@@ -511,9 +536,9 @@ function AddPark() {
 
         <FormControlLabel
           control={
-            <Checkbox 
-              checked={confirmed} 
-              onChange={(e) => updateFormState({ confirmed: e.target.checked })} 
+            <Checkbox
+              checked={confirmed}
+              onChange={(e) => updateFormState({ confirmed: e.target.checked })}
             />
           }
           label="我已确认公园真实性"
@@ -526,7 +551,7 @@ function AddPark() {
           sx={{ mt: 1 }}
           fullWidth
         >
-          {submitting ? '提交中...' : isPotaPark ? '已存在 POTA 公园' : '提交审核'}
+          {buttonText}
         </Button>
       </Box>
 
@@ -544,7 +569,12 @@ function AddPark() {
             <MapBoundsController bounds={mapBounds} />
             {/* 使用统一的瓦片服务 */}
             <UnifiedTileLayer />
-            <LocationMarker />
+            <LocationMarkerComponent 
+                        isPotaPark={isPotaPark}
+                        mapPOIs={mapPOIs}
+                        updateFormState={updateFormState}
+                        latitude={latitude}
+                        longitude={longitude} />
             {mapPOIs.map((poi) => (
               <Marker
                 key={poi.id}
