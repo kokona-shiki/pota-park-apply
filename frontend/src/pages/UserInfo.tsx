@@ -33,8 +33,10 @@ function UserInfo() {
   
   // 状态管理 - 必须在条件渲染之前声明
   const [email, setEmail] = useState('');
+  const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -106,6 +108,11 @@ function UserInfo() {
 
   // 处理密码更新
   const handlePasswordUpdate = async () => {
+    if (!oldPassword) {
+      setErrorMessage('请输入原密码');
+      return;
+    }
+
     if (!newPassword) {
       setErrorMessage('请输入新密码');
       return;
@@ -113,6 +120,11 @@ function UserInfo() {
 
     if (newPassword.length < 6) {
       setErrorMessage('密码长度至少为6位');
+      return;
+    }
+
+    if (newPassword === oldPassword) {
+      setErrorMessage('新密码不能与原密码相同');
       return;
     }
 
@@ -131,6 +143,7 @@ function UserInfo() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          oldPassword: oldPassword,
           newPassword: newPassword,
           reason: '用户自行修改密码'
         }),
@@ -144,6 +157,7 @@ function UserInfo() {
       
       // 更新成功后刷新用户信息
       await refreshSession();
+      setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setSuccessMessage('密码更新成功');
@@ -172,6 +186,9 @@ function UserInfo() {
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   const handleClickShowConfirmPassword = () => setShowConfirmPassword(!showConfirmPassword);
   const handleMouseDownPassword = () => {};
+
+  // 切换原密码可见性
+  const handleClickShowOldPassword = () => setShowOldPassword(!showOldPassword);
 
   // 打开/关闭邮箱对话框
   const handleOpenEmailDialog = () => {
@@ -311,6 +328,28 @@ function UserInfo() {
         <DialogTitle>修改密码</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
+              <InputLabel htmlFor="dialog-old-password">原密码</InputLabel>
+              <OutlinedInput
+                id="dialog-old-password"
+                type={showOldPassword ? 'text' : 'password'}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle old password visibility"
+                      onClick={handleClickShowOldPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showOldPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+                label="原密码"
+              />
+            </FormControl>
             <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
               <InputLabel htmlFor="dialog-new-password">新密码</InputLabel>
               <OutlinedInput
