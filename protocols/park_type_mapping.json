@@ -1,24 +1,218 @@
 {
-  "google_to_pota": {
-    "国家湿地公园": "Wetland Reserve",
-    "国家矿山公园": "Geopark",
-    "国家草原公园": "National Grassland",
-    "全国爱国主义教育基地": "National Memorial",
-    "重点文物保护单位": "National Heritage Site",
-    "风景名胜区": "Scenic Reserve",
-    "水利风景区": "Water Management Area",
-    "国家沙漠公园": "National Park",
-    "考古遗址公园": "Archeological Reserve"
-  },
-  "pota_to_google": {
-    "Wetland Reserve": "国家湿地公园",
-    "Geopark": "国家矿山公园",
-    "National Grassland": "国家草原公园",
-    "National Memorial": "全国爱国主义教育基地",
-    "National Heritage Site": "重点文物保护单位",
-    "Scenic Reserve": "风景名胜区",
-    "Water Management Area": "水利风景区",
-    "National Park": "国家沙漠公园",
-    "Archeological Reserve": "考古遗址公园"
-  }
+  "chinese_to_english": [
+    {
+      "chineseName": "国家森林公园",
+      "englishName": "National Forest"
+    },
+    {
+      "chineseName": "省级森林公园",
+      "englishName": "Forest Reserve"
+    },
+    {
+      "chineseName": "国家海洋公园",
+      "englishName": "National Marine Park"
+    },
+    {
+      "chineseName": "省级海洋公园",
+      "englishName": "Marine Park"
+    },
+    {
+      "chineseName": "国家地质公园",
+      "englishName": "Natural Features Reserve"
+    },
+    {
+      "chineseName": "省级地质公园",
+      "englishName": "Landscape Reserve"
+    },
+    {
+      "chineseName": "世界地质公园",
+      "englishName": "Geopark"
+    },
+    {
+      "chineseName": "国家草原公园",
+      "englishName": "Natural Area"
+    },
+    {
+      "chineseName": "国家沙漠公园",
+      "englishName": "Protected Landscape Area"
+    },
+    {
+      "chineseName": "省级沙漠公园",
+      "englishName": "Landscape Reserve"
+    },
+    {
+      "chineseName": "国家湿地公园",
+      "englishName": "Wetland Reserve"
+    },
+    {
+      "chineseName": "省级湿地公园",
+      "englishName": "Wetland Reserve"
+    },
+    {
+      "chineseName": "国家级重点文物保护单位",
+      "englishName": "National Historic Site"
+    },
+    {
+      "chineseName": "省级重点文物保护单位",
+      "englishName": "State Historic Site"
+    },
+    {
+      "chineseName": "国家级风景名胜区",
+      "englishName": "Area of Outstanding Natural Beauty"
+    },
+    {
+      "chineseName": "省级风景名胜区",
+      "englishName": "Protected Landscape"
+    },
+    {
+      "chineseName": "国家级水利风景区",
+      "englishName": "National Waterfowl Production Area"
+    },
+    {
+      "chineseName": "省级水利风景区",
+      "englishName": "Water Management Area"
+    },
+    {
+      "chineseName": "国家级自然保护区",
+      "englishName": "National Nature Reserve"
+    },
+    {
+      "chineseName": "省级自然保护区",
+      "englishName": "Nature Reserve"
+    },
+    {
+      "chineseName": "国家公园",
+      "englishName": "National Park"
+    },
+    {
+      "chineseName": "省级公园",
+      "englishName": "Provincial Park"
+    },
+    {
+      "chineseName": "国家级矿山公园",
+      "englishName": "Conservation Reserve"
+    },
+    {
+      "chineseName": "省级矿山公园",
+      "englishName": "Conservation Area"
+    },
+    {
+      "chineseName": "国家级考古遗址公园",
+      "englishName": "Archaeological Reserve"
+    },
+    {
+      "chineseName": "省级考古遗址公园",
+      "englishName": "Historical Reserve"
+    },
+    {
+      "chineseName": "全国爱国主义教育基地",
+      "englishName": "National Memorial"
+    }
+  ],
+  "english_to_chinese": [
+    {
+      "englishName": "National Forest",
+      "chineseNames": ["国家森林公园"]
+    },
+    {
+      "englishName": "Forest Reserve",
+      "chineseNames": ["省级森林公园"]
+    },
+    {
+      "englishName": "National Marine Park",
+      "chineseNames": ["国家海洋公园"]
+    },
+    {
+      "englishName": "Marine Park",
+      "chineseNames": ["省级海洋公园"]
+    },
+    {
+      "englishName": "Natural Features Reserve",
+      "chineseNames": ["国家地质公园"]
+    },
+    {
+      "englishName": "Landscape Reserve",
+      "chineseNames": ["省级地质公园", "省级沙漠公园"]
+    },
+    {
+      "englishName": "Nature Reserve",
+      "chineseNames": ["省级自然保护区"]
+    },
+    {
+      "englishName": "Geopark",
+      "chineseNames": ["世界地质公园"]
+    },
+    {
+      "englishName": "Conservation Reserve",
+      "chineseNames": ["国家级矿山公园"]
+    },
+    {
+      "englishName": "Conservation Area",
+      "chineseNames": ["省级矿山公园"]
+    },
+    {
+      "englishName": "Historical Reserve",
+      "chineseNames": ["省级考古遗址公园"]
+    },
+    {
+      "englishName": "Natural Area",
+      "chineseNames": ["国家草原公园"]
+    },
+    {
+      "englishName": "Protected Landscape Area",
+      "chineseNames": ["国家沙漠公园"]
+    },
+    {
+      "englishName": "National Park",
+      "chineseNames": ["国家公园"]
+    },
+    {
+      "englishName": "Provincial Park",
+      "chineseNames": ["省级公园"]
+    },
+    {
+      "englishName": "Wetland Reserve",
+      "chineseNames": ["国家湿地公园", "省级湿地公园"]
+    },
+    {
+      "englishName": "National Historic Site",
+      "chineseNames": ["国家级重点文物保护单位"]
+    },
+    {
+      "englishName": "State Historic Site",
+      "chineseNames": ["省级重点文物保护单位"]
+    },
+    {
+      "englishName": "Area of Outstanding Natural Beauty",
+      "chineseNames": ["国家级风景名胜区"]
+    },
+    {
+      "englishName": "Protected Landscape",
+      "chineseNames": ["省级风景名胜区"]
+    },
+    {
+      "englishName": "National Water Management Area",
+      "chineseNames": ["国家级水利风景区"]
+    },
+    {
+      "englishName": "Water Management Area",
+      "chineseNames": ["省级水利风景区"]
+    },
+    {
+      "englishName": "National Nature Reserve",
+      "chineseNames": ["国家级自然保护区"]
+    },
+    {
+      "englishName": "National Wildlife Refuge",
+      "chineseNames": ["国家湿地公园"]
+    },
+    {
+      "englishName": "Archaeological Reserve",
+      "chineseNames": ["国家级考古遗址公园"]
+    },
+    {
+      "englishName": "National Memorial",
+      "chineseNames": ["全国爱国主义教育基地"]
+    }
+  ]
 }

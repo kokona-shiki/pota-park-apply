@@ -41,7 +41,7 @@ import {
   mapAccessMethodsWithBothLangs,
   mapActivationMethodsWithBothLangs,
   parseOSMDisplayName,
-  getProvinceCodeFromNames
+  getProvinceCodeFromNames,
 } from '../utils/potaMapping';
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -125,14 +125,16 @@ type MapPOI = {
 type LatLngTuple = [number, number];
 
 const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  google_to_pota: Record<string, string>;
-  pota_to_google: Record<string, string>;
+  chinese_to_english: Array<{ chineseName: string; englishName: string }>;
+  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
 };
 
-const PARK_TYPE_OPTIONS = Object.entries(PARK_TYPE_MAPPING.google_to_pota).map(([zh, en]) => ({
-  zh,
-  en,
-}))
+const PARK_TYPE_OPTIONS = PARK_TYPE_MAPPING.chinese_to_english.map(
+  ({ chineseName: zh, englishName: en }) => ({
+    zh,
+    en,
+  })
+);
 
 // 地图边界控制器组件
 function MapBoundsController({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
@@ -207,8 +209,12 @@ function AddPark() {
   const [longitude, setLongitude] = useState(savedState?.longitude || '');
 
   const [website, setWebsite] = useState(savedState?.website || '');
-  const [accessMethods, setAccessMethods] = useState<string[]>(savedState?.accessMethods || ['汽车', '步行', '其他']);
-  const [activationMethods, setActivationMethods] = useState<string[]>(savedState?.activationMethods || ['步行', '车载', '其他']);
+  const [accessMethods, setAccessMethods] = useState<string[]>(
+    savedState?.accessMethods || ['汽车', '步行', '其他']
+  );
+  const [activationMethods, setActivationMethods] = useState<string[]>(
+    savedState?.activationMethods || ['步行', '车载', '其他']
+  );
   const [confirmed, setConfirmed] = useState(savedState?.confirmed || false);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isPotaPark, setIsPotaPark] = useState(savedState?.isPotaPark || false);
@@ -225,7 +231,9 @@ function AddPark() {
 
   const provinces = useMemo(() => regionData as Province[], []);
 
-  const [mapCenter, setMapCenter] = useState<LatLngTuple>(savedState?.mapCenter || [39.9042, 116.4074]); // 北京
+  const [mapCenter, setMapCenter] = useState<LatLngTuple>(
+    savedState?.mapCenter || [39.9042, 116.4074]
+  ); // 北京
   const [mapZoom, setMapZoom] = useState(savedState?.mapZoom || 13);
   const submitRequestRef = useRef(false);
   const navigate = useNavigate();
@@ -244,7 +252,7 @@ function AddPark() {
       confirmed,
       isPotaPark,
       mapCenter,
-      mapZoom
+      mapZoom,
     };
     localStorage.setItem('addParkFormData', JSON.stringify(stateToSave));
   }, [
@@ -259,7 +267,7 @@ function AddPark() {
     parkName,
     parkType,
     province,
-    website
+    website,
   ]);
 
   // 清除保存的表单状态
@@ -320,21 +328,46 @@ function AddPark() {
 
       // 存储公园信息到 Map
       const parksMap = new Map<number, PotaParkInfo>();
-      validParks.forEach(park => parksMap.set(park.parkId, park));
+      validParks.forEach((park) => parksMap.set(park.parkId, park));
       setPotaParks(parksMap);
 
       // 转换为 MapPOI 格式
       const pois: MapPOI[] = validParks.map((park) => {
         const province = mapLocationToProvince(park.locationDesc);
-        const provinceName = Object.entries({
-          '11': '北京', '12': '天津', '13': '河北', '14': '山西', '15': '内蒙古',
-          '21': '辽宁', '22': '吉林', '23': '黑龙江', '31': '上海', '32': '江苏',
-          '33': '浙江', '34': '安徽', '35': '福建', '36': '江西', '37': '山东',
-          '41': '河南', '42': '湖北', '43': '湖南', '44': '广东', '45': '广西',
-          '46': '海南', '50': '重庆', '51': '四川', '52': '贵州', '53': '云南',
-          '54': '西藏', '61': '陕西', '62': '甘肃', '63': '青海', '64': '宁夏',
-          '65': '新疆'
-        }).find(([code]) => code === province)?.[1] || '';
+        const provinceName =
+          Object.entries({
+            '11': '北京',
+            '12': '天津',
+            '13': '河北',
+            '14': '山西',
+            '15': '内蒙古',
+            '21': '辽宁',
+            '22': '吉林',
+            '23': '黑龙江',
+            '31': '上海',
+            '32': '江苏',
+            '33': '浙江',
+            '34': '安徽',
+            '35': '福建',
+            '36': '江西',
+            '37': '山东',
+            '41': '河南',
+            '42': '湖北',
+            '43': '湖南',
+            '44': '广东',
+            '45': '广西',
+            '46': '海南',
+            '50': '重庆',
+            '51': '四川',
+            '52': '贵州',
+            '53': '云南',
+            '54': '西藏',
+            '61': '陕西',
+            '62': '甘肃',
+            '63': '青海',
+            '64': '宁夏',
+            '65': '新疆',
+          }).find(([code]) => code === province)?.[1] || '';
 
         return {
           id: park.parkId, // 使用真正的 parkId 作为唯一标识
@@ -422,8 +455,14 @@ function AddPark() {
       setParkName(parkInfo.name);
       setParkType(parkInfo.parktypeDesc);
       setWebsite(parkInfo.website || '');
-      setAccessMethods(parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']);
-      setActivationMethods(parkInfo.activationMethods ? mapActivationMethods(parkInfo.activationMethods) : ['步行', '车载', '其他']);
+      setAccessMethods(
+        parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']
+      );
+      setActivationMethods(
+        parkInfo.activationMethods
+          ? mapActivationMethods(parkInfo.activationMethods)
+          : ['步行', '车载', '其他']
+      );
       setIsPotaPark(true);
     } else {
       // 地图 POI，解析省份和城市
@@ -496,17 +535,21 @@ function AddPark() {
     setError(null);
 
     try {
-      await axios.post('/api/park-applications', {
-        park_name: parkName,
-        park_type: parkType,
-        province_iso_code: province,
-        latitude,
-        longitude,
-        website,
-        access_methods: mapAccessMethodsWithBothLangs(accessMethods),
-        activation_methods: mapActivationMethodsWithBothLangs(activationMethods),
-        confirmed_authenticity: confirmed
-      }, { timeout: 5000 }); // 5秒超时
+      await axios.post(
+        '/api/park-applications',
+        {
+          park_name: parkName,
+          park_type: parkType,
+          province_iso_code: province,
+          latitude,
+          longitude,
+          website,
+          access_methods: mapAccessMethodsWithBothLangs(accessMethods),
+          activation_methods: mapActivationMethodsWithBothLangs(activationMethods),
+          confirmed_authenticity: confirmed,
+        },
+        { timeout: 5000 }
+      ); // 5秒超时
 
       // 清除保存的表单状态
       clearFormState();
@@ -561,9 +604,7 @@ function AddPark() {
   const mapBounds = useMemo(() => {
     if (mapPOIs.length === 0) return null;
 
-    const bounds = L.latLngBounds(
-      mapPOIs.map(poi => [poi.lat, poi.lon] as LatLngTuple)
-    );
+    const bounds = L.latLngBounds(mapPOIs.map((poi) => [poi.lat, poi.lon] as LatLngTuple));
 
     return bounds;
   }, [mapPOIs]);
@@ -604,7 +645,6 @@ function AddPark() {
           </Alert>
         </Collapse>
 
-
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
           <TextField
             label="公园名称"
@@ -620,17 +660,38 @@ function AddPark() {
               label="公园类型"
               onChange={(e) => setParkType(e.target.value as string)}
               disabled={isPotaPark}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                    width: 250,
+                  },
+                },
+                anchorOrigin: {
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                },
+                transformOrigin: {
+                  vertical: 'top',
+                  horizontal: 'left',
+                },
+              }}
               renderValue={(value) => {
                 const en = String(value ?? '');
                 if (!en) return '';
-                const zh = PARK_TYPE_MAPPING.pota_to_google[en];
+                const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
+                  (entry) => entry.englishName === en
+                );
+                const zh = chineseEntry ? chineseEntry.chineseNames[0] : undefined;
 
                 if (!zh) return en;
 
                 return (
                   <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
                     <Typography sx={{ fontSize: '0.95rem' }}>{zh}</Typography>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{en}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                      {en}
+                    </Typography>
                   </Box>
                 );
               }}
@@ -658,16 +719,10 @@ function AddPark() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-          <Button
-            onClick={handleSearchPOTA}
-            disabled={searchingPota}
-          >
+          <Button onClick={handleSearchPOTA} disabled={searchingPota}>
             {searchingPota ? '搜索中...' : '搜索 POTA'}
           </Button>
-          <Button
-            onClick={handleSearchMap}
-            disabled={searchingMap}
-          >
+          <Button onClick={handleSearchMap} disabled={searchingMap}>
             {searchingMap ? '搜索中...' : '搜索地图'}
           </Button>
           {(parkName || mapPOIs.length > 0) && (
@@ -747,15 +802,15 @@ function AddPark() {
                             fontWeight: selectedPOIId === poi.id ? 700 : 400,
                             fontSize: '0.95rem',
                             color: selectedPOIId === poi.id ? 'primary.main' : 'text.primary',
-                          }
+                          },
                         },
                         secondary: {
                           sx: {
                             fontSize: '0.75rem',
                             fontWeight: selectedPOIId === poi.id ? 500 : 400,
                             color: selectedPOIId === poi.id ? 'primary.main' : 'text.secondary',
-                          }
-                        }
+                          },
+                        },
                       }}
                     />
                   </ListItemButton>
@@ -775,7 +830,7 @@ function AddPark() {
               borderColor: 'divider',
               borderRadius: 1,
               p: 1,
-              backgroundColor: 'background.paper'
+              backgroundColor: 'background.paper',
             }}
           >
             {searchResults.map((result, index) => (
@@ -785,7 +840,7 @@ function AddPark() {
                   py: 0.5,
                   fontSize: '0.875rem',
                   borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
-                  borderColor: 'divider'
+                  borderColor: 'divider',
                 }}
               >
                 {result}
@@ -883,7 +938,9 @@ function AddPark() {
         </FormControl>
 
         <FormControlLabel
-          control={<Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />}
+          control={
+            <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+          }
           label="我已确认公园真实性"
           sx={{ mt: 2 }}
         />
@@ -900,27 +957,23 @@ function AddPark() {
 
       <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 2, md: 0 } }}>
         <Box sx={{ height: 500, width: '100%', borderRadius: 1, overflow: 'hidden' }}>
-            <MapContainer
-              center={mapCenter}
-              zoom={mapZoom}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <MapController center={mapCenter} onZoomChange={setMapZoom} />
-              <MapBoundsController bounds={mapBounds} />
-              {/* 使用统一的瓦片服务 */}
-              <UnifiedTileLayer />
-              <LocationMarker />
-              {mapPOIs.map((poi) => (
-                <Marker
-                  key={poi.id}
-                  position={[poi.lat, poi.lon]}
-                  icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
-                  eventHandlers={{
-                    click: () => handlePOISelect(poi),
-                  }}
-                />
-              ))}
-            </MapContainer>
+          <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: '100%', width: '100%' }}>
+            <MapController center={mapCenter} onZoomChange={setMapZoom} />
+            <MapBoundsController bounds={mapBounds} />
+            {/* 使用统一的瓦片服务 */}
+            <UnifiedTileLayer />
+            <LocationMarker />
+            {mapPOIs.map((poi) => (
+              <Marker
+                key={poi.id}
+                position={[poi.lat, poi.lon]}
+                icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
+                eventHandlers={{
+                  click: () => handlePOISelect(poi),
+                }}
+              />
+            ))}
+          </MapContainer>
         </Box>
       </Box>
     </Box>
