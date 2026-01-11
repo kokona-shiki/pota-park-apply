@@ -116,7 +116,11 @@ router.get(
 router.put('/api/users/:userId/change-password', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { newPassword, reason } = req.body;
+    const { oldPassword, newPassword, reason } = req.body;
+
+    if (!oldPassword) {
+      return sendBizError(res, 'VALIDATION_ERROR', '原密码不能为空', null);
+    }
 
     if (!newPassword) {
       return sendBizError(res, 'VALIDATION_ERROR', '新密码不能为空', null);
@@ -131,7 +135,7 @@ router.put('/api/users/:userId/change-password', authenticateToken, async (req, 
       return sendBizError(res, 'PERMISSION_ERROR', '只能修改自己的密码', null);
     }
 
-    const updatedUser = await userService.updateUserPassword(req.user.id, newPassword, reason);
+    const updatedUser = await userService.updateUserPassword(req.user.id, oldPassword, newPassword, reason);
 
     return sendOk(res, { user: updatedUser }, '密码更新成功');
   } catch (error) {

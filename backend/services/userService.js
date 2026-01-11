@@ -480,10 +480,31 @@ export const deleteUser = async (operatorId, targetUserId) => {
 };
 
 // 更新用户密码
-export const updateUserPassword = async (userId, newPassword, reason) => {
+export const updateUserPassword = async (userId, oldPassword, newPassword, reason) => {
   // 验证新密码
   if (!newPassword || newPassword.length < 6) {
     throw new Error('密码长度至少为6位');
+  }
+
+  // 获取当前用户信息以验证原密码
+  const user = await getOne(
+    `SELECT id, password_hash FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+
+  // 验证原密码
+  const isValidOldPassword = await verifyPassword(oldPassword, user.password_hash);
+  if (!isValidOldPassword) {
+    throw new Error('原密码不正确');
+  }
+
+  // 检查新密码是否与原密码相同
+  if (oldPassword === newPassword) {
+    throw new Error('新密码不能与原密码相同');
   }
 
   // 为新密码生成哈希
