@@ -17,7 +17,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  Divider
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../auth/useAuth';
@@ -202,37 +206,49 @@ function UserInfo() {
         <CardHeader title="用户信息" />
         <CardContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
-              <TextField
-                fullWidth
-                label="用户ID"
-                value={user.id || ''}
-                disabled
-              />
-              <TextField
-                fullWidth
-                label="呼号"
-                value={user.callsign || ''}
-                disabled
-                helperText="呼号不可更改"
-              />
-              <TextField
-                fullWidth
-                label="邮箱"
-                value={user.email || ''}
-                disabled
-              />
-              <TextField
-                fullWidth
-                label="角色"
-                value={getRoleDisplayName(user.role || '')}
-                disabled
-              />
-            </Box>
-            
-            <Typography variant="body2" color="text.secondary">
-              状态: {user.is_active ? '启用' : '禁用'}
-            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="用户ID"
+                  secondary={user.id?.toString() || ''}
+                  sx={{ flex: 1 }}
+                />
+                <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+                <ListItemText
+                  primary="呼号"
+                  secondary={
+                    <Box>
+                      {user.callsign || ''}
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        呼号不可更改
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ flex: 1 }}
+                />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText
+                  primary="邮箱"
+                  secondary={user.email || ''}
+                  sx={{ flex: 1 }}
+                />
+                <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
+                <ListItemText
+                  primary="角色"
+                  secondary={getRoleDisplayName(user.role || '')}
+                  sx={{ flex: 1 }}
+                />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText
+                  primary="状态"
+                  secondary={user.is_active ? '启用' : '禁用'}
+                />
+              </ListItem>
+            </List>
             
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
@@ -276,13 +292,9 @@ function UserInfo() {
         <DialogTitle>修改邮箱</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
-            <TextField
-              fullWidth
-              label="当前邮箱"
-              value={user.email || ''}
-              disabled
-              sx={{ mb: 2 }}
-            />
+            <Typography variant="body1" gutterBottom>
+              当前邮箱: {user.email || ''}
+            </Typography>
             <TextField
               fullWidth
               label="新邮箱"
@@ -291,6 +303,7 @@ function UserInfo() {
               disabled={loading}
               error={!!errorMessage}
               helperText={errorMessage}
+              sx={{ mt: 1 }}
             />
           </Box>
         </DialogContent>
