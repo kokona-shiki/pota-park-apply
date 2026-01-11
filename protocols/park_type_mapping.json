@@ -49,7 +49,7 @@
       "englishName": "Wetland Reserve"
     },
     {
-      "chineseName": "国家级重点文物保护单位",
+      "chineseName": "国家重点文物保护单位",
       "englishName": "National Historic Site"
     },
     {
@@ -57,7 +57,7 @@
       "englishName": "State Historic Site"
     },
     {
-      "chineseName": "国家级风景名胜区",
+      "chineseName": "国家风景名胜区",
       "englishName": "Area of Outstanding Natural Beauty"
     },
     {
@@ -65,7 +65,7 @@
       "englishName": "Protected Landscape"
     },
     {
-      "chineseName": "国家级水利风景区",
+      "chineseName": "国家水利风景区",
       "englishName": "National Waterfowl Production Area"
     },
     {
@@ -73,7 +73,7 @@
       "englishName": "Water Management Area"
     },
     {
-      "chineseName": "国家级自然保护区",
+      "chineseName": "国家自然保护区",
       "englishName": "National Nature Reserve"
     },
     {
@@ -89,7 +89,7 @@
       "englishName": "Provincial Park"
     },
     {
-      "chineseName": "国家级矿山公园",
+      "chineseName": "国家矿山公园",
       "englishName": "Conservation Reserve"
     },
     {
@@ -97,7 +97,7 @@
       "englishName": "Conservation Area"
     },
     {
-      "chineseName": "国家级考古遗址公园",
+      "chineseName": "国家考古遗址公园",
       "englishName": "Archaeological Reserve"
     },
     {
@@ -144,7 +144,7 @@
     },
     {
       "englishName": "Conservation Reserve",
-      "chineseNames": ["国家级矿山公园"]
+      "chineseNames": ["国家矿山公园"]
     },
     {
       "englishName": "Conservation Area",
@@ -176,7 +176,7 @@
     },
     {
       "englishName": "National Historic Site",
-      "chineseNames": ["国家级重点文物保护单位"]
+      "chineseNames": ["国家重点文物保护单位"]
     },
     {
       "englishName": "State Historic Site",
@@ -184,7 +184,7 @@
     },
     {
       "englishName": "Area of Outstanding Natural Beauty",
-      "chineseNames": ["国家级风景名胜区"]
+      "chineseNames": ["国家风景名胜区"]
     },
     {
       "englishName": "Protected Landscape",
@@ -192,7 +192,7 @@
     },
     {
       "englishName": "National Water Management Area",
-      "chineseNames": ["国家级水利风景区"]
+      "chineseNames": ["国家水利风景区"]
     },
     {
       "englishName": "Water Management Area",
@@ -200,7 +200,7 @@
     },
     {
       "englishName": "National Nature Reserve",
-      "chineseNames": ["国家级自然保护区"]
+      "chineseNames": ["国家自然保护区"]
     },
     {
       "englishName": "National Wildlife Refuge",
@@ -208,7 +208,7 @@
     },
     {
       "englishName": "Archaeological Reserve",
-      "chineseNames": ["国家级考古遗址公园"]
+      "chineseNames": ["国家考古遗址公园"]
     },
     {
       "englishName": "National Memorial",
