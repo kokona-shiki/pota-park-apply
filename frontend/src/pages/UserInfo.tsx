@@ -210,7 +210,7 @@ function UserInfo() {
   // 打开/关闭邮箱对话框
   const handleOpenEmailDialog = () => {
     setOpenEmailDialog(true);
-    setEmail(user.email || ''); // 初始化对话框中的邮箱值
+    setEmail(''); // 初始化对话框中的邮箱值为空
   };
 
   const handleCloseEmailDialog = () => {
