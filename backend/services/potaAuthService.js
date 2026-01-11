@@ -286,11 +286,18 @@ class PotaAuthService {
 
     if (!stored) return null;
 
-    return {
-      idToken: this.decrypt(stored.id_token_encrypted),
-      refreshToken: this.decrypt(stored.refresh_token_encrypted),
-      expiresAt: new Date(stored.expires_at)
-    };
+    try {
+      return {
+        idToken: this.decrypt(stored.id_token_encrypted),
+        refreshToken: this.decrypt(stored.refresh_token_encrypted),
+        expiresAt: new Date(stored.expires_at)
+      };
+    } catch (error) {
+      console.error('解密 POTA token 失败:', error.message);
+      // 解密失败通常意味着加密密钥已更改，清除损坏的记录
+      await query('DELETE FROM pota_tokens WHERE user_id = $1', [userId]);
+      return null;
+    }
   }
 
   /**
