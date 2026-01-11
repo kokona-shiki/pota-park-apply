@@ -19,6 +19,7 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  Autocomplete,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import type { SelectChangeEvent } from '@mui/material/Select';
@@ -654,67 +655,36 @@ function AddPark() {
           />
 
           <FormControl sx={{ minWidth: 200, flex: 1 }}>
-            <InputLabel>公园类型</InputLabel>
-            <Select
-              value={parkType}
-              label="公园类型"
-              onChange={(e) => setParkType(e.target.value as string)}
-              disabled={isPotaPark}
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    width: 250,
-                  },
-                },
-                anchorOrigin: {
-                  vertical: 'bottom',
-                  horizontal: 'left',
-                },
-                transformOrigin: {
-                  vertical: 'top',
-                  horizontal: 'left',
-                },
+            <Autocomplete
+              disablePortal
+              options={PARK_TYPE_OPTIONS}
+              value={PARK_TYPE_OPTIONS.find(option => option.en === parkType) || null}
+              onChange={(event, newValue) => {
+                setParkType(newValue ? newValue.en : '');
               }}
-              renderValue={(value) => {
-                const en = String(value ?? '');
-                if (!en) return '';
+              disabled={isPotaPark}
+              getOptionLabel={(option) => {
                 const chineseEntry = PARK_TYPE_MAPPING.english_to_chinese.find(
-                  (entry) => entry.englishName === en
+                  (entry) => entry.englishName === option.en
                 );
-                const zh = chineseEntry ? chineseEntry.chineseNames[0] : undefined;
-
-                if (!zh) return en;
-
-                return (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                    <Typography sx={{ fontSize: '0.95rem' }}>{zh}</Typography>
+                const zh = chineseEntry ? chineseEntry.chineseNames[0] : option.zh;
+                return `${zh} (${option.en})`;
+              }}
+              renderInput={(params) => <TextField {...params} label="公园类型" />}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                      {option.zh}
+                    </Typography>
                     <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                      {en}
+                      {option.en}
                     </Typography>
                   </Box>
-                );
-              }}
-            >
-              {PARK_TYPE_OPTIONS.map(({ zh, en }) => (
-                <MenuItem key={en} value={en}>
-                  <ListItemText
-                    primary={zh}
-                    secondary={en}
-                    slotProps={{
-                      primary: { sx: { fontWeight: 600 } },
-                      secondary: { sx: { fontSize: '0.75rem', color: 'text.secondary' } },
-                    }}
-                  />
-                </MenuItem>
-              ))}
-
-              {parkType && !PARK_TYPE_OPTIONS.some((opt) => opt.en === parkType) && (
-                <MenuItem value={parkType}>
-                  <ListItemText primary={parkType} />
-                </MenuItem>
+                </li>
               )}
-            </Select>
+              isOptionEqualToValue={(option, value) => option.en === value.en}
+            />
           </FormControl>
         </Box>
 
@@ -850,27 +820,18 @@ function AddPark() {
         )}
 
         <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel>省份</InputLabel>
-          <Select
-            value={province}
-            label="省份"
-            onChange={(e) => setProvince(e.target.value as string)}
-            disabled={isPotaPark}
-            MenuProps={{
-              PaperProps: {
-                style: {
-                  maxHeight: 300,
-                  width: 250,
-                },
-              },
+          <Autocomplete
+            disablePortal
+            options={provinces}
+            value={provinces.find(p => p.code === province) || null}
+            onChange={(event, newValue) => {
+              setProvince(newValue ? newValue.code : '');
             }}
-          >
-            {provinces.map((p) => (
-              <MenuItem key={p.code} value={p.code}>
-                {`(${p.code}) ${p.name}`}
-              </MenuItem>
-            ))}
-          </Select>
+            disabled={isPotaPark}
+            getOptionLabel={(option) => `(${option.code}) ${option.name}`}
+            renderInput={(params) => <TextField {...params} label="省份" helperText="目前仅支持31个省、直辖市、自治区，不支持港澳台地区" />}
+            isOptionEqualToValue={(option, value) => option.code === value.code}
+          />
         </FormControl>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
