@@ -328,8 +328,8 @@ function UserInfo() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
-              error={!email || (email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))}
-              helperText={!email ? '邮箱不能为空' : (email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ? '请输入有效的邮箱地址' : ''}
+              error={(email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))}
+              helperText={(email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ? '请输入有效的邮箱地址' : ''}
               sx={{ mb: 2 }}
             />
             <FormControl fullWidth variant="outlined" disabled={loading}>
