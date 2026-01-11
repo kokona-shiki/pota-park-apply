@@ -673,18 +673,34 @@ function AddPark() {
               }}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
-                return options.filter((option) => {
-                  // 使用选项本身的中文名称进行匹配，而不是从英文到中文的映射中获取
+                
+                // 拼音匹配的选项
+                const pinyinMatched: typeof options = [];
+                // 英文匹配的选项
+                const englishMatched: typeof options = [];
+                
+                options.forEach((option) => {
                   const zh = option.zh;
+                  const en = option.en;
                   
-                  // 对输入值进行多种方式的匹配
+                  // 检查拼音匹配
                   try {
-                    return Pinyin.match(zh, inputValue) !== false;
+                    if (Pinyin.match(zh, inputValue) !== false) {
+                      pinyinMatched.push(option);
+                      return; // 如果已经匹配拼音，则不再检查英文匹配
+                    }
                   } catch {
-                    // 如果出现异常，回退到基本匹配，但只匹配中文名称
-                    return zh.toLowerCase().includes(inputValue.toLowerCase());
+                    // 拼音匹配失败，继续尝试其他匹配方式
+                  }
+                  
+                  // 检查英文匹配
+                  if (en.toLowerCase().includes(inputValue.toLowerCase())) {
+                    englishMatched.push(option);
                   }
                 });
+                
+                // 返回拼音匹配结果在前，英文匹配结果在后
+                return [...pinyinMatched, ...englishMatched];
               }}
               renderInput={(params) => <TextField {...params} label="公园类型" />}
               renderOption={(props, option) => (
