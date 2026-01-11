@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  TextField,
   Button,
   Typography,
   Alert,
@@ -21,7 +20,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  FormHelperText,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../auth/useAuth';
@@ -30,7 +30,7 @@ import { getRoleDisplayName } from '../utils/roleDisplay';
 
 function UserInfo() {
   const { user, refreshSession } = useAuth();
-  
+
   // 状态管理 - 必须在条件渲染之前声明
   const [email, setEmail] = useState('');
   const [oldPassword, setOldPassword] = useState('');
@@ -46,10 +46,10 @@ function UserInfo() {
   const [errorMessage, setErrorMessage] = useState('');
   const [openEmailDialog, setOpenEmailDialog] = useState(false);
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
-  
+
   // 如果用户未登录，不显示任何内容
   if (!user) return null;
-  
+
   // 如果用户被禁用（banned），不显示内容
   if (user.role === 'banned') {
     return (
@@ -84,7 +84,7 @@ function UserInfo() {
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
-    
+
     try {
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
@@ -93,16 +93,16 @@ function UserInfo() {
           field: 'email',
           value: email,
           reason: '用户自行修改邮箱',
-          oldPassword: emailOldPassword
+          oldPassword: emailOldPassword,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.bizMessage || '更新邮箱失败');
       }
-      
+
       // 更新成功后刷新用户信息
       await refreshSession();
       setEmailOldPassword('');
@@ -145,7 +145,7 @@ function UserInfo() {
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
-    
+
     try {
       // 调用修改密码的API，后端需要特别处理密码哈希
       const response = await fetch(`/api/users/${user.id}/change-password`, {
@@ -154,16 +154,16 @@ function UserInfo() {
         body: JSON.stringify({
           oldPassword: oldPassword,
           newPassword: newPassword,
-          reason: '用户自行修改密码'
+          reason: '用户自行修改密码',
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.bizMessage || '更新密码失败');
       }
-      
+
       // 更新成功后刷新用户信息
       await refreshSession();
       setOldPassword('');
@@ -251,11 +251,7 @@ function UserInfo() {
               </ListItem>
               <Divider />
               <ListItem>
-                <ListItemText
-                  primary="邮箱"
-                  secondary={user.email || ''}
-                  sx={{ flex: 1 }}
-                />
+                <ListItemText primary="邮箱" secondary={user.email || ''} sx={{ flex: 1 }} />
                 <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
                 <ListItemText
                   primary="角色"
@@ -265,13 +261,10 @@ function UserInfo() {
               </ListItem>
               <Divider />
               <ListItem>
-                <ListItemText
-                  primary="状态"
-                  secondary={user.is_active ? '启用' : '禁用'}
-                />
+                <ListItemText primary="状态" secondary={user.is_active ? '启用' : '禁用'} />
               </ListItem>
             </List>
-            
+
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
@@ -298,35 +291,46 @@ function UserInfo() {
                 刷新用户信息
               </Button>
             </Box>
-            
+
             {errorMessage && (
-              <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errorMessage}
+              </Alert>
             )}
             {successMessage && (
-              <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {successMessage}
+              </Alert>
             )}
           </Box>
         </CardContent>
       </Card>
-      
+
       {/* 修改邮箱对话框 */}
       <Dialog open={openEmailDialog} onClose={handleCloseEmailDialog} maxWidth="sm" fullWidth>
         <DialogTitle>修改邮箱</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
-            <Typography variant="body1" gutterBottom>
+            <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
               当前邮箱: {user.email || ''}
             </Typography>
-            <TextField
-              fullWidth
-              label="新邮箱"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              error={(email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))}
-              helperText={(email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ? '请输入有效的邮箱地址' : ''}
-              sx={{ mb: 2 }}
-            />
+            <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
+              <InputLabel htmlFor="email-new-email">新邮箱</InputLabel>
+              <OutlinedInput
+                id="email-new-email"
+                label="新邮箱"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={
+                  email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+                }
+              />
+              {email !== '' && email !== user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
+                <FormHelperText error>
+                  请输入有效的邮箱地址
+                </FormHelperText>
+              )}
+            </FormControl>
             <FormControl fullWidth variant="outlined" disabled={loading}>
               <InputLabel htmlFor="email-old-password">原密码</InputLabel>
               <OutlinedInput
@@ -352,11 +356,15 @@ function UserInfo() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseEmailDialog} disabled={loading}>取消</Button>
-          <Button onClick={handleEmailUpdate} disabled={loading} variant="contained">确认修改</Button>
+          <Button onClick={handleCloseEmailDialog} disabled={loading}>
+            取消
+          </Button>
+          <Button onClick={handleEmailUpdate} disabled={loading} variant="contained">
+            确认修改
+          </Button>
         </DialogActions>
       </Dialog>
-      
+
       {/* 修改密码对话框 */}
       <Dialog open={openPasswordDialog} onClose={handleClosePasswordDialog} maxWidth="sm" fullWidth>
         <DialogTitle>修改密码</DialogTitle>
@@ -419,7 +427,8 @@ function UserInfo() {
                       aria-label="toggle confirm password visibility"
                       onClick={handleClickShowConfirmPassword}
                       onMouseDown={handleMouseDownPassword}
-                      edge="end">
+                      edge="end"
+                    >
                       {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
@@ -428,13 +437,19 @@ function UserInfo() {
               />
             </FormControl>
             {errorMessage && (
-              <Alert severity="error" sx={{ mt: 1 }}>{errorMessage}</Alert>
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {errorMessage}
+              </Alert>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClosePasswordDialog} disabled={loading}>取消</Button>
-          <Button onClick={handlePasswordUpdate} disabled={loading} variant="contained">确认修改</Button>
+          <Button onClick={handleClosePasswordDialog} disabled={loading}>
+            取消
+          </Button>
+          <Button onClick={handlePasswordUpdate} disabled={loading} variant="contained">
+            确认修改
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
