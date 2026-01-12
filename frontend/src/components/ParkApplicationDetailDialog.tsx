@@ -202,6 +202,7 @@ export function ParkApplicationDetailDialog({
           </Stack>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+            申请编号：{String(application.id)} | 
             {application.applicant_callsign ? `申请者：${application.applicant_callsign} | ` : ''}
             申请时间：{formatDateTime(application.created_at)}
           </Typography>
@@ -211,15 +212,10 @@ export function ParkApplicationDetailDialog({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fit, minmax(300px, 1fr))' },
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
               gap: 2,
             }}
           >
-            <TextField
-              label="申请编号"
-              value={String(application.id)}
-              InputProps={{ readOnly: true }}
-            />
             <TextField
               label="省份"
               value=""
