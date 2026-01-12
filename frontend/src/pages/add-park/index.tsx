@@ -236,6 +236,7 @@ function AddPark() {
         parkName,
         parkType,
         province,
+        provinces: formState.provinces,
         latitude,
         longitude,
         website,
@@ -278,6 +279,7 @@ function AddPark() {
           potaParks={potaParks}
           setProvince={(province: string) => updateFormState({ province })}
           setProvinces={(provinces: string[]) => updateFormState({ provinces })}
+          provinces={formState.provinces}
           setParkName={(name: string) => updateFormState({ parkName: name })}
           setParkType={(type: string) => updateFormState({ parkType: type })}
           setWebsite={(url: string) => updateFormState({ website: url })}

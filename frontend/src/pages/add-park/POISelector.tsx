@@ -34,6 +34,7 @@ interface POISelectorProps {
   setLatitude: (lat: string) => void;
   setLongitude: (lon: string) => void;
   setProvinces?: (provinces: string[]) => void;
+  provinces?: string[];
   error: string | null;
   setError: (error: string | null) => void;
 }
@@ -53,6 +54,7 @@ const POISelector: React.FC<POISelectorProps> = ({
   setLatitude,
   setLongitude,
   setProvinces,
+  provinces,
   error,
   setError,
 }) => {
@@ -67,7 +69,9 @@ const POISelector: React.FC<POISelectorProps> = ({
     if (parkInfo) {
       const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
       setProvince(provinceCode);
-      if (setProvinces) {
+      // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
+      // 如果省份选框已经大于一个省份，则不替换
+      if (setProvinces && (!provinces || provinces.length <= 1)) {
         setProvinces([provinceCode]);
       }
       setParkName(parkInfo.name);
@@ -84,10 +88,15 @@ const POISelector: React.FC<POISelectorProps> = ({
       setIsPotaPark(true);
     } else {
       // 地图 POI，解析省份和城市
-      const provinceCode = getProvinceCodeFromNames(poi.province, poi.city);
+      const isoProvinceCode = getProvinceCodeFromNames(poi.province, poi.city);
+      // 将 ISO-3166 格式转换为省份代码格式（如 '11'）
+      const provinceCode = mapLocationToProvince(isoProvinceCode);
       if (provinceCode) {
+        // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
+        // 如果省份选框已经大于一个省份，则不替换
+        // setProvince 设置默认值供用户参考，但不覆盖已选择的省份数组
         setProvince(provinceCode);
-        if (setProvinces) {
+        if (setProvinces && (!provinces || provinces.length <= 1)) {
           setProvinces([provinceCode]);
         }
       }

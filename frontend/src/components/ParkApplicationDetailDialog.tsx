@@ -222,20 +222,27 @@ export function ParkApplicationDetailDialog({
             />
             <TextField
               label="省份"
-              value={
-                application.provinces && application.provinces.length > 0
-                  ? application.provinces
-                      .map((code: string) => {
-                        // 查找对应的省份名称
-                        const province = regionData.find(
-                          (p: { code: string; name: string }) => p.code === code
-                        );
-                        return `${province ? province.name : ''} (${code})`;
-                      })
-                      .join(', ')
-                  : '-'
-              }
-              InputProps={{ readOnly: true }}
+              value=""
+              InputProps={{ 
+                readOnly: true,
+                startAdornment: application.provinces && application.provinces.length > 0 ? (
+                  <Box sx={{ display: 'flex', gap: 0.5, mx: 0.5 }}>
+                    {application.provinces.map((code: string) => {
+                      const province = regionData.find(
+                        (p: { code: string; name: string }) => p.code === code
+                      );
+                      return (
+                        <Chip
+                          key={code}
+                          label={`${province ? province.name : ''} (${code})`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      );
+                    })}
+                  </Box>
+                ) : undefined
+              }}
             />
             {application.park_type && (
               <TextField
