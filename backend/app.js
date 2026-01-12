@@ -9,6 +9,7 @@ import callsignRoutes from './routes/callsignRoutes.js';
 import parkApplicationRoutes from './routes/parkApplicationRoutes.js';
 import provinceRoutes from './routes/provinceRoutes.js';
 import potaRoutes from './routes/potaRoutes.js';
+import potaImportRoutes from './routes/potaImportRoutes.js';
 import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
@@ -36,7 +37,7 @@ app.use((_req, res, next) => {
     "img-src 'self' data: blob:",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self' data:",
-    "form-action 'self'"
+    "form-action 'self'",
   ].join('; ');
 
   res.setHeader('Content-Security-Policy', csp);
@@ -61,7 +62,7 @@ app.use(
     // 使用 HttpOnly Cookie 携带 refresh token（开发/部署走同源代理时不会触发 CORS，但这里保持可用）
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
 );
 app.use(express.json());
@@ -76,7 +77,7 @@ app.use(
     max: 120,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null }
+    message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null },
   })
 );
 
@@ -90,6 +91,7 @@ app.use(callsignRoutes);
 app.use(parkApplicationRoutes);
 app.use(provinceRoutes);
 app.use(potaRoutes);
+app.use(potaImportRoutes);
 
 // 404 处理
 app.use('*', (_req, res) => {
@@ -102,7 +104,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({
     code: 'SERVER_ERROR',
     message: '服务器内部错误',
-    data: null
+    data: null,
   });
 });
 

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import { testConnection } from './config/database.js';
 import { getMapProvider } from './config/proxyConfig.js';
+import scheduler from './utils/scheduler.js';
 
 dotenv.config();
 
@@ -19,6 +20,11 @@ const startServer = async () => {
     }
 
     const mapProvider = getMapProvider();
+
+    // 启动定时任务
+    scheduler.init().catch((err) => {
+      console.error('❌ 定时任务初始化失败:', err);
+    });
 
     app.listen(PORT, () => {
       console.log(`🚀 POTA Park Apply Backend is running on port ${PORT}`);
@@ -69,6 +75,10 @@ const startServer = async () => {
       console.log('GET  /api/pota/token - 获取 POTA token（自动刷新）');
       console.log('GET  /api/pota/status - 获取 POTA 连接状态');
       console.log('DELETE /api/pota/token - 断开 POTA 连接');
+      console.log('');
+      console.log('📥 POTA 公园导入:');
+      console.log('POST /api/pota/import - 手动触发 POTA 公园导入');
+      console.log('GET  /api/pota/import-status - 获取导入权限状态');
     });
   } catch (error) {
     console.error('启动服务器失败:', error);

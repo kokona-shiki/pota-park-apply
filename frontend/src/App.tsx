@@ -16,6 +16,7 @@ import Register from './pages/Register';
 import UserInfo from './pages/UserInfo';
 import AdminPanel from './pages/AdminPanel';
 import CallsignChangeRequests from './pages/CallsignChangeRequests';
+import PotaImport from './pages/PotaImport';
 import axios from 'axios';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
@@ -767,6 +768,14 @@ function App() {
                 <RequireSysAdmin>
                   <CallsignChangeRequests />
                 </RequireSysAdmin>
+              }
+            />
+            <Route
+              path="/pota-import"
+              element={
+                <RequireAuth>
+                  <PotaImport />
+                </RequireAuth>
               }
             />
           </Routes>

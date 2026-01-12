@@ -679,7 +679,8 @@ export const initializeData = async () => {
       ('view_application_detail', '查看申请详情'),
       ('review_application', '审核申请'),
       ('remind_review', '提醒审核'),
-      ('sync_to_pota', '将公园数据录入到POTA系统')
+      ('sync_to_pota', '将公园数据录入到POTA系统'),
+      ('pota_import', 'POTA公园导入权限')
       ON CONFLICT (permission_code) DO NOTHING
     `);
 
@@ -705,6 +706,7 @@ export const initializeData = async () => {
           ('pota_representative', 'review_application'),
           ('pota_representative', 'remind_review'),
           ('pota_representative', 'sync_to_pota'),
+          ('pota_representative', 'pota_import'),
 
           -- park_reviewer
           ('park_reviewer', 'submit_application'),

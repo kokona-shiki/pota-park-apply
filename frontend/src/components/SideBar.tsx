@@ -108,12 +108,20 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
           )}
 
           {isPotaRepresentative && (
-            <ListItemButton onClick={() => setPotaAuthDialogOpen(true)}>
-              <ListItemIcon>
-                <VpnKeyIcon />
-              </ListItemIcon>
-              <ListItemText primary="POTA 认证" />
-            </ListItemButton>
+            <>
+              <ListItemButton onClick={() => setPotaAuthDialogOpen(true)}>
+                <ListItemIcon>
+                  <VpnKeyIcon />
+                </ListItemIcon>
+                <ListItemText primary="POTA 认证" />
+              </ListItemButton>
+              <ListItemButton onClick={() => navigate('/pota-import')}>
+                <ListItemIcon>
+                  <UploadIcon />
+                </ListItemIcon>
+                <ListItemText primary="POTA 公园导入" />
+              </ListItemButton>
+            </>
           )}
 
           <ListItemButton onClick={() => navigate('/about')}>
