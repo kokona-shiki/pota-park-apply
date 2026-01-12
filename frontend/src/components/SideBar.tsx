@@ -27,12 +27,11 @@ interface SideBarProps {
   isPotaRepresentative: boolean;
 }
 
-function SideBar({ isOpen, isAdmin: _isAdmin, isSysAdmin, isPotaRepresentative }: SideBarProps) {
+function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
 
   // 系统管理员只能进行用户管理，不显示其他功能入口
-  // _isAdmin 参数保留以符合接口定义，未来可能需要使用
 
   return (
     <>
@@ -92,12 +91,20 @@ function SideBar({ isOpen, isAdmin: _isAdmin, isSysAdmin, isPotaRepresentative }
           )}
 
           {isSysAdmin && (
-            <ListItemButton onClick={() => navigate('/admin-panel')}>
-              <ListItemIcon>
-                <AdminPanelSettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="用户管理" />
-            </ListItemButton>
+            <>
+              <ListItemButton onClick={() => navigate('/admin-panel')}>
+                <ListItemIcon>
+                  <AdminPanelSettingsIcon />
+                </ListItemIcon>
+                <ListItemText primary="用户管理" />
+              </ListItemButton>
+              <ListItemButton onClick={() => navigate('/callsign-change-requests')}>
+                <ListItemIcon>
+                  <ListIcon />
+                </ListItemIcon>
+                <ListItemText primary="呼号变更申请" />
+              </ListItemButton>
+            </>
           )}
 
           {isPotaRepresentative && (

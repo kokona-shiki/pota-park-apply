@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import UserInfo from './pages/UserInfo';
 import AdminPanel from './pages/AdminPanel';
+import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import axios from 'axios';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
@@ -726,6 +727,14 @@ function App() {
               element={
                 <RequireSysAdmin>
                   <AdminPanel />
+                </RequireSysAdmin>
+              }
+            />
+            <Route
+              path="/callsign-change-requests"
+              element={
+                <RequireSysAdmin>
+                  <CallsignChangeRequests />
                 </RequireSysAdmin>
               }
             />

@@ -42,11 +42,16 @@ function UserInfo() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailOldPassword, setEmailOldPassword] = useState('');
   const [showEmailOldPassword, setShowEmailOldPassword] = useState(false);
+  const [callsign, setCallsign] = useState('');
+  const [callsignReason, setCallsignReason] = useState('');
+  const [callsignOldPassword, setCallsignOldPassword] = useState('');
+  const [showCallsignOldPassword, setShowCallsignOldPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [openEmailDialog, setOpenEmailDialog] = useState(false);
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+  const [openCallsignDialog, setOpenCallsignDialog] = useState(false);
 
   // 如果用户未登录，不显示任何内容
   if (!user) return null;
@@ -222,6 +227,82 @@ function UserInfo() {
     setSuccessMessage('');
   };
 
+  // 处理呼号更新
+  const handleCallsignUpdate = async () => {
+    if (!callsignOldPassword) {
+      setErrorMessage('请输入原密码');
+      return;
+    }
+
+    if (!callsign) {
+      setErrorMessage('呼号不能为空');
+      return;
+    }
+
+    if (callsign.toUpperCase() === user.callsign?.toUpperCase()) {
+      setErrorMessage('新呼号不能与当前呼号相同');
+      return;
+    }
+
+    if (!/^[A-Z0-9]{3,}$/.test(callsign.toUpperCase())) {
+      setErrorMessage('呼号格式不正确，应为字母和数字组合，至少3位');
+      return;
+    }
+
+    if (!callsignReason.trim()) {
+      setErrorMessage('请填写变更原因');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const response = await axios.post('/api/callsign-change-requests', {
+        newCallsign: callsign,
+        reason: callsignReason,
+      });
+
+      const data = response.data;
+
+      if (response.status !== 200) {
+        throw new Error(data.bizMessage || '呼号变更申请提交失败');
+      }
+
+      // 更新成功后刷新用户信息
+      await refreshSession();
+      setCallsign('');
+      setCallsignReason('');
+      setCallsignOldPassword('');
+      setSuccessMessage('呼号变更申请已提交，请等待管理员审核');
+      handleCloseCallsignDialog(); // 关闭对话框
+    } catch (error: unknown) {
+      setErrorMessage(getApiErrorMessage(error, '呼号变更申请提交失败'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 切换呼号原密码可见性
+  const handleClickShowCallsignOldPassword = () =>
+    setShowCallsignOldPassword(!showCallsignOldPassword);
+
+  // 打开/关闭呼号对话框
+  const handleOpenCallsignDialog = () => {
+    setOpenCallsignDialog(true);
+    setCallsign(''); // 初始化对话框中的呼号值为空
+  };
+
+  const handleCloseCallsignDialog = () => {
+    setOpenCallsignDialog(false);
+    setCallsign('');
+    setCallsignReason('');
+    setCallsignOldPassword('');
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
       <Card>
@@ -236,11 +317,7 @@ function UserInfo() {
                   sx={{ flex: 1 }}
                 />
                 <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-                <ListItemText
-                  primary="呼号"
-                  secondary={`${user.callsign || ''} (呼号不可更改)`}
-                  sx={{ flex: 1 }}
-                />
+                <ListItemText primary="呼号" secondary={user.callsign || ''} sx={{ flex: 1 }} />
               </ListItem>
               <Divider />
               <ListItem>
@@ -274,6 +351,14 @@ function UserInfo() {
                 sx={{ mt: 1 }}
               >
                 修改密码
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleOpenCallsignDialog}
+                disabled={loading}
+                sx={{ mt: 1 }}
+              >
+                修改呼号
               </Button>
               <Button
                 variant="outlined"
@@ -442,6 +527,86 @@ function UserInfo() {
           </Button>
           <Button onClick={handlePasswordUpdate} disabled={loading} variant="contained">
             确认修改
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 修改呼号对话框 */}
+      <Dialog open={openCallsignDialog} onClose={handleCloseCallsignDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>修改呼号</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
+              当前呼号: {user.callsign || ''}
+            </Typography>
+            <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
+              <InputLabel htmlFor="callsign-new-callsign">新呼号</InputLabel>
+              <OutlinedInput
+                id="callsign-new-callsign"
+                label="新呼号"
+                value={callsign}
+                onChange={(e) => setCallsign(e.target.value.toUpperCase())}
+                error={
+                  callsign !== '' &&
+                  callsign.toUpperCase() !== user.callsign?.toUpperCase() &&
+                  !/^[A-Z0-9]{3,}$/.test(callsign.toUpperCase())
+                }
+              />
+              {callsign !== '' &&
+                callsign.toUpperCase() !== user.callsign?.toUpperCase() &&
+                !/^[A-Z0-9]{3,}$/.test(callsign.toUpperCase()) && (
+                  <FormHelperText error>呼号格式不正确，应为字母和数字组合，至少3位</FormHelperText>
+                )}
+            </FormControl>
+            <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
+              <InputLabel htmlFor="callsign-reason">变更原因</InputLabel>
+              <OutlinedInput
+                id="callsign-reason"
+                label="变更原因"
+                value={callsignReason}
+                onChange={(e) => setCallsignReason(e.target.value)}
+                multiline
+                rows={3}
+              />
+            </FormControl>
+            <FormControl fullWidth variant="outlined" disabled={loading}>
+              <InputLabel htmlFor="callsign-old-password">原密码</InputLabel>
+              <OutlinedInput
+                id="callsign-old-password"
+                type={showCallsignOldPassword ? 'text' : 'password'}
+                value={callsignOldPassword}
+                onChange={(e) => setCallsignOldPassword(e.target.value)}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle callsign old password visibility"
+                      onClick={handleClickShowCallsignOldPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showCallsignOldPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+                label="原密码"
+              />
+            </FormControl>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              注意：呼号变更需要经过系统管理员审核后才能生效。
+            </Alert>
+            {errorMessage && (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {errorMessage}
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCallsignDialog} disabled={loading}>
+            取消
+          </Button>
+          <Button onClick={handleCallsignUpdate} disabled={loading} variant="contained">
+            提交申请
           </Button>
         </DialogActions>
       </Dialog>

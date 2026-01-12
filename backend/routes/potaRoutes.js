@@ -32,28 +32,32 @@ router.post('/api/pota/login', authenticateToken, requirePotaRepresentative, asy
 
     // 解析 token 获取过期时间
     const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
-    
+
     // 获取用户密码哈希
     const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
-    
+
     // 存储 token 到数据库（加密）
-    await potaAuthService.storeTokens(req.user.id, {
-      idToken: tokens.idToken,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokenInfo.expiresAt
-    }, user.password_hash);
+    await potaAuthService.storeTokens(
+      req.user.id,
+      {
+        idToken: tokens.idToken,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokenInfo.expiresAt,
+      },
+      user.password_hash
+    );
 
     // 清理 PKCE 参数（如果存在）
     await potaAuthService.clearPKCE(req.user.id);
 
-    return sendOk(res, { 
+    return sendOk(res, {
       success: true,
       expiresAt: tokenInfo.expiresAt.toISOString(),
-      hasRefreshToken: !!tokens.refreshToken
+      hasRefreshToken: !!tokens.refreshToken,
     });
   } catch (error) {
     console.error('POTA 登录失败:', error);
@@ -64,76 +68,90 @@ router.post('/api/pota/login', authenticateToken, requirePotaRepresentative, asy
 /**
  * 初始化 POTA 认证（生成授权 URL）- 保留用于 OAuth2 流程
  */
-router.post('/api/pota/init-auth', authenticateToken, requirePotaRepresentative, async (req, res) => {
-  try {
-    const pkce = potaAuthService.generatePKCE();
-    
-    // 保存 PKCE 参数到数据库
-    await potaAuthService.storePKCE(req.user.id, pkce);
-    
-    const authUrl = potaAuthService.getAuthorizationUrl(pkce);
-    
-    return sendOk(res, { 
-      authUrl,
-      state: pkce.state
-    });
-  } catch (error) {
-    console.error('初始化 POTA 认证失败:', error);
-    return sendError(res, error, { bizMessage: '初始化 POTA 认证失败' });
+router.post(
+  '/api/pota/init-auth',
+  authenticateToken,
+  requirePotaRepresentative,
+  async (req, res) => {
+    try {
+      const pkce = potaAuthService.generatePKCE();
+
+      // 保存 PKCE 参数到数据库
+      await potaAuthService.storePKCE(req.user.id, pkce);
+
+      const authUrl = potaAuthService.getAuthorizationUrl(pkce);
+
+      return sendOk(res, {
+        authUrl,
+        state: pkce.state,
+      });
+    } catch (error) {
+      console.error('初始化 POTA 认证失败:', error);
+      return sendError(res, error, { bizMessage: '初始化 POTA 认证失败' });
+    }
   }
-});
+);
 
 /**
  * 处理授权码回调（交换 token）
  */
-router.post('/api/pota/callback', authenticateToken, requirePotaRepresentative, async (req, res) => {
-  try {
-    const { code, state } = req.body;
+router.post(
+  '/api/pota/callback',
+  authenticateToken,
+  requirePotaRepresentative,
+  async (req, res) => {
+    try {
+      const { code, state } = req.body;
 
-    if (!code || !state) {
-      return sendBizError(res, 'MISSING_PARAMS', '缺少授权码或状态参数', null);
+      if (!code || !state) {
+        return sendBizError(res, 'MISSING_PARAMS', '缺少授权码或状态参数', null);
+      }
+
+      // 从数据库获取保存的 PKCE 参数
+      const pkceData = await potaAuthService.getPKCE(req.user.id, state);
+
+      if (!pkceData) {
+        return sendBizError(res, 'INVALID_STATE', '无效的状态参数或已过期', null);
+      }
+
+      // 交换 token
+      const tokens = await potaAuthService.exchangeCodeForToken(code, pkceData.code_verifier);
+
+      // 解析 token 获取过期时间
+      const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
+
+      // 获取用户密码哈希
+      const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+      if (!user) {
+        return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+      }
+
+      // 存储 token 到数据库（加密）
+      await potaAuthService.storeTokens(
+        req.user.id,
+        {
+          idToken: tokens.idToken,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: tokenInfo.expiresAt,
+        },
+        user.password_hash
+      );
+
+      // 清理 PKCE 参数
+      await potaAuthService.clearPKCE(req.user.id);
+
+      return sendOk(res, {
+        success: true,
+        expiresAt: tokenInfo.expiresAt.toISOString(),
+        hasRefreshToken: !!tokens.refreshToken,
+      });
+    } catch (error) {
+      console.error('POTA 认证失败:', error);
+      return sendError(res, error, { bizMessage: 'POTA 认证失败' });
     }
-
-    // 从数据库获取保存的 PKCE 参数
-    const pkceData = await potaAuthService.getPKCE(req.user.id, state);
-
-    if (!pkceData) {
-      return sendBizError(res, 'INVALID_STATE', '无效的状态参数或已过期', null);
-    }
-
-    // 交换 token
-    const tokens = await potaAuthService.exchangeCodeForToken(code, pkceData.code_verifier);
-
-    // 解析 token 获取过期时间
-    const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
-    
-    // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    if (!user) {
-      return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
-    }
-    
-    // 存储 token 到数据库（加密）
-    await potaAuthService.storeTokens(req.user.id, {
-      idToken: tokens.idToken,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokenInfo.expiresAt
-    }, user.password_hash);
-
-    // 清理 PKCE 参数
-    await potaAuthService.clearPKCE(req.user.id);
-
-    return sendOk(res, { 
-      success: true,
-      expiresAt: tokenInfo.expiresAt.toISOString(),
-      hasRefreshToken: !!tokens.refreshToken
-    });
-  } catch (error) {
-    console.error('POTA 认证失败:', error);
-    return sendError(res, error, { bizMessage: 'POTA 认证失败' });
   }
-});
+);
 
 /**
  * 获取有效的 POTA token（自动处理刷新）
@@ -145,23 +163,23 @@ router.get('/api/pota/token', authenticateToken, requirePotaRepresentative, asyn
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
-    
+
     const idToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
     const tokenInfo = potaAuthService.decodeJWT(idToken);
 
-    return sendOk(res, { 
+    return sendOk(res, {
       token: idToken,
-      expiresAt: tokenInfo.expiresAt.toISOString()
+      expiresAt: tokenInfo.expiresAt.toISOString(),
     });
   } catch (error) {
     console.error('获取 POTA token 失败:', error);
-    
+
     if (error.message.includes('未找到') || error.message.includes('刷新失败')) {
       return sendBizError(res, 'NO_TOKEN', error.message, {
-        requiresAuth: true
+        requiresAuth: true,
       });
     }
-    
+
     return sendError(res, error, { bizMessage: '获取 POTA token 失败' });
   }
 });
@@ -181,7 +199,7 @@ router.delete('/api/pota/token', authenticateToken, requirePotaRepresentative, a
 
     // 清除本地 token
     await potaAuthService.deleteTokens(req.user.id);
-    
+
     return sendOk(res, null, '已断开 POTA 连接');
   } catch (error) {
     console.error('断开 POTA 连接失败:', error);
@@ -199,22 +217,22 @@ router.get('/api/pota/status', authenticateToken, requirePotaRepresentative, asy
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
-    
+
     const stored = await potaAuthService.getStoredTokens(req.user.id, user.password_hash);
-    
+
     if (!stored) {
-      return sendOk(res, { 
+      return sendOk(res, {
         connected: false,
-        expiresAt: null
+        expiresAt: null,
       });
     }
 
     const tokenInfo = potaAuthService.decodeJWT(stored.idToken);
 
-    return sendOk(res, { 
+    return sendOk(res, {
       connected: true,
       expiresAt: tokenInfo.expiresAt.toISOString(),
-      willExpireSoon: tokenInfo.willExpireSoon(5)
+      willExpireSoon: tokenInfo.willExpireSoon(5),
     });
   } catch (error) {
     console.error('获取 POTA 状态失败:', error);
