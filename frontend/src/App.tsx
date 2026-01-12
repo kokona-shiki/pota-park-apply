@@ -333,7 +333,10 @@ function App() {
       {},
       { headers: { 'X-Tab-Id': tabIdRef.current } }
     );
-    const { accessToken: newAccessToken, user: newUser } = res.data as { accessToken: string; user: unknown };
+    const { accessToken: newAccessToken, user: newUser } = res.data as {
+      accessToken: string;
+      user: unknown;
+    };
 
     if (!newAccessToken || !newUser) {
       throw new Error('刷新 token 返回数据不完整');
@@ -558,7 +561,10 @@ function App() {
 
       const token = getCurrentAccessToken();
       if (token && isTokenFresh(token)) {
-        (config.headers as Record<string, string>) = { ...(config.headers as Record<string, string>), Authorization: `Bearer ${token}` };
+        (config.headers as Record<string, string>) = {
+          ...(config.headers as Record<string, string>),
+          Authorization: `Bearer ${token}`,
+        };
         return config;
       }
 
@@ -583,7 +589,12 @@ function App() {
     axios.interceptors.response.use(
       (res) => {
         // 统一后端返回：{ code, message, data }
-        const payload = res?.data as { code?: number; message?: string; data?: unknown; [key: string]: unknown; };
+        const payload = res?.data as {
+          code?: number;
+          message?: string;
+          data?: unknown;
+          [key: string]: unknown;
+        };
         if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
           if (payload.code === 0) {
             return { ...res, data: payload.data };
@@ -591,7 +602,11 @@ function App() {
 
           // business error: HTTP 200，但用 code/message 表达
           const bizRes = { ...res, data: { ...payload, error: payload.message } };
-          const bizErr: Error & { isBusinessError?: boolean; code?: number; response?: typeof res } = new Error(payload?.message || '业务错误');
+          const bizErr: Error & {
+            isBusinessError?: boolean;
+            code?: number;
+            response?: typeof res;
+          } = new Error(payload?.message || '业务错误');
           bizErr.isBusinessError = true;
           bizErr.code = payload.code;
           bizErr.response = bizRes;
@@ -611,7 +626,11 @@ function App() {
           return Promise.reject(err);
         }
 
-        const originalRequest: { [key: string]: unknown; __retried?: boolean; headers?: Record<string, string> } = err?.config || {};
+        const originalRequest: {
+          [key: string]: unknown;
+          __retried?: boolean;
+          headers?: Record<string, string>;
+        } = err?.config || {};
         if (originalRequest.__retried) {
           const from = locationRef.current;
           if (from.pathname !== '/login' && from.pathname !== '/register') {

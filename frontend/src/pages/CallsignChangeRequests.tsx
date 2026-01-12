@@ -181,6 +181,7 @@ function CallsignChangeRequests() {
     if (tab === 0) return requests.filter((r) => r.status === 'pending');
     if (tab === 1) return requests.filter((r) => r.status === 'approved');
     if (tab === 2) return requests.filter((r) => r.status === 'rejected');
+    // tab === 3 (全部) 或其他情况，返回所有请求
     return requests;
   };
 
