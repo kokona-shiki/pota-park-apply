@@ -38,7 +38,7 @@ type RefreshLock = {
 
 type TokenWaiter = {
   resolve: (token: string | null) => void;
-  reject: (err: any) => void;
+  reject: (err: unknown) => void;
   timeoutId: number;
 };
 
@@ -156,9 +156,21 @@ function RequireAuth({ children }: { children: ReactElement }) {
 }
 
 function RequireSysAdmin({ children }: { children: ReactElement }) {
-  const { user } = useAuthRequired();
+  const { user, isAuthLoading } = useAuthRequired();
   const location = useLocation();
 
+  // 如果正在加载认证状态,显示加载提示
+  if (isAuthLoading) {
+    return (
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+      >
+        <Typography>加载中...</Typography>
+      </Box>
+    );
+  }
+
+  // 认证加载完成,检查用户是否登录
   if (!user) {
     // 保存目标路径到 localStorage,以便登录后跳转
     if (location.pathname !== '/login' && location.pathname !== '/register') {
@@ -261,7 +273,7 @@ function App() {
     // 不要在 accessToken 为 null 时清除 header，避免初始加载时的竞态条件
   }, [accessToken]);
 
-  const rejectAllWaiters = useCallback((err: any) => {
+  const rejectAllWaiters = useCallback((err: unknown) => {
     const waiters = waitersRef.current;
     waitersRef.current = [];
     for (const w of waiters) {
@@ -321,7 +333,7 @@ function App() {
       {},
       { headers: { 'X-Tab-Id': tabIdRef.current } }
     );
-    const { accessToken: newAccessToken, user: newUser } = res.data as any;
+    const { accessToken: newAccessToken, user: newUser } = res.data as { accessToken: string; user: unknown };
 
     if (!newAccessToken || !newUser) {
       throw new Error('刷新 token 返回数据不完整');
@@ -347,7 +359,7 @@ function App() {
       }
 
       // 优先使用浏览器原生跨文档互斥锁（同源 tab/iframe 共享），可稳定避免并发双刷。
-      const navAny: any = navigator as any;
+      const navAny = navigator as Navigator & { locks?: LockManager };
       if (navAny?.locks?.request) {
         refreshPromiseRef.current = navAny.locks
           .request('pota_refresh_token_v1', { mode: 'exclusive' }, async () => {
@@ -535,7 +547,7 @@ function App() {
 
     // request interceptor
     axios.interceptors.request.use(async (config) => {
-      const url = String((config as any)?.url || '');
+      const url = String((config as { url?: string })?.url || '');
       const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
       const isRefreshRequest = url.includes('/api/refresh-token');
       const isLogoutRequest = url.includes('/api/logout');
@@ -546,7 +558,7 @@ function App() {
 
       const token = getCurrentAccessToken();
       if (token && isTokenFresh(token)) {
-        (config.headers as any) = { ...(config.headers as any), Authorization: `Bearer ${token}` };
+        (config.headers as Record<string, string>) = { ...(config.headers as Record<string, string>), Authorization: `Bearer ${token}` };
         return config;
       }
 
@@ -555,8 +567,8 @@ function App() {
         // 否则在“跨 iframe 并发”场景下，第二个拿到锁的上下文会被 forceRefresh 逼着再刷一次。
         const newToken = await ensureValidAccessToken();
         if (newToken) {
-          (config.headers as any) = {
-            ...(config.headers as any),
+          (config.headers as Record<string, string>) = {
+            ...(config.headers as Record<string, string>),
             Authorization: `Bearer ${newToken}`,
           };
         }
@@ -571,7 +583,7 @@ function App() {
     axios.interceptors.response.use(
       (res) => {
         // 统一后端返回：{ code, message, data }
-        const payload = res?.data as any;
+        const payload = res?.data as { code?: number; message?: string; data?: unknown; [key: string]: unknown; };
         if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
           if (payload.code === 0) {
             return { ...res, data: payload.data };
@@ -579,7 +591,7 @@ function App() {
 
           // business error: HTTP 200，但用 code/message 表达
           const bizRes = { ...res, data: { ...payload, error: payload.message } };
-          const bizErr: any = new Error(payload?.message || '业务错误');
+          const bizErr: Error & { isBusinessError?: boolean; code?: number; response?: typeof res } = new Error(payload?.message || '业务错误');
           bizErr.isBusinessError = true;
           bizErr.code = payload.code;
           bizErr.response = bizRes;
@@ -599,7 +611,7 @@ function App() {
           return Promise.reject(err);
         }
 
-        const originalRequest: any = err?.config || {};
+        const originalRequest: { [key: string]: unknown; __retried?: boolean; headers?: Record<string, string> } = err?.config || {};
         if (originalRequest.__retried) {
           const from = locationRef.current;
           if (from.pathname !== '/login' && from.pathname !== '/register') {
