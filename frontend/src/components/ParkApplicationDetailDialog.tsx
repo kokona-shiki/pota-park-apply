@@ -202,7 +202,7 @@ export function ParkApplicationDetailDialog({
           </Stack>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-            申请编号：{String(application.id)} | 
+            申请编号：{String(application.id)} |
             {application.applicant_callsign ? `申请者：${application.applicant_callsign} | ` : ''}
             申请时间：{formatDateTime(application.created_at)}
           </Typography>
@@ -219,25 +219,26 @@ export function ParkApplicationDetailDialog({
             <TextField
               label="省份"
               value=""
-              InputProps={{ 
+              InputProps={{
                 readOnly: true,
-                startAdornment: application.provinces && application.provinces.length > 0 ? (
-                  <Box sx={{ display: 'flex', gap: 0.5, mx: 0.5 }}>
-                    {application.provinces.map((code: string) => {
-                      const province = regionData.find(
-                        (p: { code: string; name: string }) => p.code === code
-                      );
-                      return (
-                        <Chip
-                          key={code}
-                          label={`${province ? province.name : ''} (${code})`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      );
-                    })}
-                  </Box>
-                ) : undefined
+                startAdornment:
+                  application.provinces && application.provinces.length > 0 ? (
+                    <Box sx={{ display: 'flex', gap: 0.5, mx: 0.5 }}>
+                      {application.provinces.map((code: string) => {
+                        const province = regionData.find(
+                          (p: { code: string; name: string }) => p.code === code
+                        );
+                        return (
+                          <Chip
+                            key={code}
+                            label={`${province ? province.name : ''} (${code})`}
+                            size="small"
+                            variant="outlined"
+                          />
+                        );
+                      })}
+                    </Box>
+                  ) : undefined,
               }}
             />
             {application.park_type && (

@@ -17,7 +17,7 @@ import {
   TableHead,
   TableRow,
   Tabs,
-  Typography
+  Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import axios from 'axios';
@@ -26,6 +26,23 @@ import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { getApiErrorMessage } from '../utils/error';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 
+// 操作和状态的中文映射
+const ACTION_LABELS: Record<string, string> = {
+  submitted: '提交申请',
+  approved: '批准',
+  rejected: '拒绝',
+  reverted_approved: '撤销批准',
+  reverted_rejected: '撤销拒绝',
+  pota_synced: '同步到POTA',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: '待审核',
+  approved: '已通过',
+  rejected: '未通过',
+  pota_synced: '已上传POTA',
+};
+
 type AuditFlowNodeId = 'submitted' | 'pending' | 'approved' | 'pota_synced' | 'rejected';
 
 const AUDIT_FLOW_LABELS: Record<AuditFlowNodeId, string> = {
@@ -33,7 +50,7 @@ const AUDIT_FLOW_LABELS: Record<AuditFlowNodeId, string> = {
   pending: '待审核',
   approved: '已通过',
   pota_synced: '已上传 POTA',
-  rejected: '未通过'
+  rejected: '未通过',
 };
 
 function getNormalFlowCurrentNext(status: ApplicationStatus): {
@@ -74,14 +91,14 @@ function AuditFlowChart({ status }: { status: ApplicationStatus }) {
     { id: 'pending', x: startX + nodeSpacing, y: normalFlowY },
     { id: 'approved', x: startX + nodeSpacing * 2, y: normalFlowY },
     { id: 'pota_synced', x: startX + nodeSpacing * 3, y: normalFlowY },
-    { id: 'rejected', x: startX + nodeSpacing * 2, y: rejectedY }
+    { id: 'rejected', x: startX + nodeSpacing * 2, y: rejectedY },
   ];
 
   const edges: Array<{ from: AuditFlowNodeId; to: AuditFlowNodeId }> = [
     { from: 'submitted', to: 'pending' },
     { from: 'pending', to: 'approved' },
     { from: 'pending', to: 'rejected' },
-    { from: 'approved', to: 'pota_synced' }
+    { from: 'approved', to: 'pota_synced' },
   ];
 
   const getNodeStyle = (id: AuditFlowNodeId) => {
@@ -89,27 +106,27 @@ function AuditFlowChart({ status }: { status: ApplicationStatus }) {
       return {
         bgcolor: alpha(theme.palette.primary.main, 0.6),
         borderColor: theme.palette.primary.main,
-        borderWidth: 2
+        borderWidth: 2,
       };
     }
     if (id === next) {
       return {
         bgcolor: alpha(theme.palette.success.main, 0.6),
         borderColor: theme.palette.success.main,
-        borderWidth: 2
+        borderWidth: 2,
       };
     }
     if (id === 'rejected' && status === 'rejected') {
       return {
         bgcolor: alpha(theme.palette.error.main, 0.4),
         borderColor: theme.palette.error.main,
-        borderWidth: 2
+        borderWidth: 2,
       };
     }
     return {
       bgcolor: alpha(theme.palette.grey[500], 0.2),
       borderColor: theme.palette.grey[400],
-      borderWidth: 1
+      borderWidth: 1,
     };
   };
 
@@ -126,18 +143,25 @@ function AuditFlowChart({ status }: { status: ApplicationStatus }) {
 
   return (
     <Box sx={{ width: '100%', overflowX: 'auto' }}>
-      <svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ maxWidth: '100%', height: 'auto' }}>
+      <svg
+        width={svgWidth}
+        height={svgHeight}
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        style={{ maxWidth: '100%', height: 'auto' }}
+      >
         {/* 边 */}
         {edges.map((edge, idx) => {
           const from = findNode(edge.from);
           const to = findNode(edge.to);
-          const isHighlighted = (edge.from === current && edge.to === next) || (edge.from === 'pending' && edge.to === 'rejected' && status === 'rejected');
-          
+          const isHighlighted =
+            (edge.from === current && edge.to === next) ||
+            (edge.from === 'pending' && edge.to === 'rejected' && status === 'rejected');
+
           // 判断连接方向
           const isVertical = edge.from === 'pending' && edge.to === 'rejected';
-          
+
           let points: string;
-          
+
           if (isVertical) {
             // 垂直连接：从 from 节点下边缘，向下延伸，然后水平转向，最后向上到 to 节点上边缘
             const x1 = from.x;
@@ -152,7 +176,7 @@ function AuditFlowChart({ status }: { status: ApplicationStatus }) {
             const y1 = from.y;
             const x2 = to.x - nodeHalfWidth;
             const y2 = to.y;
-            
+
             // 使用固定的偏移量，确保所有水平箭头的视觉效果一致
             const midX = x1 + edgeOffset;
             points = `${x1},${y1} ${midX},${y1} ${midX},${y2} ${x2},${y2}`;
@@ -217,19 +241,40 @@ function AuditFlowChart({ status }: { status: ApplicationStatus }) {
 
       <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: 'wrap' }}>
         <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.primary.main, 0.6) }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: 0.5,
+              bgcolor: alpha(theme.palette.primary.main, 0.6),
+            }}
+          />
           <Typography variant="caption" color="text.secondary">
             当前节点（正常流程）
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.success.main, 0.6) }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: 0.5,
+              bgcolor: alpha(theme.palette.success.main, 0.6),
+            }}
+          />
           <Typography variant="caption" color="text.secondary">
             下一节点（正常流程）
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.75} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: alpha(theme.palette.error.main, 0.4) }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: 0.5,
+              bgcolor: alpha(theme.palette.error.main, 0.4),
+            }}
+          />
           <Typography variant="caption" color="text.secondary">
             未通过（分叉）
           </Typography>
@@ -248,7 +293,7 @@ interface ParkApplicationFlowDialogProps {
 export function ParkApplicationFlowDialog({
   open,
   onClose,
-  application
+  application,
 }: ParkApplicationFlowDialogProps) {
   const [flowTab, setFlowTab] = useState(0);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -263,7 +308,9 @@ export function ParkApplicationFlowDialog({
       try {
         setAuditLogsLoading(true);
         setAuditLogsError(null);
-        const res = await axios.get<{ logs?: AuditLog[] }>(`/api/park-applications/${application.id}/audit-logs`);
+        const res = await axios.get<{ logs?: AuditLog[] }>(
+          `/api/park-applications/${application.id}/audit-logs`
+        );
         setAuditLogs(res.data?.logs || []);
       } catch (e: unknown) {
         setAuditLogsError(getApiErrorMessage(e, '获取审核日志失败'));
@@ -283,7 +330,11 @@ export function ParkApplicationFlowDialog({
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>流程信息</DialogTitle>
       <DialogContent dividers sx={{ p: 0 }}>
-        <Tabs value={flowTab} onChange={(_, newValue) => setFlowTab(newValue)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={flowTab}
+          onChange={(_, newValue) => setFlowTab(newValue)}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
           <Tab label="流程图" />
           <Tab label="流程节点变动信息" />
         </Tabs>
@@ -296,7 +347,8 @@ export function ParkApplicationFlowDialog({
               </Typography>
               {application.status === 'rejected' && (
                 <Alert severity="info" variant="outlined">
-                  该申请当前处于"未通过"，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传 POTA）上，因此不会高亮当前/下一节点。
+                  该申请当前处于"未通过"，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传
+                  POTA）上，因此不会高亮当前/下一节点。
                 </Alert>
               )}
               <AuditFlowChart status={application.status} />
@@ -337,13 +389,19 @@ export function ParkApplicationFlowDialog({
                   <TableBody>
                     {auditLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(log.created_at)}</TableCell>
-                        <TableCell>{log.action}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          {formatDateTime(log.created_at)}
+                        </TableCell>
+                        <TableCell>{ACTION_LABELS[log.action] || log.action}</TableCell>
                         <TableCell>
                           {log.operator_callsign} ({getRoleDisplayName(log.operator_role)})
                         </TableCell>
                         <TableCell>
-                          {log.old_status ? `${log.old_status} → ${log.new_status}` : log.new_status}
+                          {log.old_status
+                            ? `${STATUS_LABELS[log.old_status] || log.old_status} → ${
+                                STATUS_LABELS[log.new_status] || log.new_status
+                              }`
+                            : STATUS_LABELS[log.new_status] || log.new_status}
                         </TableCell>
                         <TableCell>{log.notes || '-'}</TableCell>
                       </TableRow>

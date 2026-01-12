@@ -5,11 +5,12 @@
  */
 export const getRoleDisplayName = (role: string): string => {
   const roleMap: Record<string, string> = {
-    'system_admin': '系统管理员',
-    'pota_representative': 'POTA地图代表',
-    'park_reviewer': '地图审核员',
-    'user': '普通用户',
-    'banned': '封禁用户(可登录但权限受限)',
+    system_admin: '系统管理员',
+    pota_representative: 'POTA地图代表',
+    park_reviewer: '地图审核员',
+    user: '普通用户',
+    banned: '封禁用户(可登录但权限受限)',
+    applicant: '申请人',
   };
 
   return roleMap[role] || role; // 如果没有找到对应的中文名称，则返回原始英文角色名
