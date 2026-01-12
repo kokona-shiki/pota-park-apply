@@ -334,29 +334,53 @@ function UserInfo() {
                 <ListItemText primary="状态" secondary={user.is_active ? '启用' : '禁用'} />
               </ListItem>
             </List>
+            {(user.role === 'system_admin' || user.role === 'banned') && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {user.role === 'system_admin'
+                  ? '您是系统管理员，根据权限设置，不允许修改个人信息（邮箱、呼号）。'
+                  : user.role === 'banned'
+                  ? '您的账户已被封禁，不允许修改个人信息（邮箱、呼号、密码）。'
+                  : ''}
+              </Alert>
+            )}
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
                 onClick={handleOpenEmailDialog}
-                disabled={loading}
+                disabled={loading || user.role === 'system_admin' || user.role === 'banned'}
                 sx={{ mt: 1 }}
+                title={
+                  user.role === 'system_admin'
+                    ? '系统管理员不允许修改邮箱'
+                    : user.role === 'banned'
+                    ? '封禁用户不允许修改邮箱'
+                    : ''
+                }
               >
                 修改邮箱
               </Button>
               <Button
                 variant="contained"
                 onClick={handleOpenPasswordDialog}
-                disabled={loading}
+                disabled={loading || user.role === 'banned'}
                 sx={{ mt: 1 }}
+                title={user.role === 'banned' ? '封禁用户不允许修改密码' : ''}
               >
                 修改密码
               </Button>
               <Button
                 variant="contained"
                 onClick={handleOpenCallsignDialog}
-                disabled={loading}
+                disabled={loading || user.role === 'system_admin' || user.role === 'banned'}
                 sx={{ mt: 1 }}
+                title={
+                  user.role === 'system_admin'
+                    ? '系统管理员不允许修改呼号'
+                    : user.role === 'banned'
+                    ? '封禁用户不允许修改呼号'
+                    : ''
+                }
               >
                 修改呼号
               </Button>
