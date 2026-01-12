@@ -32,9 +32,10 @@ export const createTables = async () => {
 
     // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
     // 版本 4: 添加 POTA 认证相关表（pota_pkce, pota_tokens）
+    // 版本 5: 添加用户级别的 POTA 加密盐值（pota_encryption_salt）
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '4')
+      VALUES ('schema_version', '5')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -551,6 +552,34 @@ export const migrateSchemaToLatest = async () => {
       `);
 
       console.log('✅ schema 迁移完成（schema_version=3）');
+      return;
+    }
+
+    if (v === '4') {
+      console.log('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
+      
+      // 为 users 表添加 pota_encryption_salt 列（如果尚不存在）
+      await query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS pota_encryption_salt TEXT
+      `);
+      
+      // 为现有用户生成默认的加密盐值
+      await query(`
+        UPDATE users 
+        SET pota_encryption_salt = gen_random_bytes(32)::TEXT 
+        WHERE pota_encryption_salt IS NULL
+      `);
+      
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '5')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+      
+      console.log('✅ schema 迁移完成（schema_version=5）');
       return;
     }
 

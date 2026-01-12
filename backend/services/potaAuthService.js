@@ -47,12 +47,9 @@ class PotaAuthService {
       );
     }
     
-    // 使用 HKDF 生成派生密钥
+    // 使用 PBKDF2 生成派生密钥
     // 将用户ID、密码哈希和用户特定盐值结合起来
     const saltBuffer = crypto.createHash('sha256').update(`${userId}:${potaSalt}`).digest();
-    
-    // 使用密码哈希的一部分作为输入
-    const info = 'pota_encryption_' + userId;
     
     // 使用 pbkdf2 进行密钥派生
     const derivedKey = await new Promise((resolve, reject) => {
