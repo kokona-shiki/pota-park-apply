@@ -263,7 +263,7 @@ export const reviewCallsignChange = async (reviewerId, requestId, status, review
 };
 
 // 获取呼号变更申请列表
-export const getCallsignChangeRequests = async (status = 'pending') => {
+export const getCallsignChangeRequests = async (status) => {
   let queryText = `
     SELECT ccr.*, u.email as applicant_email, u.callsign as applicant_callsign,
            r.email as reviewer_email, r.callsign as reviewer_callsign
