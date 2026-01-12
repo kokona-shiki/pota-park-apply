@@ -218,22 +218,27 @@ router.get('/api/pota/status', authenticateToken, requirePotaRepresentative, asy
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
 
-    const stored = await potaAuthService.getStoredTokens(req.user.id, user.password_hash);
-
-    if (!stored) {
+    // 使用 getValidToken 方法，它会自动处理 token 刷新
+    // 这样确保返回的过期时间是最新的
+    try {
+      const validToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
+      const tokenInfo = potaAuthService.decodeJWT(validToken);
+      
       return sendOk(res, {
-        connected: false,
-        expiresAt: null,
+        connected: true,
+        expiresAt: tokenInfo.expiresAt.toISOString(),
+        willExpireSoon: tokenInfo.willExpireSoon(5),
       });
+    } catch (error) {
+      // 如果 token 已过期且无法刷新，则返回未连接状态
+      if (error.message.includes('未找到') || error.message.includes('刷新失败')) {
+        return sendOk(res, {
+          connected: false,
+          expiresAt: null,
+        });
+      }
+      throw error; // 其他错误继续抛出
     }
-
-    const tokenInfo = potaAuthService.decodeJWT(stored.idToken);
-
-    return sendOk(res, {
-      connected: true,
-      expiresAt: tokenInfo.expiresAt.toISOString(),
-      willExpireSoon: tokenInfo.willExpireSoon(5),
-    });
   } catch (error) {
     console.error('获取 POTA 状态失败:', error);
     return sendError(res, error, { bizMessage: '获取 POTA 状态失败' });
