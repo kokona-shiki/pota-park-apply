@@ -12,6 +12,7 @@ interface SubmitParams {
   parkName: string;
   parkType: string;
   province: string;
+  provinces: string[];
   latitude: string;
   longitude: string;
   website: string;
@@ -29,6 +30,7 @@ export const useSubmit = () => {
     const name = params.parkName.trim();
     const type = params.parkType.trim();
     const prov = params.province.trim();
+    const provs = params.provinces || [];
     const latNum = Number.parseFloat(params.latitude.trim());
     const lonNum = Number.parseFloat(params.longitude.trim());
     const access = params.accessMethods.map((s) => String(s).trim()).filter(Boolean);
@@ -77,7 +79,7 @@ export const useSubmit = () => {
         {
           park_name: name,
           park_type: type,
-          province_iso_code: prov,
+          provinces: provs.length > 0 ? provs : [prov], // 省份数组
           latitude: latNum,
           longitude: lonNum,
           website: params.website,

@@ -7,34 +7,33 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // 测试基本接口
 async function testBasicEndpoints() {
   console.log('🧪 测试基础接口...');
-  
+
   try {
     // 测试根路径
     console.log('1. 测试根路径...');
     const rootResponse = await fetch(`${BASE_URL}/`);
     const rootData = await rootResponse.json();
     console.log('✅ 根路径响应:', rootData);
-    
+
     // 测试健康检查
     console.log('2. 测试健康检查...');
     const healthResponse = await fetch(`${BASE_URL}/api/health`);
     const healthData = await healthResponse.json();
     console.log('✅ 健康检查响应:', healthData);
-    
+
     // 测试省份列表
     console.log('3. 测试省份列表...');
     const provincesResponse = await fetch(`${BASE_URL}/api/provinces`);
     const provincesData = await provincesResponse.json();
     console.log('✅ 省份列表响应:', {
       count: provincesData.provinces?.length || 0,
-      firstProvince: provincesData.provinces?.[0]
+      firstProvince: provincesData.provinces?.[0],
     });
-    
+
     console.log('🎉 基础接口测试完成！');
-    
   } catch (error) {
     console.error('❌ 基础接口测试失败:', error.message);
-    
+
     if (error.code === 'ECONNREFUSED') {
       console.log('💡 提示: 服务器可能未启动，请先运行: pnpm dev');
     }
@@ -44,7 +43,7 @@ async function testBasicEndpoints() {
 // 测试需要数据库的接口（需要先初始化数据库）
 async function testDatabaseEndpoints() {
   console.log('🧪 测试需要数据库的接口...');
-  
+
   try {
     // 测试用户注册
     console.log('1. 测试用户注册...');
@@ -54,20 +53,20 @@ async function testDatabaseEndpoints() {
       body: JSON.stringify({
         email: 'test@example.com',
         callsign: 'BG0TEST',
-        password: 'test123456'
-      })
+        password: 'test123456',
+      }),
     });
-    
+
     if (registerResponse.ok) {
       const registerData = await registerResponse.json();
-      console.log('✅ 用户注册成功:', { 
+      console.log('✅ 用户注册成功:', {
         message: registerData.message,
         userId: registerData.user?.id,
-        role: registerData.user?.role 
+        role: registerData.user?.role,
       });
-      
+
       const token = registerData.token;
-      
+
       // 测试用户登录
       console.log('2. 测试用户登录...');
       const loginResponse = await fetch(`${BASE_URL}/api/login`, {
@@ -75,70 +74,68 @@ async function testDatabaseEndpoints() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           identifier: 'test@example.com',
-          password: 'test123456'
-        })
+          password: 'test123456',
+        }),
       });
-      
+
       if (loginResponse.ok) {
         const loginData = await loginResponse.json();
-        console.log('✅ 用户登录成功:', { 
+        console.log('✅ 用户登录成功:', {
           message: loginData.message,
-          userId: loginData.user?.id 
+          userId: loginData.user?.id,
         });
       }
-      
+
       // 测试获取用户信息
       console.log('3. 测试获取用户信息...');
       const userInfoResponse = await fetch(`${BASE_URL}/api/user-info`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (userInfoResponse.ok) {
         const userInfoData = await userInfoResponse.json();
         console.log('✅ 获取用户信息成功:', {
           email: userInfoData.user?.email,
           callsign: userInfoData.user?.callsign,
-          role: userInfoData.user?.role
+          role: userInfoData.user?.role,
         });
       }
-      
+
       // 测试提交公园申请
       console.log('4. 测试提交公园申请...');
       const applicationResponse = await fetch(`${BASE_URL}/api/park-applications`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           park_name: '测试公园',
           park_type: '测试类型',
-          province_iso_code: 'CN-GD',
+          provinces: ['CN-GD'], // 省份数组
           latitude: 22.5211,
           longitude: 113.3823,
           access_methods: [{ zh: '汽车', en: 'Vehicle' }],
           activation_methods: [{ zh: '步行', en: 'Foot' }],
-          confirmed_authenticity: true
-        })
+          confirmed_authenticity: true,
+        }),
       });
-      
+
       if (applicationResponse.ok) {
         const applicationData = await applicationResponse.json();
         console.log('✅ 提交公园申请成功:', {
           message: applicationData.message,
           applicationId: applicationData.application?.id,
-          status: applicationData.application?.status
+          status: applicationData.application?.status,
         });
       }
-      
     } else {
       const errorData = await registerResponse.json();
       console.log('❌ 用户注册失败:', errorData);
     }
-    
   } catch (error) {
     console.error('❌ 数据库接口测试失败:', error.message);
-    
+
     if (error.code === 'ECONNREFUSED') {
       console.log('💡 提示: 服务器可能未启动');
     }
@@ -150,11 +147,11 @@ async function runTests() {
   console.log('🚀 开始 API 测试...');
   console.log('📍 服务器地址:', BASE_URL);
   console.log('');
-  
+
   await testBasicEndpoints();
   console.log('');
   await testDatabaseEndpoints();
-  
+
   console.log('');
   console.log('✨ 测试完成！');
 }

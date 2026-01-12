@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -276,6 +277,7 @@ function AddPark() {
           setSelectedPOIId={setSelectedPOIId}
           potaParks={potaParks}
           setProvince={(province: string) => updateFormState({ province })}
+          setProvinces={(provinces: string[]) => updateFormState({ provinces })}
           setParkName={(name: string) => updateFormState({ parkName: name })}
           setParkType={(type: string) => updateFormState({ parkType: type })}
           setWebsite={(url: string) => updateFormState({ website: url })}
@@ -402,13 +404,16 @@ function AddPark() {
         <FormControl fullWidth sx={{ mt: 2 }}>
           <Autocomplete
             disablePortal
+            multiple
             options={provinces}
-            value={provinces.find((p) => p.code === province) || null}
+            value={provinces.filter((p) => formState.provinces?.includes(p.code))}
             onChange={(_, newValue) => {
-              updateFormState({ province: newValue ? newValue.code : '' });
+              const codes = newValue.map((p) => p.code);
+              updateFormState({ province: codes.length > 0 ? codes[0] : '', provinces: codes });
             }}
             disabled={isPotaPark}
             getOptionLabel={(option) => `(${option.code}) ${option.name}`}
+            isOptionEqualToValue={(option, value) => option.code === value.code}
             filterOptions={(options, { inputValue }) => {
               if (!inputValue) return options;
               return options.filter(
@@ -422,7 +427,16 @@ function AddPark() {
                 helperText="目前仅支持31个省、直辖市、自治区，不支持港澳台地区"
               />
             )}
-            isOptionEqualToValue={(option, value) => option.code === value.code}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  variant="outlined"
+                  label={`${option.name} (${option.code})`}
+                  size="small"
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
           />
         </FormControl>
 

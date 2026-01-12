@@ -223,7 +223,7 @@ router.get('/api/pota/status', authenticateToken, requirePotaRepresentative, asy
     try {
       const validToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
       const tokenInfo = potaAuthService.decodeJWT(validToken);
-      
+
       return sendOk(res, {
         connected: true,
         expiresAt: tokenInfo.expiresAt.toISOString(),

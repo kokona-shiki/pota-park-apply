@@ -33,6 +33,7 @@ interface POISelectorProps {
   setIsPotaPark: (isPota: boolean) => void;
   setLatitude: (lat: string) => void;
   setLongitude: (lon: string) => void;
+  setProvinces?: (provinces: string[]) => void;
   error: string | null;
   setError: (error: string | null) => void;
 }
@@ -51,6 +52,7 @@ const POISelector: React.FC<POISelectorProps> = ({
   setIsPotaPark,
   setLatitude,
   setLongitude,
+  setProvinces,
   error,
   setError,
 }) => {
@@ -63,7 +65,11 @@ const POISelector: React.FC<POISelectorProps> = ({
     // 如果是 POTA 公园，填充详细信息
     const parkInfo = potaParks.get(poi.id);
     if (parkInfo) {
-      setProvince(mapLocationToProvince(parkInfo.locationDesc));
+      const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
+      setProvince(provinceCode);
+      if (setProvinces) {
+        setProvinces([provinceCode]);
+      }
       setParkName(parkInfo.name);
       setParkType(parkInfo.parktypeDesc);
       setWebsite(parkInfo.website || '');
@@ -81,6 +87,9 @@ const POISelector: React.FC<POISelectorProps> = ({
       const provinceCode = getProvinceCodeFromNames(poi.province, poi.city);
       if (provinceCode) {
         setProvince(provinceCode);
+        if (setProvinces) {
+          setProvinces([provinceCode]);
+        }
       }
 
       // 格式化公园名称: <省份><城市><名称>

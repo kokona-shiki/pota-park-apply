@@ -11,7 +11,15 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
   try {
     const applicationData = req.body;
 
-    const requiredFields = ['park_name', 'province_iso_code', 'latitude', 'longitude'];
+    // 验证省份字段（必须有省份信息）
+    const hasProvinces =
+      Array.isArray(applicationData.provinces) && applicationData.provinces.length > 0;
+
+    if (!hasProvinces) {
+      return sendBizError(res, 'MISSING_FIELDS', '缺少省份信息', { missingFields: ['provinces'] });
+    }
+
+    const requiredFields = ['park_name', 'latitude', 'longitude'];
     const missingFields = requiredFields.filter((field) => !applicationData[field]);
 
     if (missingFields.length > 0) {
@@ -19,7 +27,10 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
       return sendBizError(res, 'MISSING_FIELDS', '缺少必填字段', { missingFields });
     }
 
-    const application = await parkApplicationService.submitParkApplication(req.user.id, applicationData);
+    const application = await parkApplicationService.submitParkApplication(
+      req.user.id,
+      applicationData
+    );
 
     return sendOk(res, { application }, '公园申请提交成功');
   } catch (error) {
@@ -33,12 +44,19 @@ router.get('/api/my-applications', authenticateToken, async (req, res) => {
   try {
     const { status, province } = req.query;
 
-    const applications = await parkApplicationService.getMyApplications(req.user.id, status, province);
+    const applications = await parkApplicationService.getMyApplications(
+      req.user.id,
+      status,
+      province
+    );
 
     return sendOk(res, { applications }, 'ok');
   } catch (error) {
     console.error('获取我的公园申请列表失败:', error);
-    return sendError(res, error, { httpMessage: '获取我的公园申请列表失败', bizMessage: '获取我的公园申请列表失败' });
+    return sendError(res, error, {
+      httpMessage: '获取我的公园申请列表失败',
+      bizMessage: '获取我的公园申请列表失败',
+    });
   }
 });
 
@@ -57,7 +75,10 @@ router.get('/api/park-applications', authenticateToken, async (req, res) => {
     return sendOk(res, { applications }, 'ok');
   } catch (error) {
     console.error('获取公园申请列表失败:', error);
-    return sendError(res, error, { httpMessage: '获取公园申请列表失败', bizMessage: '获取公园申请列表失败' });
+    return sendError(res, error, {
+      httpMessage: '获取公园申请列表失败',
+      bizMessage: '获取公园申请列表失败',
+    });
   }
 });
 
@@ -66,7 +87,10 @@ router.get('/api/park-applications/:id', authenticateToken, async (req, res) => 
   try {
     const { id } = req.params;
 
-    const application = await parkApplicationService.getApplicationById(req.user.id, parseInt(id, 10));
+    const application = await parkApplicationService.getApplicationById(
+      req.user.id,
+      parseInt(id, 10)
+    );
 
     return sendOk(res, { application }, 'ok');
   } catch (error) {
@@ -139,7 +163,11 @@ router.put(
       const { id } = req.params;
       const { potaNotes } = req.body;
 
-      const application = await parkApplicationService.syncToPOTA(req.user.id, parseInt(id, 10), potaNotes);
+      const application = await parkApplicationService.syncToPOTA(
+        req.user.id,
+        parseInt(id, 10),
+        potaNotes
+      );
 
       return sendOk(res, { application }, 'POTA系统录入成功');
     } catch (error) {
@@ -207,7 +235,10 @@ router.get('/api/review-reminders', authenticateToken, async (req, res) => {
     return sendOk(res, { reminders }, 'ok');
   } catch (error) {
     console.error('获取审核提醒失败:', error);
-    return sendError(res, error, { httpMessage: '获取审核提醒失败', bizMessage: '获取审核提醒失败' });
+    return sendError(res, error, {
+      httpMessage: '获取审核提醒失败',
+      bizMessage: '获取审核提醒失败',
+    });
   }
 });
 

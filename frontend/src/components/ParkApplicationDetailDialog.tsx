@@ -13,7 +13,7 @@ import {
   LinearProgress,
   Stack,
   TextField,
-  Typography
+  Typography,
 } from '@mui/material';
 import { MapContainer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -24,17 +24,44 @@ import shadow from 'leaflet/dist/images/marker-shadow.png';
 import type { ParkApplicationDetail } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { UnifiedTileLayer } from './UnifiedTileLayer';
+import parkTypeMappingData from '../assets/park_type_mapping.json';
+import regionData from '../assets/region.json';
 
 // 配置 Leaflet 图标
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: iconRetina,
   iconUrl: icon,
-  shadowUrl: shadow
+  shadowUrl: shadow,
 });
+
+// 公园类型映射
+const PARK_TYPE_MAPPING = parkTypeMappingData as {
+  chinese_to_english: Array<{ chineseName: string; englishName: string }>;
+  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
+};
 
 const DEFAULT_DETAIL_MAP_ZOOM = 13;
 type LatLngTuple = [number, number];
+
+/**
+ * 获取中英文对照的公园类型显示
+ */
+function getParkTypeWithEnglish(parkType: string | null | undefined): string {
+  if (!parkType) return '';
+
+  // 查找英文到中文的映射
+  const mapping = PARK_TYPE_MAPPING.english_to_chinese.find(
+    (item) => item.englishName === parkType
+  );
+  if (mapping && mapping.chineseNames.length > 0) {
+    // 返回 中文 (英文) 格式
+    return `${mapping.chineseNames[0]} (${parkType})`;
+  }
+
+  // 如果没有找到映射，直接返回原始值
+  return parkType;
+}
 
 /**
  * 转换为有限数字
@@ -90,7 +117,7 @@ function ResetViewControl({ center, zoom }: { center: LatLngTuple; zoom: number 
         });
 
         return container;
-      }
+      },
     });
 
     const control = new ResetControl({ position: 'bottomright' }) as L.Control;
@@ -135,7 +162,7 @@ export function ParkApplicationDetailDialog({
   onReviewRejectionReasonChange,
   onApprove,
   onReject,
-  reviewSubmitting = false
+  reviewSubmitting = false,
 }: ParkApplicationDetailDialogProps) {
   if (!application) return null;
 
@@ -157,30 +184,76 @@ export function ParkApplicationDetailDialog({
         )}
 
         <Box>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, minWidth: 0 }} noWrap title={application.park_name}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ sm: 'center' }}
+            gap={1}
+          >
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 700, minWidth: 0 }}
+              noWrap
+              title={application.park_name}
+            >
               {application.park_name}
             </Typography>
             <Chip size="small" label={statusMeta.label} color={statusMeta.color} />
           </Stack>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-            {application.applicant_callsign ? `申请者：${application.applicant_callsign} | ` : ''}申请时间：{formatDateTime(application.created_at)}
+            {application.applicant_callsign ? `申请者：${application.applicant_callsign} | ` : ''}
+            申请时间：{formatDateTime(application.created_at)}
           </Typography>
 
           <Divider sx={{ my: 2 }} />
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <TextField label="申请编号" value={String(application.id)} InputProps={{ readOnly: true }} />
-            <TextField label="省份" value={application.province_name} InputProps={{ readOnly: true }} />
-            {application.province_iso_code && (
-              <TextField label="省份代码" value={application.province_iso_code} InputProps={{ readOnly: true }} />
-            )}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fit, minmax(300px, 1fr))' },
+              gap: 2,
+            }}
+          >
+            <TextField
+              label="申请编号"
+              value={String(application.id)}
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="省份"
+              value={
+                application.provinces && application.provinces.length > 0
+                  ? application.provinces
+                      .map((code: string) => {
+                        // 查找对应的省份名称
+                        const province = regionData.find(
+                          (p: { code: string; name: string }) => p.code === code
+                        );
+                        return `${province ? province.name : ''} (${code})`;
+                      })
+                      .join(', ')
+                  : '-'
+              }
+              InputProps={{ readOnly: true }}
+            />
             {application.park_type && (
-              <TextField label="公园类型" value={application.park_type} InputProps={{ readOnly: true }} />
+              <TextField
+                label="公园类型"
+                value={getParkTypeWithEnglish(application.park_type)}
+                InputProps={{ readOnly: true }}
+              />
             )}
-            <TextField label="纬度" value={String(application.latitude ?? '')} InputProps={{ readOnly: true }} />
-            <TextField label="经度" value={String(application.longitude ?? '')} InputProps={{ readOnly: true }} />
+            <TextField
+              label="纬度"
+              value={String(application.latitude ?? '')}
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="经度"
+              value={String(application.longitude ?? '')}
+              InputProps={{ readOnly: true }}
+            />
             {application.website && (
               <TextField
                 label="网站"
@@ -217,7 +290,7 @@ export function ParkApplicationDetailDialog({
                     borderRadius: 1,
                     overflow: 'hidden',
                     border: '1px solid',
-                    borderColor: 'divider'
+                    borderColor: 'divider',
                   }}
                 >
                   <MapContainer

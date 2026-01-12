@@ -12,6 +12,7 @@ export type ParkApplication = {
   id: number;
   park_name: string;
   province_name: string;
+  provinces: string[];
   status: ApplicationStatus;
   created_at: string;
   applicant_callsign?: string; // 申请者呼号（审核员可见，普通用户自己的申请可见）
@@ -26,7 +27,6 @@ export type ParkApplication = {
  * 公园申请详细信息（详情对话框用）
  */
 export type ParkApplicationDetail = ParkApplication & {
-  province_iso_code?: string;
   park_type?: string | null;
   website?: string | null;
   description?: string | null;

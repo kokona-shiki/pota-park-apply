@@ -59,6 +59,7 @@ export type FormState = {
   parkName: string;
   parkType: string;
   province: string;
+  provinces: string[];
   latitude: string;
   longitude: string;
   website: string;

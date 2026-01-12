@@ -196,7 +196,7 @@ export const createTables = async () => {
         id SERIAL PRIMARY KEY,
         park_name VARCHAR(255) NOT NULL,
         park_type VARCHAR(100),
-        province_iso_code VARCHAR(10) NOT NULL REFERENCES provinces(iso_code),
+        provinces JSONB NOT NULL DEFAULT '[]'::jsonb,
         
         -- WGS84 地理位置信息
         location GEOMETRY(GEOMETRY, 4326) NOT NULL,
@@ -335,8 +335,9 @@ export const createIndexes = async () => {
     await query(
       'CREATE INDEX IF NOT EXISTS idx_applicant_status ON park_applications(applicant_id, status)'
     );
+
     await query(
-      'CREATE INDEX IF NOT EXISTS idx_province_status ON park_applications(province_iso_code, status)'
+      'CREATE INDEX IF NOT EXISTS idx_park_applications_provinces ON park_applications USING GIN (provinces)'
     );
     await query(
       'CREATE INDEX IF NOT EXISTS idx_coordinates ON park_applications(latitude, longitude)'

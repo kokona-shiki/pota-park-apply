@@ -13,11 +13,12 @@ import {
   TableRow,
   TableSortLabel,
   Tooltip,
-  Typography
+  Typography,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { ParkApplication, TableColumnConfig } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta, truncateText } from '../utils/parkApplication';
+import regionData from '../assets/region.json';
 
 type Order = 'asc' | 'desc';
 type OrderBy = 'created_at' | 'park_name' | 'province_name' | 'status';
@@ -55,7 +56,7 @@ export function ParkApplicationTable({
   onFlowClick,
   onReviewClick,
   emptyMessage = '暂无符合条件的申请',
-  searchQuery
+  searchQuery,
 }: ParkApplicationTableProps) {
   // 计算分页数据
   const pagedApps = applications.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -187,12 +188,26 @@ export function ParkApplicationTable({
                     </TableCell>
 
                     {columnConfig.showApplicantCallsign && (
-                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      <TableCell
+                        sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}
+                      >
                         {app.applicant_callsign || '-'}
                       </TableCell>
                     )}
 
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{app.province_name || '-'}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {app.provinces && app.provinces.length > 0
+                        ? (app.provinces as string[])
+                            .map((code: string) => {
+                              // 查找对应的省份名称
+                              const province = regionData.find(
+                                (p: { code: string; name: string }) => p.code === code
+                              );
+                              return `${province ? province.name : ''} (${code})`;
+                            })
+                            .join(', ')
+                        : '-'}
+                    </TableCell>
 
                     <TableCell sx={{ maxWidth: 360 }}>
                       <Tooltip title={app.park_name || ''} placement="top" arrow>
@@ -200,7 +215,7 @@ export function ParkApplicationTable({
                           sx={{
                             whiteSpace: 'normal',
                             wordBreak: 'break-word',
-                            overflowWrap: 'anywhere'
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {app.park_name || '-'}
@@ -209,10 +224,17 @@ export function ParkApplicationTable({
                     </TableCell>
 
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Chip size="small" label={statusMeta.label} color={statusMeta.color} variant="outlined" />
+                      <Chip
+                        size="small"
+                        label={statusMeta.label}
+                        color={statusMeta.color}
+                        variant="outlined"
+                      />
                     </TableCell>
 
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                    <TableCell
+                      sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}
+                    >
                       {app.status === 'pota_synced' ? '是' : '否'}
                     </TableCell>
 
@@ -220,7 +242,12 @@ export function ParkApplicationTable({
                       {notes ? (
                         showNotesTooltip ? (
                           <Tooltip title={notes} placement="top" arrow>
-                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              alignItems="center"
+                              sx={{ minWidth: 0 }}
+                            >
                               <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                               <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 320 }}>
                                 {notesPreview}
@@ -228,7 +255,12 @@ export function ParkApplicationTable({
                             </Stack>
                           </Tooltip>
                         ) : (
-                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                            sx={{ minWidth: 0 }}
+                          >
                             <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                             <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 320 }}>
                               {notesPreview}
@@ -248,18 +280,32 @@ export function ParkApplicationTable({
                           sx={{ justifyContent: 'flex-end', alignItems: { sm: 'center' } }}
                         >
                           {onFlowClick && (
-                            <Button size="small" variant="outlined" onClick={() => onFlowClick(app)}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => onFlowClick(app)}
+                            >
                               流程信息
                             </Button>
                           )}
-                          <Button size="small" variant="outlined" onClick={() => onDetailClick(app)}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => onDetailClick(app)}
+                          >
                             详情
                           </Button>
-                          {columnConfig.showReviewButton && onReviewClick && app.status === 'pending' && (
-                            <Button size="small" variant="contained" onClick={() => onReviewClick(app)}>
-                              审核
-                            </Button>
-                          )}
+                          {columnConfig.showReviewButton &&
+                            onReviewClick &&
+                            app.status === 'pending' && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => onReviewClick(app)}
+                              >
+                                审核
+                              </Button>
+                            )}
                         </Stack>
                       </TableCell>
                     )}
