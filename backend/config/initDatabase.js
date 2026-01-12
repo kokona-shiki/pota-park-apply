@@ -75,6 +75,9 @@ export const createTables = async () => {
         is_active BOOLEAN DEFAULT true,
         last_login TIMESTAMP WITH TIME ZONE,
         
+        -- POTA 加密相关
+        pota_encryption_salt TEXT,
+        
         -- 时间戳
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

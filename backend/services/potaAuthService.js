@@ -8,29 +8,77 @@ class PotaAuthService {
     this.cognitoDomain = 'parksontheair.auth.us-east-2.amazoncognito.com';
     this.clientId = '7hluqct0n2nckib7i7sd5753oa';
     this.redirectUri = 'https://pota.app/';
-    // 从环境变量获取加密密钥，如果没有则生成（注意：生产环境必须设置固定密钥）
-    // 密钥必须是 32 字节（256 位）用于 AES-256
+    // 主加密密钥
     const keyFromEnv = process.env.POTA_ENCRYPTION_KEY;
     if (keyFromEnv) {
-      // 如果环境变量是 hex 字符串，转换为 Buffer
-      this.encryptionKey = Buffer.from(keyFromEnv, 'hex');
-      if (this.encryptionKey.length !== 32) {
+      this.masterEncryptionKey = Buffer.from(keyFromEnv, 'hex');
+      if (this.masterEncryptionKey.length !== 32) {
         throw new Error('POTA_ENCRYPTION_KEY 必须是 64 个字符的 hex 字符串（32 字节）');
       }
     } else {
-      // 开发环境：生成随机密钥（重启后会变化，已存储的 token 将无法解密）
-      this.encryptionKey = crypto.randomBytes(32);
+      // 开发环境：生成随机密钥
+      this.masterEncryptionKey = crypto.randomBytes(32);
       console.warn('⚠️  警告: 未设置 POTA_ENCRYPTION_KEY，使用随机密钥。生产环境必须设置固定密钥！');
     }
     this.algorithm = 'aes-256-gcm';
   }
 
   /**
-   * 加密数据
+   * 为指定用户生成派生密钥
    */
-  encrypt(text) {
+  async generateUserDerivedKey(userId, passwordHash) {
+    // 从数据库获取用户的 POTA 加密盐值
+    const userData = await getOne(
+      'SELECT pota_encryption_salt FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (!userData) {
+      throw new Error('用户不存在');
+    }
+    
+    // 如果用户没有加密盐值，则创建一个
+    let potaSalt = userData.pota_encryption_salt;
+    if (!potaSalt) {
+      potaSalt = crypto.randomBytes(32).toString('hex');
+      await query(
+        'UPDATE users SET pota_encryption_salt = $1 WHERE id = $2',
+        [potaSalt, userId]
+      );
+    }
+    
+    // 使用 HKDF 生成派生密钥
+    // 将用户ID、密码哈希和用户特定盐值结合起来
+    const saltBuffer = crypto.createHash('sha256').update(`${userId}:${potaSalt}`).digest();
+    
+    // 使用密码哈希的一部分作为输入
+    const info = 'pota_encryption_' + userId;
+    
+    // 使用 pbkdf2 进行密钥派生
+    const derivedKey = await new Promise((resolve, reject) => {
+      crypto.pbkdf2(
+        passwordHash,  // 使用密码哈希作为输入
+        saltBuffer,    // 使用用户ID和盐值的组合作为salt
+        10000,         // 迭代次数
+        32,            // 输出32字节
+        'sha256',
+        (err, key) => {
+          if (err) reject(err);
+          else resolve(key);
+        }
+      );
+    });
+    
+    return derivedKey;
+  }
+  
+  /**
+   * 加密数据（针对特定用户）
+   */
+  async encryptForUser(userId, passwordHash, text) {
+    const userKey = await this.generateUserDerivedKey(userId, passwordHash);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
+    const cipher = crypto.createCipheriv(this.algorithm, userKey, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const authTag = cipher.getAuthTag();
@@ -38,13 +86,14 @@ class PotaAuthService {
   }
 
   /**
-   * 解密数据
+   * 解密数据（针对特定用户）
    */
-  decrypt(encrypted) {
+  async decryptForUser(userId, passwordHash, encrypted) {
+    const userKey = await this.generateUserDerivedKey(userId, passwordHash);
     const [ivHex, authTagHex, encryptedText] = encrypted.split(':');
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(this.algorithm, userKey, iv);
     decipher.setAuthTag(authTag);
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
@@ -254,7 +303,7 @@ class PotaAuthService {
   /**
    * 存储 token
    */
-  async storeTokens(userId, tokens) {
+  async storeTokens(userId, tokens, passwordHash) {
     await query(
       `INSERT INTO pota_tokens (user_id, id_token_encrypted, access_token_encrypted, refresh_token_encrypted, expires_at)
        VALUES ($1, $2, $3, $4, $5)
@@ -267,9 +316,9 @@ class PotaAuthService {
          updated_at = CURRENT_TIMESTAMP`,
       [
         userId,
-        this.encrypt(tokens.idToken),
-        tokens.accessToken ? this.encrypt(tokens.accessToken) : null,
-        this.encrypt(tokens.refreshToken),
+        await this.encryptForUser(userId, passwordHash, tokens.idToken),
+        tokens.accessToken ? await this.encryptForUser(userId, passwordHash, tokens.accessToken) : null,
+        await this.encryptForUser(userId, passwordHash, tokens.refreshToken),
         tokens.expiresAt
       ]
     );
@@ -278,7 +327,7 @@ class PotaAuthService {
   /**
    * 获取存储的 token
    */
-  async getStoredTokens(userId) {
+  async getStoredTokens(userId, passwordHash) {
     const stored = await getOne(
       'SELECT id_token_encrypted, refresh_token_encrypted, expires_at FROM pota_tokens WHERE user_id = $1',
       [userId]
@@ -288,8 +337,8 @@ class PotaAuthService {
 
     try {
       return {
-        idToken: this.decrypt(stored.id_token_encrypted),
-        refreshToken: this.decrypt(stored.refresh_token_encrypted),
+        idToken: await this.decryptForUser(userId, passwordHash, stored.id_token_encrypted),
+        refreshToken: await this.decryptForUser(userId, passwordHash, stored.refresh_token_encrypted),
         expiresAt: new Date(stored.expires_at)
       };
     } catch (error) {
@@ -303,8 +352,8 @@ class PotaAuthService {
   /**
    * 获取有效的 token（自动刷新）
    */
-  async getValidToken(userId) {
-    const stored = await this.getStoredTokens(userId);
+  async getValidToken(userId, passwordHash) {
+    const stored = await this.getStoredTokens(userId, passwordHash);
     
     if (!stored) {
       throw new Error('未找到 POTA token，请先登录');
@@ -324,7 +373,7 @@ class PotaAuthService {
           accessToken: refreshed.accessToken,
           refreshToken: refreshed.refreshToken,
           expiresAt: newTokenInfo.expiresAt
-        });
+        }, passwordHash);
 
         return refreshed.idToken;
       } catch (refreshError) {
@@ -383,7 +432,7 @@ class PotaAuthService {
       });
 
       // 等待一下确保登出完成
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 检查最终 URL（应该重定向到 pota.app）
       const finalUrl = page.url();

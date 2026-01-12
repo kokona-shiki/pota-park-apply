@@ -24,6 +24,7 @@ import {
   FormHelperText,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
 import { getRoleDisplayName } from '../utils/roleDisplay';
@@ -86,20 +87,16 @@ function UserInfo() {
     setSuccessMessage('');
 
     try {
-      const response = await fetch(`/api/users/${user.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          field: 'email',
-          value: email,
-          reason: '用户自行修改邮箱',
-          oldPassword: emailOldPassword,
-        }),
+      const response = await axios.put(`/api/users/${user.id}`, {
+        field: 'email',
+        value: email,
+        reason: '用户自行修改邮箱',
+        oldPassword: emailOldPassword,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(data.bizMessage || '更新邮箱失败');
       }
 
@@ -148,19 +145,15 @@ function UserInfo() {
 
     try {
       // 调用修改密码的API，后端需要特别处理密码哈希
-      const response = await fetch(`/api/users/${user.id}/change-password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          oldPassword: oldPassword,
-          newPassword: newPassword,
-          reason: '用户自行修改密码',
-        }),
+      const response = await axios.put(`/api/users/${user.id}/change-password`, {
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        reason: '用户自行修改密码',
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(data.bizMessage || '更新密码失败');
       }
 

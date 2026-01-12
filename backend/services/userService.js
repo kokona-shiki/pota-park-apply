@@ -1,4 +1,5 @@
 import { insert, update, getOne, getMany, transaction, query } from '../config/database.js';
+import potaAuthService from './potaAuthService.js';
 import {
   hashPassword,
   verifyPassword,
@@ -531,19 +532,37 @@ export const updateUserPassword = async (userId, oldPassword, newPassword, reaso
   // 为新密码生成哈希
   const newPasswordHash = await hashPassword(newPassword);
 
+  // 获取当前存储的POTA token（如果有）
+  let existingPotaTokens = null;
+  try {
+    existingPotaTokens = await potaAuthService.getStoredTokens(userId, user.password_hash);
+  } catch (error) {
+    // 如果获取不到POTA token（可能是因为密码不匹配或不存在），则跳过重新加密
+    console.log('未能获取当前POTA token，可能未配置或密码不匹配:', error.message);
+  }
+
   // 更新用户密码
   const updatedUser = await update(
     `
     UPDATE users
     SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
     WHERE id = $2
-    RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
   `,
     [newPasswordHash, userId]
   );
 
   if (!updatedUser) {
     throw new Error('用户不存在');
+  }
+
+  // 如果存在POTA token，则使用新密码重新加密
+  if (existingPotaTokens) {
+    try {
+      await potaAuthService.storeTokens(userId, existingPotaTokens, newPasswordHash);
+    } catch (error) {
+      console.error('重新加密POTA token失败:', error);
+      // 记录错误但不中断密码更新流程
+    }
   }
 
   // 记录密码变更日志

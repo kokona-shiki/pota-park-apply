@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 import potaAuthService from '../services/potaAuthService.js';
+import { getOne } from '../config/database.js';
 
 const router = express.Router();
 
@@ -31,14 +32,20 @@ router.post('/api/pota/login', authenticateToken, requirePotaRepresentative, asy
 
     // 解析 token 获取过期时间
     const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
-
+    
+    // 获取用户密码哈希
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!user) {
+      return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+    }
+    
     // 存储 token 到数据库（加密）
     await potaAuthService.storeTokens(req.user.id, {
       idToken: tokens.idToken,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokenInfo.expiresAt
-    });
+    }, user.password_hash);
 
     // 清理 PKCE 参数（如果存在）
     await potaAuthService.clearPKCE(req.user.id);
@@ -99,14 +106,20 @@ router.post('/api/pota/callback', authenticateToken, requirePotaRepresentative, 
 
     // 解析 token 获取过期时间
     const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
-
+    
+    // 获取用户密码哈希
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!user) {
+      return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+    }
+    
     // 存储 token 到数据库（加密）
     await potaAuthService.storeTokens(req.user.id, {
       idToken: tokens.idToken,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokenInfo.expiresAt
-    });
+    }, user.password_hash);
 
     // 清理 PKCE 参数
     await potaAuthService.clearPKCE(req.user.id);
@@ -127,7 +140,13 @@ router.post('/api/pota/callback', authenticateToken, requirePotaRepresentative, 
  */
 router.get('/api/pota/token', authenticateToken, requirePotaRepresentative, async (req, res) => {
   try {
-    const idToken = await potaAuthService.getValidToken(req.user.id);
+    // 获取用户密码哈希
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!user) {
+      return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+    }
+    
+    const idToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
     const tokenInfo = potaAuthService.decodeJWT(idToken);
 
     return sendOk(res, { 
@@ -175,7 +194,13 @@ router.delete('/api/pota/token', authenticateToken, requirePotaRepresentative, a
  */
 router.get('/api/pota/status', authenticateToken, requirePotaRepresentative, async (req, res) => {
   try {
-    const stored = await potaAuthService.getStoredTokens(req.user.id);
+    // 获取用户密码哈希
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!user) {
+      return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+    }
+    
+    const stored = await potaAuthService.getStoredTokens(req.user.id, user.password_hash);
     
     if (!stored) {
       return sendOk(res, { 
