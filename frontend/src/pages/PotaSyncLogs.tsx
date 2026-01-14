@@ -48,7 +48,7 @@ interface PotaSyncLog {
 
 const PotaSyncLogs: React.FC = () => {
   const { user } = useAuth(); // 检查用户权限
-  
+
   // 检查用户是否有访问权限 - 只有有pota_import权限的用户可以访问
   useEffect(() => {
     // 由于后端已经通过 requirePermission('pota_import') 控制访问，
@@ -58,7 +58,7 @@ const PotaSyncLogs: React.FC = () => {
       // 如果确实没有权限，后端API会返回403
     }
   }, [user]);
-  
+
   const [logs, setLogs] = useState<PotaSyncLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +142,7 @@ const PotaSyncLogs: React.FC = () => {
   const handleViewParkDetail = (park: PotaSyncLog['parksImported'][number]) => {
     // 创建一个模拟的公园数据结构用于详情显示
     const parkDetail: ParkApplicationDetail = {
-      id: parseInt(park.reference.replace(/[^0-9]/g, ""), 10) || 0, // 提取数字部分作为ID
+      id: parseInt(park.reference.replace(/[^0-9]/g, ''), 10) || 0, // 提取数字部分作为ID
       park_name: park.name,
       park_type: null, // 这里可能需要从其他地方获取
       province_name: 'CN', // 使用默认值
@@ -248,11 +248,7 @@ const PotaSyncLogs: React.FC = () => {
           >
             导入公园列表
           </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleViewDetails(params.row)}
-          >
+          <Button variant="outlined" size="small" onClick={() => handleViewDetails(params.row)}>
             详情
           </Button>
         </Box>
@@ -319,9 +315,7 @@ const PotaSyncLogs: React.FC = () => {
       </Box>
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">
-          总计: {totalLogs} 条记录
-        </Typography>
+        <Typography variant="h6">总计: {totalLogs} 条记录</Typography>
         <Box display="flex" alignItems="center" gap={2}>
           <FormControl size="small">
             <InputLabel>每页</InputLabel>
@@ -339,12 +333,7 @@ const PotaSyncLogs: React.FC = () => {
               <MenuItem value={50}>50</MenuItem>
             </Select>
           </FormControl>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-          />
+          <Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" />
         </Box>
       </Box>
 
@@ -364,18 +353,42 @@ const PotaSyncLogs: React.FC = () => {
       </div>
 
       {/* 日志详情对话框 */}
-      <Dialog open={openDetailsDialog} onClose={() => setOpenDetailsDialog(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={openDetailsDialog}
+        onClose={() => setOpenDetailsDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>POTA 同步日志详情</DialogTitle>
         <DialogContent dividers>
           {selectedLog && (
             <Box>
-              <Typography variant="body1"><strong>ID:</strong> {selectedLog.id}</Typography>
-              <Typography variant="body1"><strong>操作人:</strong> {selectedLog.operator}</Typography>
-              <Typography variant="body1"><strong>操作类型:</strong> {selectedLog.operationType === 'auto' ? '自动' : '手动'}</Typography>
-              <Typography variant="body1"><strong>同步时间:</strong> {new Date(selectedLog.syncDate).toLocaleString('zh-CN')}</Typography>
-              <Typography variant="body1"><strong>状态:</strong> {selectedLog.status === 'success' ? '成功' : selectedLog.status === 'partial_success' ? '部分成功' : '失败'}</Typography>
-              <Typography variant="body1"><strong>导入公园数:</strong> {selectedLog.parksImported.length}</Typography>
-              <Typography variant="body1"><strong>详情:</strong> {selectedLog.details}</Typography>
+              <Typography variant="body1">
+                <strong>ID:</strong> {selectedLog.id}
+              </Typography>
+              <Typography variant="body1">
+                <strong>操作人:</strong> {selectedLog.operator}
+              </Typography>
+              <Typography variant="body1">
+                <strong>操作类型:</strong> {selectedLog.operationType === 'auto' ? '自动' : '手动'}
+              </Typography>
+              <Typography variant="body1">
+                <strong>同步时间:</strong> {new Date(selectedLog.syncDate).toLocaleString('zh-CN')}
+              </Typography>
+              <Typography variant="body1">
+                <strong>状态:</strong>{' '}
+                {selectedLog.status === 'success'
+                  ? '成功'
+                  : selectedLog.status === 'partial_success'
+                  ? '部分成功'
+                  : '失败'}
+              </Typography>
+              <Typography variant="body1">
+                <strong>导入公园数:</strong> {selectedLog.parksImported.length}
+              </Typography>
+              <Typography variant="body1">
+                <strong>详情:</strong> {selectedLog.details}
+              </Typography>
             </Box>
           )}
         </DialogContent>
@@ -385,7 +398,12 @@ const PotaSyncLogs: React.FC = () => {
       </Dialog>
 
       {/* 公园列表对话框 */}
-      <Dialog open={openParksDialog} onClose={() => setOpenParksDialog(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={openParksDialog}
+        onClose={() => setOpenParksDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>导入的公园列表</DialogTitle>
         <DialogContent dividers>
           <TableContainer component={Paper}>
@@ -406,18 +424,18 @@ const PotaSyncLogs: React.FC = () => {
                     <TableCell>
                       <Chip
                         label={
-                          park.status === 'success' 
-                            ? '已导入' 
-                            : park.status === 'failed' 
-                              ? `未导入 (${park.reason || '未知原因'})` 
-                              : `跳过 (${park.reason || '未知原因'})`
+                          park.status === 'success'
+                            ? '已导入'
+                            : park.status === 'failed'
+                            ? `未导入 (${park.reason || '未知原因'})`
+                            : `跳过 (${park.reason || '未知原因'})`
                         }
                         color={
-                          park.status === 'success' 
-                            ? 'success' 
-                            : park.status === 'failed' 
-                              ? 'error' 
-                              : 'warning'
+                          park.status === 'success'
+                            ? 'success'
+                            : park.status === 'failed'
+                            ? 'error'
+                            : 'warning'
                         }
                         size="small"
                       />

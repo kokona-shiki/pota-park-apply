@@ -3,7 +3,13 @@ import { query, getMany, insert } from '../config/database.js';
 /**
  * 记录POTA同步日志
  */
-export const logPotaSync = async (operator, operationType, parksImported, status, details = null) => {
+export const logPotaSync = async (
+  operator,
+  operationType,
+  parksImported,
+  status,
+  details = null
+) => {
   try {
     const logEntry = await insert(
       `
@@ -14,7 +20,9 @@ export const logPotaSync = async (operator, operationType, parksImported, status
       [operator, operationType, JSON.stringify(parksImported), status, details]
     );
 
-    console.log(`POTA同步日志记录成功: ID ${logEntry.id}, 操作人: ${operator}, 类型: ${operationType}, 状态: ${status}`);
+    console.log(
+      `POTA同步日志记录成功: ID ${logEntry.id}, 操作人: ${operator}, 类型: ${operationType}, 状态: ${status}`
+    );
     return logEntry;
   } catch (error) {
     console.error('记录POTA同步日志失败:', error.message);
@@ -27,12 +35,12 @@ export const logPotaSync = async (operator, operationType, parksImported, status
  */
 export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
   try {
-    const { 
-      page = 1, 
-      pageSize = 10, 
-      startDate, 
-      endDate, 
-      operationType 
+    const {
+      page = 1,
+      pageSize = 10,
+      startDate,
+      endDate,
+      operationType,
     } = { ...pagination, ...filters };
 
     let whereClause = '';
@@ -46,7 +54,7 @@ export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
         params.push(startDate);
         paramIndex++;
       }
-      
+
       if (endDate) {
         const endCondition = startDate ? ' AND sync_date <= $' : 'WHERE sync_date <= $';
         whereClause += `${endCondition}${paramIndex}`;

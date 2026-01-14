@@ -34,12 +34,12 @@ export const addPotaSyncLogsTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_pota_sync_logs_operator 
       ON pota_sync_logs (operator)
     `);
-    
+
     await query(`
       CREATE INDEX IF NOT EXISTS idx_pota_sync_logs_operation_type 
       ON pota_sync_logs (operation_type)
     `);
-    
+
     await query(`
       CREATE INDEX IF NOT EXISTS idx_pota_sync_logs_sync_date 
       ON pota_sync_logs (sync_date)

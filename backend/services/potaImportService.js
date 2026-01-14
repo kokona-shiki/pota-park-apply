@@ -420,7 +420,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
   console.log(`开始执行 POTA 公园导入，操作员: ${operatorId}, 角色: ${operatorRole}`);
 
   const importTime = new Date().toISOString();
-  
+
   // 准备日志记录所需的数据
   const parksImported = [];
 
@@ -643,7 +643,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
 
     // 确定操作类型
     const operationType = operatorId === -1 ? 'auto' : 'manual';
-    
+
     // 确定同步状态
     let syncStatus = 'success';
     if (results.errors.length > 0) {
