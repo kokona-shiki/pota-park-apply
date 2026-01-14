@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getOne, getMany, insert, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
+import { logPotaSync } from './potaSyncLogService.js';
 
 // POTA API 基础 URL
 const POTA_API_BASE_URL = 'https://api.pota.app';
@@ -419,6 +420,9 @@ export const importPotaParks = async (operatorId, operatorRole) => {
   console.log(`开始执行 POTA 公园导入，操作员: ${operatorId}, 角色: ${operatorRole}`);
 
   const importTime = new Date().toISOString();
+  
+  // 准备日志记录所需的数据
+  const parksImported = [];
 
   try {
     // 获取所有中国公园数据
@@ -506,11 +510,31 @@ export const importPotaParks = async (operatorId, operatorRole) => {
           if (result.success) {
             if (result.skipped) {
               results.skipped++;
+              // 记录跳过的公园
+              parksImported.push({
+                reference: park.reference,
+                name: park.name,
+                status: 'skipped',
+                reason: 'Already exists',
+              });
             } else if (result.created) {
               results.imported++;
+              // 记录导入成功的公园
+              parksImported.push({
+                reference: park.reference,
+                name: park.name,
+                status: 'success',
+              });
             }
           } else {
             results.errors.push(result);
+            // 记录导入失败的公园
+            parksImported.push({
+              reference: result.potaId || (result.park && result.park.reference),
+              name: result.park && result.park.name,
+              status: 'failed',
+              reason: result.error,
+            });
             console.error(`导入公园失败:`, result);
           }
         }
@@ -525,6 +549,13 @@ export const importPotaParks = async (operatorId, operatorRole) => {
 
           if (isManualConfirmationNeeded) {
             console.log(`跳过需要手动确认类型的公园: ${park.reference}`);
+            // 记录跳过的公园
+            parksImported.push({
+              reference: park.reference,
+              name: park.name,
+              status: 'skipped',
+              reason: 'Requires manual confirmation',
+            });
             continue; // 跳过需要手动确认的公园
           }
 
@@ -533,11 +564,31 @@ export const importPotaParks = async (operatorId, operatorRole) => {
           if (result.success) {
             if (result.skipped) {
               results.skipped++;
+              // 记录跳过的公园
+              parksImported.push({
+                reference: park.reference,
+                name: park.name,
+                status: 'skipped',
+                reason: 'Already exists',
+              });
             } else if (result.created) {
               results.imported++;
+              // 记录导入成功的公园
+              parksImported.push({
+                reference: park.reference,
+                name: park.name,
+                status: 'success',
+              });
             }
           } else {
             results.errors.push(result);
+            // 记录导入失败的公园
+            parksImported.push({
+              reference: result.potaId || (result.park && result.park.reference),
+              name: result.park && result.park.name,
+              status: 'failed',
+              reason: result.error,
+            });
             console.error(`导入公园失败:`, result);
           }
         }
@@ -553,15 +604,66 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         if (result.success) {
           if (result.skipped) {
             results.skipped++;
+            // 记录跳过的公园
+            parksImported.push({
+              reference: park.reference,
+              name: park.name,
+              status: 'skipped',
+              reason: 'Already exists',
+            });
           } else if (result.created) {
             results.imported++;
+            // 记录导入成功的公园
+            parksImported.push({
+              reference: park.reference,
+              name: park.name,
+              status: 'success',
+            });
           }
         } else {
           results.errors.push(result);
+          // 记录导入失败的公园
+          parksImported.push({
+            reference: result.potaId || (result.park && result.park.reference),
+            name: result.park && result.park.name,
+            status: 'failed',
+            reason: result.error,
+          });
           console.error(`导入公园失败:`, result);
         }
       }
     }
+
+    // 确定操作人名称
+    let operatorName = '系统自动';
+    if (operatorId !== -1) {
+      const userInfo = await getOne('SELECT callsign FROM users WHERE id = $1', [operatorId]);
+      operatorName = userInfo ? userInfo.callsign : `用户ID: ${operatorId}`;
+    }
+
+    // 确定操作类型
+    const operationType = operatorId === -1 ? 'auto' : 'manual';
+    
+    // 确定同步状态
+    let syncStatus = 'success';
+    if (results.errors.length > 0) {
+      if (results.imported > 0) {
+        syncStatus = 'partial_success';
+      } else {
+        syncStatus = 'failed';
+      }
+    } else if (results.skipped > 0 && results.imported === 0) {
+      syncStatus = 'success'; // 即使全部跳过，如果没错误也算成功
+    }
+
+    // 记录POTA同步日志
+    await logPotaSync(
+      operatorName,
+      operationType,
+      parksImported,
+      syncStatus,
+      `总计: ${results.total}, 导入: ${results.imported}, 跳过: ${results.skipped}, 错误: ${results.errors.length}`
+    );
 
     console.log(
       `POTA 公园导入完成: 总计 ${results.total}, 导入 ${results.imported}, 跳过 ${results.skipped}, 错误 ${results.errors.length}`
