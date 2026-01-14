@@ -22,6 +22,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 
 type PotaStatus = {
@@ -31,7 +32,7 @@ type PotaStatus = {
 };
 
 function PotaAuth() {
-  const { user } = useAuth();
+  const { user } = useAuth(); // 保留user用于权限检查
   const [status, setStatus] = useState<PotaStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +42,9 @@ function PotaAuth() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const checkIntervalRef = useRef<number | null>(null);
 
-  // 检查用户角色
-  const isPotaRepresentative = user?.role === 'pota_representative';
+  // 检查用户权限而非角色
+  const { hasPermission } = usePermission('pota_import');
+  const isPotaRepresentative = hasPermission === true && user != null;
 
   // 加载状态
   const loadStatus = async () => {
@@ -128,7 +130,7 @@ function PotaAuth() {
                   reject(err);
                 });
             }
-          } catch (e) {
+          } catch {
             // 跨域错误，继续等待（这是正常的，因为 iframe 加载时会触发跨域错误）
           }
         }, 500);

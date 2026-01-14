@@ -12,6 +12,7 @@ import {
   Link,
 } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
 import { getApiErrorMessage } from '../utils/error';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +36,7 @@ interface ImportResult {
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
+  const { hasPermission } = usePermission('pota_import');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -43,7 +45,7 @@ function PotaImport() {
   const [statusLoading, setStatusLoading] = useState(false);
 
   // 检查用户权限
-  const canImport = user?.role === 'pota_representative';
+  const canImport = hasPermission === true;
 
   // 获取导入权限状态
   const loadStatus = useCallback(async () => {

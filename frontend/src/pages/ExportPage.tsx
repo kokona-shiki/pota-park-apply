@@ -2,15 +2,16 @@
 import { Button } from '@mui/material';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 
 type ExportType = 'csv' | 'kml';
 type ExportScope = 'self' | 'all';
 
 function ExportPage() {
-  const { user } = useAuth();
+  const { user } = useAuth(); // 保留user用于权限检查
+  const { hasPermission } = usePermission('review_application');
   // 系统管理员不能访问此页面（已在路由层面保护）
-  const isAdmin =
-    user?.role === 'park_reviewer' || user?.role === 'pota_representative';
+  const isAdmin = hasPermission === true && user != null;
 
   const handleExport = (type: ExportType, scope: ExportScope) => {
     axios

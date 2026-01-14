@@ -5,13 +5,9 @@ import { sendHttpError, sendOk, sendError } from '../utils/response.js';
 
 const router = express.Router();
 
-// 获取省份列表（仅登录用户可用；role=banned 不允许访问）
+// 获取省份列表（仅登录用户可用）
 router.get('/api/provinces', authenticateToken, async (req, res) => {
   try {
-    if (req.user?.role === 'banned') {
-      return sendHttpError(res, 403, 'FORBIDDEN', '权限不足', null);
-    }
-
     const provinces = await getMany(
       `
       SELECT iso_code, zh_name, en_name, sort_order

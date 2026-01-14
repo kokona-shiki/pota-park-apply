@@ -26,11 +26,13 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 
 function UserInfo() {
   const { user, refreshSession } = useAuth();
+  const { hasPermission: hasModifyPermission } = usePermission('modify_user_info');
 
   // 状态管理 - 必须在条件渲染之前声明
   const [email, setEmail] = useState('');

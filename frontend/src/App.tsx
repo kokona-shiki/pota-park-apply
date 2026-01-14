@@ -19,6 +19,7 @@ import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import axios from 'axios';
+import { usePermission } from './hooks/usePermission';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
 
@@ -160,9 +161,10 @@ function RequireAuth({ children }: { children: ReactElement }) {
 function RequireSysAdmin({ children }: { children: ReactElement }) {
   const { user, isAuthLoading } = useAuthRequired();
   const location = useLocation();
+  const { hasPermission, loading } = usePermission('view_all_users'); // system_admin有view_all_users权限
 
   // 如果正在加载认证状态,显示加载提示
-  if (isAuthLoading) {
+  if (isAuthLoading || loading) {
     return (
       <Box
         sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
@@ -183,7 +185,7 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
     );
   }
 
-  if (user?.role !== 'system_admin') {
+  if (!hasPermission) {
     return <Navigate to="/" replace />;
   }
 
@@ -197,6 +199,7 @@ function RequireSysAdmin({ children }: { children: ReactElement }) {
 function RequireNotSysAdmin({ children }: { children: ReactElement }) {
   const { user, isAuthLoading } = useAuthRequired();
   const location = useLocation();
+  const { hasPermission } = usePermission('view_all_users'); // system_admin有view_all_users权限
 
   // 如果正在加载认证状态,显示加载提示
   if (isAuthLoading) {
@@ -220,8 +223,8 @@ function RequireNotSysAdmin({ children }: { children: ReactElement }) {
     );
   }
 
-  // 如果是系统管理员，重定向到用户管理页面
-  if (user?.role === 'system_admin') {
+  // 如果是系统管理员（有view_all_users权限），重定向到用户管理页面
+  if (hasPermission === true) {
     return <Navigate to="/admin-panel" replace />;
   }
 
@@ -672,9 +675,14 @@ function App() {
     };
   }, [ensureValidAccessToken, getCurrentAccessToken, logout, navigate]);
 
-  const isAdmin = user?.role === 'park_reviewer' || user?.role === 'pota_representative';
-  const isSysAdmin = user?.role === 'system_admin';
-  const isPotaRepresentative = user?.role === 'pota_representative';
+  // 使用权限检查替代角色检查
+  const { hasPermission: hasReviewPermission } = usePermission('review_application');
+  const { hasPermission: hasViewAllUsersPermission } = usePermission('view_all_users');
+  const { hasPermission: hasPotaImportPermission } = usePermission('pota_import');
+
+  const isAdmin = hasReviewPermission === true;
+  const isSysAdmin = hasViewAllUsersPermission === true;
+  const isPotaRepresentative = hasPotaImportPermission === true;
 
   return (
     <AuthContext.Provider

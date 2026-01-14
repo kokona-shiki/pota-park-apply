@@ -27,6 +27,7 @@ import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import { ParkApplicationDetailDialog } from '../components/ParkApplicationDetailDialog';
 import type { ParkApplicationDetail } from '../types/parkApplication';
 
@@ -48,16 +49,16 @@ interface PotaSyncLog {
 
 const PotaSyncLogs: React.FC = () => {
   const { user } = useAuth(); // 检查用户权限
+  const { hasPermission } = usePermission('pota_import');
 
   // 检查用户是否有访问权限 - 只有有pota_import权限的用户可以访问
   useEffect(() => {
     // 由于后端已经通过 requirePermission('pota_import') 控制访问，
     // 这里主要是为了提供更好的前端体验
-    if (user && user.role !== 'pota_representative') {
-      // 如果不是POTA代表，可能是其他有权限的角色，继续加载
-      // 如果确实没有权限，后端API会返回403
+    if (user && !hasPermission) {
+      // 如果没有pota_import权限，后端API会返回403
     }
-  }, [user]);
+  }, [user, hasPermission]);
 
   const [logs, setLogs] = useState<PotaSyncLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

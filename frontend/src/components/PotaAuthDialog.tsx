@@ -23,6 +23,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 
 type PotaStatus = {
@@ -48,9 +49,10 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const hasLoadedRef = useRef(false); // 防止 React Strict Mode 重复调用
+  const { hasPermission } = usePermission('pota_import');
 
-  // 检查用户角色
-  const isPotaRepresentative = user?.role === 'pota_representative';
+  // 检查用户权限而非角色
+  const isPotaRepresentative = hasPermission === true && user != null;
 
   // 加载状态
   const loadStatus = async () => {

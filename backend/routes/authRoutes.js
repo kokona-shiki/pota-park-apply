@@ -241,4 +241,16 @@ router.get('/api/user-permissions', authenticateToken, async (req, res) => {
   }
 });
 
+// 检查特定权限
+router.get('/api/check-permission/:permissionCode', authenticateToken, async (req, res) => {
+  try {
+    const permissionCode = req.params.permissionCode;
+    const hasPermission = await checkUserPermission(req.user.id, permissionCode);
+    return res.json({ hasPermission });
+  } catch (error) {
+    console.error('权限检查失败:', error);
+    return res.status(500).json({ hasPermission: false });
+  }
+});
+
 export default router;

@@ -19,6 +19,7 @@ import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import parkTypeMapping from '../assets/park_type_mapping.json';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
 
 interface UnprocessedPark {
@@ -38,6 +39,7 @@ interface UnprocessedPark {
 
 const PotaUnprocessedParks: React.FC = () => {
   const { user } = useAuth();
+  const { hasPermission: hasPotaPermission, loading: permissionLoading } = usePermission('pota_import');
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [checkingPermission, setCheckingPermission] = useState<boolean>(true); // 新增状态用于跟踪权限检查
@@ -60,16 +62,16 @@ const PotaUnprocessedParks: React.FC = () => {
   ];
 
   useEffect(() => {
-    if (!hasFetchedRef.current) {
+    if (!hasFetchedRef.current && hasPotaPermission !== null) {
       hasFetchedRef.current = true;
       checkPermissionAndFetchData();
     }
-  }, []);
+  }, [hasPotaPermission]);
 
   const checkPermissionAndFetchData = async () => {
     setCheckingPermission(true); // 开始检查权限
 
-    if (!user) {
+    if (!user || hasPotaPermission !== true) {
       setHasPermission(false);
       setCheckingPermission(false);
       setLoading(false);
@@ -335,7 +337,7 @@ const PotaUnprocessedParks: React.FC = () => {
     },
   ];
 
-  if (checkingPermission) {
+  if (checkingPermission || permissionLoading) {
     return (
       <Container maxWidth="lg">
         <Typography variant="h4" component="h1" gutterBottom>

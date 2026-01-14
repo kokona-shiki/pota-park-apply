@@ -20,6 +20,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
 import { ParkApplicationTable } from '../components/ParkApplicationTable';
@@ -33,6 +34,7 @@ type DialogMode = 'detail' | 'review';
 
 function ApplicationsList() {
   const { user, isAuthLoading } = useAuth();
+  const { hasPermission } = usePermission('review_application');
 
   const [applications, setApplications] = useState<ParkApplication[]>([]);
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -57,7 +59,7 @@ function ApplicationsList() {
   const hasRequestedRef = useRef(false);
   const userIdRef = useRef<number | null>(null);
 
-  const isReviewer = user?.role === 'park_reviewer' || user?.role === 'pota_representative';
+  const isReviewer = hasPermission === true;
 
   // 只在用户 ID 真正变化时才重置请求标志
   useEffect(() => {

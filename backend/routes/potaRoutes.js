@@ -7,11 +7,12 @@ import { getOne } from '../config/database.js';
 const router = express.Router();
 
 /**
- * 检查用户是否为 POTA 地图代表
+ * 检查用户是否具有 POTA 导入权限
  */
-const requirePotaRepresentative = (req, res, next) => {
-  if (req.user?.role !== 'pota_representative') {
-    return sendBizError(res, 'FORBIDDEN', '只有 POTA 地图代表可以访问此功能', null);
+const requirePotaImportPermission = async (req, res, next) => {
+  // 由于authenticateToken中间件已经设置了权限信息，直接检查即可
+  if (!req.user || !req.user.hasPotaImportPermission) {
+    return res.status(403).json({ code: 'FORBIDDEN', message: '只有有权限的用户可以访问此功能', data: null });
   }
   next();
 };
@@ -19,7 +20,7 @@ const requirePotaRepresentative = (req, res, next) => {
 /**
  * POTA 登录（使用账号密码 + Puppeteer）
  */
-router.post('/api/pota/login', authenticateToken, requirePotaRepresentative, async (req, res) => {
+router.post('/api/pota/login', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -71,7 +72,7 @@ router.post('/api/pota/login', authenticateToken, requirePotaRepresentative, asy
 router.post(
   '/api/pota/init-auth',
   authenticateToken,
-  requirePotaRepresentative,
+  requirePotaImportPermission,
   async (req, res) => {
     try {
       const pkce = potaAuthService.generatePKCE();
@@ -98,7 +99,7 @@ router.post(
 router.post(
   '/api/pota/callback',
   authenticateToken,
-  requirePotaRepresentative,
+  requirePotaImportPermission,
   async (req, res) => {
     try {
       const { code, state } = req.body;
@@ -156,7 +157,7 @@ router.post(
 /**
  * 获取有效的 POTA token（自动处理刷新）
  */
-router.get('/api/pota/token', authenticateToken, requirePotaRepresentative, async (req, res) => {
+router.get('/api/pota/token', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
     const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
@@ -187,7 +188,7 @@ router.get('/api/pota/token', authenticateToken, requirePotaRepresentative, asyn
 /**
  * 断开 POTA 连接（调用 POTA 登出接口并删除本地 token）
  */
-router.delete('/api/pota/token', authenticateToken, requirePotaRepresentative, async (req, res) => {
+router.delete('/api/pota/token', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 先调用 POTA 登出接口
     try {
@@ -210,7 +211,7 @@ router.delete('/api/pota/token', authenticateToken, requirePotaRepresentative, a
 /**
  * 获取 POTA 连接状态
  */
-router.get('/api/pota/status', authenticateToken, requirePotaRepresentative, async (req, res) => {
+router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
     const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
