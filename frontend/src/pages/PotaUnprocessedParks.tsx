@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -16,6 +16,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import parkTypeMapping from '../assets/park_type_mapping.json';
 import { useAuth } from '../auth/useAuth';
 import axios from 'axios';
@@ -45,6 +46,9 @@ const PotaUnprocessedParks: React.FC = () => {
   const [openConfirmDialog, setOpenConfirmDialog] = useState<boolean>(false);
   const [parkToProcess, setParkToProcess] = useState<UnprocessedPark | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
+  
+  // 用于确保API只调用一次
+  const hasFetchedRef = useRef(false);
 
   // 获取所有可用的公园类型
   const allParkTypes = [
@@ -55,13 +59,16 @@ const PotaUnprocessedParks: React.FC = () => {
   ];
 
   useEffect(() => {
-    checkPermission();
-    fetchUnprocessedParks();
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      checkPermissionAndFetchData();
+    }
   }, []);
 
-  const checkPermission = async () => {
+  const checkPermissionAndFetchData = async () => {
     if (!user) {
       setHasPermission(false);
+      setLoading(false);
       return;
     }
 
@@ -75,7 +82,7 @@ const PotaUnprocessedParks: React.FC = () => {
 
       // 如果API调用成功（返回200），则用户有权限
       setHasPermission(true);
-      // 同时更新本地的未处理公园列表
+      // 更新本地的未处理公园列表
       setUnprocessedParks(response.data);
 
       // 初始化选中的类型
@@ -84,9 +91,10 @@ const PotaUnprocessedParks: React.FC = () => {
         initialSelected[park.reference] = park.manualType || '';
       });
       setSelectedType(initialSelected);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { status: number } };
       // 如果API调用失败（返回403或其他错误），则用户没有权限
-      if (err.response && err.response.status === 403) {
+      if (error.response && error.response.status === 403) {
         // 明确的权限不足错误
         setHasPermission(false);
       } else {
@@ -94,12 +102,15 @@ const PotaUnprocessedParks: React.FC = () => {
         setHasPermission(false);
       }
       console.error('检查权限失败:', err);
+    } finally {
+      // 无论成功还是失败，都要停止loading状态
+      setLoading(false);
     }
   };
 
+
   const fetchUnprocessedParks = async () => {
     try {
-      setLoading(true);
       const response = await axios.get('/api/pota/unprocessed-parks', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -116,8 +127,6 @@ const PotaUnprocessedParks: React.FC = () => {
     } catch (err) {
       setError('获取未处理公园列表失败');
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -222,14 +231,14 @@ const PotaUnprocessedParks: React.FC = () => {
   };
 
   // 定义列
-  const columns: any[] = [
+  const columns: GridColDef<UnprocessedPark>[] = [
     {
       field: 'reference',
       headerName: 'POTA ID',
       width: 120,
-      renderCell: (params: { value: any; row: UnprocessedPark }) => (
-        <Tooltip title={params.value}>
-          <span>{params.value}</span>
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
+        <Tooltip title={params.value ?? ''}>
+          <span>{params.value ?? ''}</span>
         </Tooltip>
       ),
     },
@@ -238,9 +247,9 @@ const PotaUnprocessedParks: React.FC = () => {
       headerName: '公园名称',
       flex: 1,
       minWidth: 200,
-      renderCell: (params: { value: any; row: UnprocessedPark }) => (
-        <Tooltip title={params.value}>
-          <span>{params.value}</span>
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
+        <Tooltip title={params.value ?? ''}>
+          <span>{params.value ?? ''}</span>
         </Tooltip>
       ),
     },
@@ -276,9 +285,9 @@ const PotaUnprocessedParks: React.FC = () => {
       headerName: '位置描述',
       flex: 1,
       minWidth: 150,
-      renderCell: (params: { value: any; row: UnprocessedPark }) => (
-        <Tooltip title={params.value}>
-          <span>{params.value}</span>
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
+        <Tooltip title={params.value ?? ''}>
+          <span>{params.value ?? ''}</span>
         </Tooltip>
       ),
     },
@@ -286,7 +295,7 @@ const PotaUnprocessedParks: React.FC = () => {
       field: 'manualType',
       headerName: '选择类型',
       width: 200,
-      renderCell: (params: { value: any; row: UnprocessedPark }) => (
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string | null>) => (
         <FormControl fullWidth size="small">
           <Select
             value={selectedType[params.row.reference] || ''}
@@ -309,7 +318,7 @@ const PotaUnprocessedParks: React.FC = () => {
       field: 'actions',
       headerName: '操作',
       width: 150,
-      renderCell: (params: { value: any; row: UnprocessedPark }) => (
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, unknown>) => (
         <Button
           variant="outlined"
           size="small"
@@ -356,7 +365,15 @@ const PotaUnprocessedParks: React.FC = () => {
           >
             {processing ? <CircularProgress size={24} /> : '批量导入'}
           </Button>
-          <Button variant="outlined" onClick={fetchUnprocessedParks} disabled={processing}>
+          <Button 
+            variant="outlined" 
+            onClick={async () => {
+              setLoading(true);
+              await fetchUnprocessedParks();
+              setLoading(false);
+            }} 
+            disabled={processing}
+          >
             刷新
           </Button>
         </Box>
