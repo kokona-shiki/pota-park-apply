@@ -47,7 +47,7 @@ const PotaUnprocessedParks: React.FC = () => {
   const [openConfirmDialog, setOpenConfirmDialog] = useState<boolean>(false);
   const [parkToProcess, setParkToProcess] = useState<UnprocessedPark | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
-  
+
   // 用于确保API只调用一次
   const hasFetchedRef = useRef(false);
 
@@ -68,7 +68,7 @@ const PotaUnprocessedParks: React.FC = () => {
 
   const checkPermissionAndFetchData = async () => {
     setCheckingPermission(true); // 开始检查权限
-    
+
     if (!user) {
       setHasPermission(false);
       setCheckingPermission(false);
@@ -112,7 +112,6 @@ const PotaUnprocessedParks: React.FC = () => {
       setLoading(false);
     }
   };
-
 
   const fetchUnprocessedParks = async () => {
     try {
@@ -383,13 +382,13 @@ const PotaUnprocessedParks: React.FC = () => {
           >
             {processing ? <CircularProgress size={24} /> : '批量导入'}
           </Button>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={async () => {
               setLoading(true);
               await fetchUnprocessedParks();
               setLoading(false);
-            }} 
+            }}
             disabled={processing}
           >
             刷新
