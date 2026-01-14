@@ -121,6 +121,12 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                 </ListItemIcon>
                 <ListItemText primary="POTA 公园导入" />
               </ListItemButton>
+              <ListItemButton onClick={() => navigate('/pota-unprocessed')}>
+                <ListItemIcon>
+                  <ListIcon />
+                </ListItemIcon>
+                <ListItemText primary="POTA 未处理公园" />
+              </ListItemButton>
             </>
           )}
 

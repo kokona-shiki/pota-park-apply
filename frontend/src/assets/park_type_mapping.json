@@ -109,6 +109,32 @@
       "englishName": "National Memorial"
     }
   ],
+  "pota_only_types": [
+    {
+      "chineseName": "公园",
+      "englishName": "Park"
+    },
+    {
+      "chineseName": "区域公园",
+      "englishName": "Regional Park"
+    },
+    {
+      "chineseName": "植物园",
+      "englishName": "Botanical Gardens"
+    },
+    {
+      "chineseName": "滨海公园",
+      "englishName": "Coastal & Marine Park"
+    },
+    {
+      "chineseName": "湿地公园",
+      "englishName": "Wetland Reserve"
+    },
+    {
+      "chineseName": "风景区",
+      "englishName": "Scenic Site"
+    }
+  ],
   "english_to_chinese": [
     {
       "englishName": "National Forest",

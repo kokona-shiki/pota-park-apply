@@ -1,19 +1,41 @@
 // src/pages/PotaImport.tsx
-import { useState, useCallback, useEffect } from 'react';
-import { Box, Button, Typography, Alert, LinearProgress, Paper, Stack, Chip } from '@mui/material';
+import { useState, useCallback } from 'react';
+import {
+  Box,
+  Button,
+  Typography,
+  Alert,
+  LinearProgress,
+  Paper,
+  Stack,
+  Chip,
+  Link,
+} from '@mui/material';
 import { useAuth } from '../auth/useAuth';
 import axios from 'axios';
 import { getApiErrorMessage } from '../utils/error';
+import { useNavigate } from 'react-router-dom';
+
+interface ManualConfirmationPark {
+  reference: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  locationDesc: string;
+  message: string;
+}
 
 interface ImportResult {
   total: number;
   imported: number;
   skipped: number;
   errors: Array<Record<string, unknown>>;
+  needs_manual_confirmation?: ManualConfirmationPark[];
 }
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +52,7 @@ function PotaImport() {
     try {
       setStatusLoading(true);
       setError(null);
-      const response = await axios.get('/api/pota/import-status');
-      // 只是确认API调用成功，无需特别处理响应数据
+      await axios.get('/api/pota/import-status');
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, '获取导入权限状态失败'));
     } finally {
@@ -57,8 +78,6 @@ function PotaImport() {
     }
   }, [user]);
 
-
-
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4, mb: 4 }}>
       <Paper sx={{ p: 3 }}>
@@ -69,8 +88,6 @@ function PotaImport() {
         <Typography variant="body1" sx={{ mb: 3 }}>
           此功能用于从 POTA 系统导入中国地区的公园数据。系统会自动检查重复项，仅导入新公园。
         </Typography>
-
-
 
         <Stack spacing={2} sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -144,6 +161,43 @@ function PotaImport() {
             <Typography>成功导入: {result.imported} 个</Typography>
             <Typography>跳过已存在: {result.skipped} 个</Typography>
             <Typography>导入错误: {result.errors?.length || 0} 个</Typography>
+            {result.needs_manual_confirmation && result.needs_manual_confirmation.length > 0 && (
+              <>
+                <Typography>
+                  需要手动确认类型: {result.needs_manual_confirmation.length} 个
+                </Typography>
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  以下公园无法自动识别类型，需要您手动确认：
+                </Typography>
+                <Typography variant="body2" color="info.main" sx={{ mt: 1 }}>
+                  <Link
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/pota-unprocessed');
+                    }}
+                  >
+                    点击此处前往未处理公园页面进行手动确认
+                  </Link>
+                </Typography>
+                <Box
+                  sx={{
+                    mt: 1,
+                    maxHeight: 200,
+                    overflow: 'auto',
+                    bgcolor: 'background.paper',
+                    p: 1,
+                    borderRadius: 1,
+                  }}
+                >
+                  {result.needs_manual_confirmation.map((park, index) => (
+                    <Typography key={index} variant="body2" sx={{ fontSize: '0.8rem' }}>
+                      - {park.reference}: {park.name}
+                    </Typography>
+                  ))}
+                </Box>
+              </>
+            )}
           </Alert>
         )}
 

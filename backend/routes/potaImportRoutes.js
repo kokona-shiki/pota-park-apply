@@ -1,67 +1,212 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/authenticateToken.js';
-import { manualTriggerPotaImport } from '../services/potaImportService.js';
+import { checkUserPermission } from '../utils/auth.js';
+import {
+  getUnprocessedParks,
+  setUnprocessedParks,
+  clearUnprocessedParks,
+  processUnprocessedPark,
+  bulkProcessUnprocessedParks,
+  manualTriggerPotaImport,
+} from '../services/potaImportService.js';
+import { getOne } from '../config/database.js';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 
 const router = express.Router();
 
 /**
- * 检查用户是否为 POTA 地图代表
+ * 检查用户是否有 POTA 导入权限
  */
-const requirePotaRepresentative = (req, res, next) => {
-  // 检查用户是否具有POTA导入权限或POTA代表权限
-  if (req.user?.role !== 'pota_representative') {
-    return sendBizError(res, 'FORBIDDEN', '只有 POTA 地图代表可以执行此操作', null);
+const requirePotaImportPermission = async (req, res, next) => {
+  try {
+    const hasImportPermission = await checkUserPermission(req.user.id, 'pota_import');
+    const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
+
+    if (!hasImportPermission && !hasSyncPermission) {
+      return sendBizError(res, 'FORBIDDEN', '没有权限执行此操作', null);
+    }
+
+    next();
+  } catch (error) {
+    console.error('检查权限失败:', error);
+    return sendError(res, error, { bizMessage: '权限检查失败' });
   }
-  next();
 };
 
 /**
- * 手动触发 POTA 公园导入
+ * 获取需要手动处理的公园列表
  */
-router.post('/api/pota/import', authenticateToken, requirePotaRepresentative, async (req, res) => {
-  try {
-    console.log(`用户 ${req.user.id} (${req.user.callsign}) 开始手动触发 POTA 公园导入`);
-
-    const results = await manualTriggerPotaImport(req.user.id);
-
-    return sendOk(
-      res,
-      {
-        results,
-        message: `POTA 公园导入完成: 总计 ${results.total}, 导入 ${results.imported}, 跳过 ${
-          results.skipped
-        }, 错误 ${results.errors?.length || 0}`,
-      },
-      'POTA 公园导入执行成功'
-    );
-  } catch (error) {
-    console.error('POTA 公园导入失败:', error);
-    return sendError(res, error, { bizMessage: error.message || 'POTA 公园导入失败' });
+router.get(
+  '/api/pota/unprocessed-parks',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const unprocessedParks = await getUnprocessedParks();
+      return sendOk(res, unprocessedParks, '获取未处理公园列表成功');
+    } catch (error) {
+      console.error('获取未处理公园列表失败:', error);
+      return sendError(res, error, { bizMessage: '获取未处理公园列表失败' });
+    }
   }
-});
+);
 
 /**
- * 获取 POTA 导入状态
+ * 设置未处理的公园列表（通常在导入时调用）
  */
-router.get('/api/pota/import-status', authenticateToken, async (req, res) => {
-  try {
-    // 简单返回当前用户是否有权限执行导入
-    const canImport = req.user?.role === 'pota_representative';
+router.post(
+  '/api/pota/unprocessed-parks',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const { parks } = req.body;
 
-    return sendOk(
-      res,
-      {
-        canImport,
-        role: req.user?.role,
-        userId: req.user?.id,
-      },
-      'ok'
-    );
-  } catch (error) {
-    console.error('获取 POTA 导入状态失败:', error);
-    return sendError(res, error, { bizMessage: '获取状态失败' });
+      if (!parks || !Array.isArray(parks)) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园列表不能为空', null);
+      }
+
+      const result = await setUnprocessedParks(parks);
+      return sendOk(res, result, '设置未处理公园列表成功');
+    } catch (error) {
+      console.error('设置未处理公园列表失败:', error);
+      return sendError(res, error, { bizMessage: '设置未处理公园列表失败' });
+    }
   }
-});
+);
+
+/**
+ * 清空未处理的公园列表
+ */
+router.delete(
+  '/api/pota/unprocessed-parks',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const result = await clearUnprocessedParks();
+      return sendOk(res, result, '清空未处理公园列表成功');
+    } catch (error) {
+      console.error('清空未处理公园列表失败:', error);
+      return sendError(res, error, { bizMessage: '清空未处理公园列表失败' });
+    }
+  }
+);
+
+/**
+ * 处理单个未处理的公园
+ */
+router.post(
+  '/api/pota/process-unprocessed-park',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const { parkData } = req.body;
+
+      if (!parkData || !parkData.reference || !parkData.manualType) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园数据、参考ID和类型不能为空', null);
+      }
+
+      // 获取用户信息
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user.id]);
+      if (!userInfo) {
+        return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+      }
+
+      const result = await processUnprocessedPark(parkData, userInfo.id, userInfo.role);
+
+      if (result.success) {
+        return sendOk(res, result, result.message);
+      } else {
+        return sendBizError(res, 'PROCESS_FAILED', result.error, { reference: parkData.reference });
+      }
+    } catch (error) {
+      console.error('处理未处理公园失败:', error);
+      return sendError(res, error, { bizMessage: '处理未处理公园失败' });
+    }
+  }
+);
+
+/**
+ * 批量处理未处理的公园
+ */
+router.post(
+  '/api/pota/bulk-process-unprocessed-parks',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const { parksData } = req.body;
+
+      if (!parksData || !Array.isArray(parksData) || parksData.length === 0) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园数据列表不能为空', null);
+      }
+
+      // 验证每个公园数据
+      for (const parkData of parksData) {
+        if (!parkData.reference || !parkData.manualType) {
+          return sendBizError(
+            res,
+            'MISSING_PARAMS',
+            `公园 ${parkData.reference || 'unknown'} 的数据不完整`,
+            null
+          );
+        }
+      }
+
+      // 获取用户信息
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user.id]);
+      if (!userInfo) {
+        return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+      }
+
+      const results = await bulkProcessUnprocessedParks(parksData, userInfo.id, userInfo.role);
+
+      // 计算成功和失败的数量
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+
+      return sendOk(
+        res,
+        {
+          results,
+          successCount,
+          failCount,
+        },
+        `批量处理完成，成功: ${successCount}，失败: ${failCount}`
+      );
+    } catch (error) {
+      console.error('批量处理未处理公园失败:', error);
+      return sendError(res, error, { bizMessage: '批量处理未处理公园失败' });
+    }
+  }
+);
+
+/**
+ * 手动触发POTA导入（会更新未处理公园列表）
+ */
+router.post(
+  '/api/pota/manual-import',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const result = await manualTriggerPotaImport(userId);
+
+      // 如果导入结果中有需要手动确认的公园，更新缓存
+      if (result.needs_manual_confirmation && result.needs_manual_confirmation.length > 0) {
+        await setUnprocessedParks(result.needs_manual_confirmation);
+      }
+
+      return sendOk(res, result, '手动触发POTA导入成功');
+    } catch (error) {
+      console.error('手动触发POTA导入失败:', error);
+      return sendError(res, error, { bizMessage: '手动触发POTA导入失败' });
+    }
+  }
+);
 
 export default router;

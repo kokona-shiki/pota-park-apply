@@ -17,6 +17,7 @@ import UserInfo from './pages/UserInfo';
 import AdminPanel from './pages/AdminPanel';
 import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
+import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import axios from 'axios';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
@@ -775,6 +776,14 @@ function App() {
               element={
                 <RequireAuth>
                   <PotaImport />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/pota-unprocessed"
+              element={
+                <RequireAuth>
+                  <PotaUnprocessedParks />
                 </RequireAuth>
               }
             />

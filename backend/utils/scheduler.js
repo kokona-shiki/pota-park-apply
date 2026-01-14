@@ -41,8 +41,24 @@ class Scheduler {
       {
         scheduled: true,
         timezone: this.timezone,
+        name: 'pota-daily-import',
       }
     );
+
+    // 监听任务事件以获得更多调试信息
+    if (potaImportJob.on) {
+      potaImportJob.on('scheduled', (date) => {
+        console.log(`📅 POTA导入任务下次计划执行时间: ${date}`);
+      });
+
+      potaImportJob.on('started', () => {
+        console.log('▶️ POTA导入任务开始执行');
+      });
+
+      potaImportJob.on('completed', () => {
+        console.log('⏹️ POTA导入任务执行完成');
+      });
+    }
 
     this.jobs.push({
       name: 'pota-import',
@@ -62,11 +78,9 @@ class Scheduler {
   printNextRunTimes() {
     console.log('\n📅 定时任务下次执行时间:');
     this.jobs.forEach((jobInfo) => {
-      const nextRuns = jobInfo.job.nextDates(3); // 获取接下来3次执行时间
-      console.log(`  ${jobInfo.name}: ${jobInfo.description}`);
-      nextRuns.forEach((date, index) => {
-        console.log(`    ${index + 1}. ${date.toString()}`);
-      });
+      // 根据调试结果显示，当前node-cron版本不支持获取下次执行时间的方法
+      // 只显示基本的Cron表达式信息
+      console.log(`  ${jobInfo.name}: ${jobInfo.description} (Cron: 0 4 * * *, TZ: Asia/Shanghai)`);
     });
     console.log('');
   }
