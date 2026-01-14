@@ -40,6 +40,7 @@ const PotaUnprocessedParks: React.FC = () => {
   const { user } = useAuth();
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [checkingPermission, setCheckingPermission] = useState<boolean>(true); // 新增状态用于跟踪权限检查
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<boolean>(false);
   const [selectedType, setSelectedType] = useState<{ [key: string]: string }>({});
@@ -66,8 +67,11 @@ const PotaUnprocessedParks: React.FC = () => {
   }, []);
 
   const checkPermissionAndFetchData = async () => {
+    setCheckingPermission(true); // 开始检查权限
+    
     if (!user) {
       setHasPermission(false);
+      setCheckingPermission(false);
       setLoading(false);
       return;
     }
@@ -103,7 +107,8 @@ const PotaUnprocessedParks: React.FC = () => {
       }
       console.error('检查权限失败:', err);
     } finally {
-      // 无论成功还是失败，都要停止loading状态
+      // 无论成功还是失败，都要停止权限检查状态和loading状态
+      setCheckingPermission(false);
       setLoading(false);
     }
   };
@@ -330,6 +335,19 @@ const PotaUnprocessedParks: React.FC = () => {
       ),
     },
   ];
+
+  if (checkingPermission) {
+    return (
+      <Container maxWidth="lg">
+        <Typography variant="h4" component="h1" gutterBottom>
+          POTA 未处理公园
+        </Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
 
   if (!hasPermission) {
     return (
