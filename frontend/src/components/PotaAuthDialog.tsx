@@ -16,7 +16,7 @@ import {
   Chip,
   Divider,
   DialogActions,
-  TextField
+  TextField,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkIcon from '@mui/icons-material/Link';
@@ -60,13 +60,17 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       setLoading(true);
       setError(null);
       // axios interceptor 已经提取了 data，所以 res.data 直接就是状态对象
-      const res = await axios.get<{ connected: boolean; expiresAt: string | null; willExpireSoon?: boolean }>('/api/pota/status');
-      
+      const res = await axios.get<{
+        connected: boolean;
+        expiresAt: string | null;
+        willExpireSoon?: boolean;
+      }>('/api/pota/status');
+
       if (res.data) {
         setStatus({
           connected: res.data.connected,
           expiresAt: res.data.expiresAt,
-          willExpireSoon: res.data.willExpireSoon
+          willExpireSoon: res.data.willExpireSoon,
         });
       } else {
         // 如果返回格式异常，设置默认状态
@@ -78,7 +82,12 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       // 任何错误都设置默认状态，避免一直显示加载中
       setStatus({ connected: false, expiresAt: null });
       // 如果是未找到或权限错误，不显示错误信息
-      if (errMsg.includes('未找到') || errMsg.includes('404') || errMsg.includes('权限') || errMsg.includes('FORBIDDEN')) {
+      if (
+        errMsg.includes('未找到') ||
+        errMsg.includes('404') ||
+        errMsg.includes('权限') ||
+        errMsg.includes('FORBIDDEN')
+      ) {
         setError(null);
       }
     } finally {
@@ -141,11 +150,11 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       setPassword('');
       setSuccess('POTA 登录成功！');
       setError(null);
-      
+
       // 刷新状态（添加小延迟确保后端已保存 token）
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await loadStatus();
-      
+
       // 3 秒后自动清除成功消息
       setTimeout(() => {
         setSuccess(null);
@@ -180,7 +189,7 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     }).format(date);
   };
 
@@ -275,9 +284,7 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
               </Card>
             )}
 
-            {!status && !loading && (
-              <Alert severity="info">正在加载连接状态...</Alert>
-            )}
+            {!status && !loading && <Alert severity="info">正在加载连接状态...</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions>

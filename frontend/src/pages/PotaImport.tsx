@@ -95,8 +95,8 @@ function PotaImport() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body1">当前用户角色:</Typography>
             <Chip
-              label={user?.role || '未登录'}
-              color={user?.role === 'pota_representative' ? 'primary' : 'default'}
+              label={canImport ? 'POTA代表' : '普通用户'}
+              color={canImport ? 'primary' : 'default'}
               size="small"
             />
           </Box>

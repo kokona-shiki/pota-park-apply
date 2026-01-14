@@ -7,7 +7,7 @@ import {
   getUserPermissions,
   rotateRefreshToken,
   revokeAllRefreshTokensForUser,
-  revokeRefreshToken
+  revokeRefreshToken,
 } from '../utils/auth.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
@@ -43,7 +43,7 @@ const setRefreshCookie = (req, res, refreshToken) => {
     sameSite: 'lax',
     secure: Boolean(req.secure),
     path: '/api',
-    maxAge: REFRESH_COOKIE_MAX_AGE_MS
+    maxAge: REFRESH_COOKIE_MAX_AGE_MS,
   });
 };
 
@@ -52,7 +52,7 @@ const clearRefreshCookie = (req, res) => {
     httpOnly: true,
     sameSite: 'lax',
     secure: Boolean(req.secure),
-    path: '/api'
+    path: '/api',
   });
 };
 
@@ -62,7 +62,7 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null }
+  message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null },
 });
 
 // 用户注册（注册成功后需要重新登录，不自动签发 token）
@@ -98,13 +98,12 @@ router.post('/api/login', authLimiter, async (req, res) => {
     const accessToken = generateAccessToken({
       id: user.id,
       email: user.email,
-      role: user.role
     });
 
     // refreshToken：随机串 + 落库；通过 HttpOnly Cookie 返回给浏览器
     const { refreshToken } = await createRefreshTokenForUser(user.id, {
       userAgent: req.get('user-agent') || null,
-      ip: req.ip || null
+      ip: req.ip || null,
     });
 
     setRefreshCookie(req, res, refreshToken);
@@ -139,7 +138,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
 
     const result = await rotateRefreshToken(refreshToken, {
       userAgent: req.get('user-agent') || null,
-      ip: req.ip || null
+      ip: req.ip || null,
     });
 
     if (result.status === 'invalid' || result.status === 'expired') {
@@ -166,7 +165,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
           operatorId: null,
           targetUserId: result.userId,
           reason: null,
-          metadata: { familyId: result.familyId }
+          metadata: { familyId: result.familyId },
         });
       } catch (e) {
         console.warn('写入 refresh token 重放审计失败:', e?.message);
@@ -180,7 +179,6 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     const accessToken = generateAccessToken({
       id: user.id,
       email: user.email,
-      role: user.role
     });
 
     // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）

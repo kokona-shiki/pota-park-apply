@@ -39,7 +39,8 @@ interface UnprocessedPark {
 
 const PotaUnprocessedParks: React.FC = () => {
   const { user } = useAuth();
-  const { hasPermission: hasPotaPermission, loading: permissionLoading } = usePermission('pota_import');
+  const { hasPermission: hasPotaPermission, loading: permissionLoading } =
+    usePermission('pota_import');
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [checkingPermission, setCheckingPermission] = useState<boolean>(true); // 新增状态用于跟踪权限检查

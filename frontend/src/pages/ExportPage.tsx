@@ -14,16 +14,14 @@ function ExportPage() {
   const isAdmin = hasPermission === true && user != null;
 
   const handleExport = (type: ExportType, scope: ExportScope) => {
-    axios
-      .get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' })
-      .then((res) => {
-        const url = window.URL.createObjectURL(new Blob([res.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `parks.${type}`);
-        document.body.appendChild(link);
-        link.click();
-      });
+    axios.get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' }).then((res) => {
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `parks.${type}`);
+      document.body.appendChild(link);
+      link.click();
+    });
   };
 
   return (

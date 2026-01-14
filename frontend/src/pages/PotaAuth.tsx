@@ -15,7 +15,7 @@ import {
   Typography,
   Alert,
   Chip,
-  Divider
+  Divider,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkIcon from '@mui/icons-material/Link';
@@ -90,7 +90,7 @@ function PotaAuth() {
       // 3. 监听 iframe URL 变化，提取授权码
       return new Promise<void>((resolve, reject) => {
         let resolved = false;
-        
+
         const checkInterval = setInterval(() => {
           if (resolved) {
             clearInterval(checkInterval);
@@ -109,7 +109,7 @@ function PotaAuth() {
               resolved = true;
               clearInterval(checkInterval);
               checkIntervalRef.current = null;
-              
+
               if (document.body.contains(iframe)) {
                 document.body.removeChild(iframe);
               }
@@ -190,16 +190,14 @@ function PotaAuth() {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     }).format(date);
   };
 
   if (!isPotaRepresentative) {
     return (
       <Paper sx={{ p: 3 }}>
-        <Alert severity="warning">
-          只有 POTA 地图代表可以访问此功能
-        </Alert>
+        <Alert severity="warning">只有 POTA 地图代表可以访问此功能</Alert>
       </Paper>
     );
   }
@@ -338,11 +336,7 @@ function PotaAuth() {
               </Alert>
             )}
 
-            {!authLoading && !authError && (
-              <Alert severity="info">
-                认证流程已完成
-              </Alert>
-            )}
+            {!authLoading && !authError && <Alert severity="info">认证流程已完成</Alert>}
           </Stack>
         </DialogContent>
       </Dialog>

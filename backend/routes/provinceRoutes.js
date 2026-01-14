@@ -20,7 +20,10 @@ router.get('/api/provinces', authenticateToken, async (req, res) => {
     return sendOk(res, { provinces }, 'ok');
   } catch (error) {
     console.error('获取省份列表失败:', error);
-    return sendError(res, error, { httpMessage: '获取省份列表失败', bizMessage: '获取省份列表失败' });
+    return sendError(res, error, {
+      httpMessage: '获取省份列表失败',
+      bizMessage: '获取省份列表失败',
+    });
   }
 });
 

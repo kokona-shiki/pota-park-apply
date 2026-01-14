@@ -12,7 +12,9 @@ const router = express.Router();
 const requirePotaImportPermission = async (req, res, next) => {
   // 由于authenticateToken中间件已经设置了权限信息，直接检查即可
   if (!req.user || !req.user.hasPotaImportPermission) {
-    return res.status(403).json({ code: 'FORBIDDEN', message: '只有有权限的用户可以访问此功能', data: null });
+    return res
+      .status(403)
+      .json({ code: 'FORBIDDEN', message: '只有有权限的用户可以访问此功能', data: null });
   }
   next();
 };
@@ -188,25 +190,30 @@ router.get('/api/pota/token', authenticateToken, requirePotaImportPermission, as
 /**
  * 断开 POTA 连接（调用 POTA 登出接口并删除本地 token）
  */
-router.delete('/api/pota/token', authenticateToken, requirePotaImportPermission, async (req, res) => {
-  try {
-    // 先调用 POTA 登出接口
+router.delete(
+  '/api/pota/token',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
     try {
-      await potaAuthService.logoutFromPota();
-    } catch (logoutError) {
-      // 即使 POTA 登出失败，也继续清除本地 token
-      console.warn('POTA 登出接口调用失败，继续清除本地 token:', logoutError.message);
+      // 先调用 POTA 登出接口
+      try {
+        await potaAuthService.logoutFromPota();
+      } catch (logoutError) {
+        // 即使 POTA 登出失败，也继续清除本地 token
+        console.warn('POTA 登出接口调用失败，继续清除本地 token:', logoutError.message);
+      }
+
+      // 清除本地 token
+      await potaAuthService.deleteTokens(req.user.id);
+
+      return sendOk(res, null, '已断开 POTA 连接');
+    } catch (error) {
+      console.error('断开 POTA 连接失败:', error);
+      return sendError(res, error, { bizMessage: '断开 POTA 连接失败' });
     }
-
-    // 清除本地 token
-    await potaAuthService.deleteTokens(req.user.id);
-
-    return sendOk(res, null, '已断开 POTA 连接');
-  } catch (error) {
-    console.error('断开 POTA 连接失败:', error);
-    return sendError(res, error, { bizMessage: '断开 POTA 连接失败' });
   }
-});
+);
 
 /**
  * 获取 POTA 连接状态

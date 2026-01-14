@@ -15,7 +15,7 @@ import {
   Paper,
   Select,
   Stack,
-  Typography
+  Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
@@ -104,49 +104,47 @@ function ApplicationsList() {
 
   const sortedApps = useMemo(() => stableSort(filteredApps, 'desc', 'created_at'), [filteredApps]);
 
-  const handleDetailClick = useCallback(
-    async (app: ParkApplication) => {
-      setDetailOpen(true);
-      setDialogMode('detail');
-      setSelected(null);
-      setDetailError(null);
-      setReviewNotes('');
-      setRejectionReason('');
+  const handleDetailClick = useCallback(async (app: ParkApplication) => {
+    setDetailOpen(true);
+    setDialogMode('detail');
+    setSelected(null);
+    setDetailError(null);
+    setReviewNotes('');
+    setRejectionReason('');
 
-      try {
-        setDetailLoading(true);
-        const res = await axios.get<{ application?: ParkApplicationDetail | null }>(`/api/park-applications/${app.id}`);
-        setSelected(res.data?.application ?? null);
-      } catch (e: unknown) {
-        setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      setDetailLoading(true);
+      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
+        `/api/park-applications/${app.id}`
+      );
+      setSelected(res.data?.application ?? null);
+    } catch (e: unknown) {
+      setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
-  const handleReviewClick = useCallback(
-    async (app: ParkApplication) => {
-      setDetailOpen(true);
-      setDialogMode('review');
-      setSelected(null);
-      setDetailError(null);
-      setReviewNotes('');
-      setRejectionReason('');
+  const handleReviewClick = useCallback(async (app: ParkApplication) => {
+    setDetailOpen(true);
+    setDialogMode('review');
+    setSelected(null);
+    setDetailError(null);
+    setReviewNotes('');
+    setRejectionReason('');
 
-      try {
-        setDetailLoading(true);
-        const res = await axios.get<{ application?: ParkApplicationDetail | null }>(`/api/park-applications/${app.id}`);
-        setSelected(res.data?.application ?? null);
-      } catch (e: unknown) {
-        setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      setDetailLoading(true);
+      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
+        `/api/park-applications/${app.id}`
+      );
+      setSelected(res.data?.application ?? null);
+    } catch (e: unknown) {
+      setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
   const handleFlowClick = useCallback((app: ParkApplication) => {
     setFlowTarget(app);
@@ -192,13 +190,15 @@ function ApplicationsList() {
         {
           status,
           reviewNotes: reviewNotes.trim(),
-          rejectionReason: status === 'rejected' ? rejectionReason.trim() : null
+          rejectionReason: status === 'rejected' ? rejectionReason.trim() : null,
         }
       );
 
       const updated = res.data?.application;
       if (updated) {
-        setApplications((prev) => prev.map((a) => (a.id === selected.id ? { ...a, ...updated } : a)));
+        setApplications((prev) =>
+          prev.map((a) => (a.id === selected.id ? { ...a, ...updated } : a))
+        );
         setSelected((prev) => (prev ? { ...prev, ...updated } : prev));
       }
 
@@ -226,16 +226,32 @@ function ApplicationsList() {
   return (
     <Paper sx={{ overflow: 'hidden' }}>
       <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }} justifyContent="space-between">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          gap={1.5}
+          alignItems={{ sm: 'center' }}
+          justifyContent="space-between"
+        >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h5">申请列表</Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 1 }}>
-              <Chip size="small" label={`显示 ${filteredApps.length} / ${applications.length} 条`} />
-              <Chip size="small" color={pendingCount > 0 ? 'warning' : 'default'} label={`待审核 ${pendingCount} 条`} />
+              <Chip
+                size="small"
+                label={`显示 ${filteredApps.length} / ${applications.length} 条`}
+              />
+              <Chip
+                size="small"
+                color={pendingCount > 0 ? 'warning' : 'default'}
+                label={`待审核 ${pendingCount} 条`}
+              />
             </Stack>
           </Box>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>筛选状态</InputLabel>
               <Select
@@ -285,7 +301,7 @@ function ApplicationsList() {
         columnConfig={{
           showApplicantCallsign: true, // 审核员可以看到申请者呼号
           showActions: true,
-          showReviewButton: isReviewer // 审核员和POTA代表显示审核按钮
+          showReviewButton: isReviewer, // 审核员和POTA代表显示审核按钮
         }}
         onDetailClick={handleDetailClick}
         onFlowClick={handleFlowClick}
