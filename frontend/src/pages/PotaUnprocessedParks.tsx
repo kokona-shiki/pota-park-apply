@@ -45,7 +45,10 @@ const PotaUnprocessedParks: React.FC = () => {
   const [openConfirmDialog, setOpenConfirmDialog] = useState<boolean>(false);
   const [parkToProcess, setParkToProcess] = useState<UnprocessedPark | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
+  const [snackbar, setSnackbar] = useState<{
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // 用于确保API只调用一次
   const hasFetchedRef = useRef(false);
@@ -133,9 +136,7 @@ const PotaUnprocessedParks: React.FC = () => {
     if (parkTypeById.has(value)) {
       return value;
     }
-    return (
-      parkTypeIdByChinese.get(value) || parkTypeIdsByEnglish.get(value)?.[0] || ''
-    );
+    return parkTypeIdByChinese.get(value) || parkTypeIdsByEnglish.get(value)?.[0] || '';
   };
 
   const getChineseTypeLabel = (englishName: string) => {
@@ -418,9 +419,7 @@ const PotaUnprocessedParks: React.FC = () => {
             {allParkTypes.map((option: { id: string; zh: string; en: string }) => (
               <MenuItem key={option.id} value={option.id}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                    {option.zh}
-                  </Typography>
+                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>{option.zh}</Typography>
                   <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                     {option.en}
                   </Typography>
@@ -542,11 +541,7 @@ const PotaUnprocessedParks: React.FC = () => {
         <DialogContent>
           <Typography>
             您确定要将公园 <strong>{parkToProcess?.name}</strong> (ID: {parkToProcess?.reference})
-            以类型{' '}
-            <strong>
-              {getSelectedTypeLabel(parkToProcess?.reference)}
-            </strong>{' '}
-            导入吗？
+            以类型 <strong>{getSelectedTypeLabel(parkToProcess?.reference)}</strong> 导入吗？
           </Typography>
         </DialogContent>
         <DialogActions>
