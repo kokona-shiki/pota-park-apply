@@ -33,9 +33,10 @@ export const createTables = async () => {
     // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
     // 版本 4: 添加 POTA 认证相关表（pota_pkce, pota_tokens）
     // 版本 5: 添加用户级别的 POTA 加密盐值（pota_encryption_salt）
+    // 版本 8: 添加 POTA 未处理公园表（pota_unprocessed_parks）
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '5')
+      VALUES ('schema_version', '8')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -304,6 +305,15 @@ export const createTables = async () => {
       )
     `);
 
+    // 12. POTA 未处理公园表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
+        reference TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ 数据库表创建完成');
   } catch (error) {
     console.error('❌ 创建数据库表失败:', error);
@@ -413,6 +423,9 @@ export const createIndexes = async () => {
     await query('CREATE INDEX IF NOT EXISTS idx_pota_pkce_user ON pota_pkce (user_id, created_at)');
     await query(
       'CREATE INDEX IF NOT EXISTS idx_pota_tokens_user ON pota_tokens (user_id, expires_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at ON pota_unprocessed_parks (created_at DESC)'
     );
 
     console.log('✅ 索引创建完成');

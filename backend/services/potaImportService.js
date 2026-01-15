@@ -4,7 +4,7 @@ import https from 'https';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getOne, getMany, insert, transaction } from '../config/database.js';
+import { getOne, getMany, query, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { logPotaSync } from './potaSyncLogService.js';
 
@@ -743,31 +743,77 @@ export const autoTriggerPotaImport = async () => {
   }
 };
 
-// 全局变量存储未处理的公园
-let unprocessedParksCache = [];
+const normalizeUnprocessedParks = (parks = []) => {
+  const uniqueParks = new Map();
+
+  for (const park of parks) {
+    if (!park?.reference) {
+      continue;
+    }
+    uniqueParks.set(park.reference, park);
+  }
+
+  return Array.from(uniqueParks.values());
+};
 
 /**
  * 获取需要手动处理的公园列表
  */
 export const getUnprocessedParks = async () => {
-  console.log('获取未处理公园列表，当前缓存数量:', unprocessedParksCache.length);
-  return unprocessedParksCache;
+  const rows = await getMany(
+    `
+      SELECT payload
+      FROM pota_unprocessed_parks
+      ORDER BY created_at DESC
+    `
+  );
+
+  const parks = rows.map((row) => row.payload || {});
+  console.log('获取未处理公园列表，当前数量:', parks.length);
+  return parks;
 };
 
 /**
  * 设置未处理的公园列表
  */
 export const setUnprocessedParks = async (parks) => {
-  unprocessedParksCache = parks;
-  console.log('设置未处理公园列表，数量:', parks.length);
-  return parks;
+  const normalizedParks = normalizeUnprocessedParks(parks);
+
+  return transaction(async (client) => {
+    await client.query('DELETE FROM pota_unprocessed_parks');
+
+    if (normalizedParks.length === 0) {
+      console.log('设置未处理公园列表，数量: 0');
+      return [];
+    }
+
+    const values = [];
+    const placeholders = normalizedParks
+      .map((park, index) => {
+        const baseIndex = index * 2;
+        values.push(park.reference, JSON.stringify(park));
+        return `($${baseIndex + 1}, $${baseIndex + 2}::jsonb)`;
+      })
+      .join(', ');
+
+    await client.query(
+      `
+        INSERT INTO pota_unprocessed_parks (reference, payload)
+        VALUES ${placeholders}
+      `,
+      values
+    );
+
+    console.log('设置未处理公园列表，数量:', normalizedParks.length);
+    return normalizedParks;
+  });
 };
 
 /**
  * 清空未处理的公园列表
  */
 export const clearUnprocessedParks = async () => {
-  unprocessedParksCache = [];
+  await query('DELETE FROM pota_unprocessed_parks');
   console.log('清空未处理公园列表');
   return [];
 };
@@ -804,10 +850,8 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
       new Date().toISOString()
     );
 
-    // 从缓存中移除已处理的公园
-    unprocessedParksCache = unprocessedParksCache.filter(
-      (park) => park.reference !== parkData.reference
-    );
+    // 从数据库中移除已处理的公园
+    await query('DELETE FROM pota_unprocessed_parks WHERE reference = $1', [parkData.reference]);
 
     console.log(`成功处理公园: ${parkData.reference} (ID: ${createdPark.id})`);
 
