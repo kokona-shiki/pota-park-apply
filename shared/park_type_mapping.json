@@ -136,38 +136,6 @@
       "englishName": "National Memorial"
     }
   ],
-  "pota_only_types": [
-    {
-      "id": "e563f13a-62e4-42f8-a915-25fc6cb144e0",
-      "chineseName": "公园",
-      "englishName": "Park"
-    },
-    {
-      "id": "2ba16700-d41a-478f-8409-2172e8046d90",
-      "chineseName": "区域公园",
-      "englishName": "Regional Park"
-    },
-    {
-      "id": "6d800ba8-3619-431f-a3d6-11e8dbfbd20c",
-      "chineseName": "植物园",
-      "englishName": "Botanical Gardens"
-    },
-    {
-      "id": "509d8a01-59eb-4f4b-ad33-ceb54cd35ed2",
-      "chineseName": "滨海公园",
-      "englishName": "Coastal & Marine Park"
-    },
-    {
-      "id": "7aab89e9-ef6a-49d7-b26f-ff05e6b0aef5",
-      "chineseName": "湿地公园",
-      "englishName": "Wetland Reserve"
-    },
-    {
-      "id": "3c701d09-40d1-47df-b0e8-c375562c0b74",
-      "chineseName": "风景区",
-      "englishName": "Scenic Site"
-    }
-  ],
   "english_to_chinese": [
     {
       "englishName": "National Forest",
@@ -273,5 +241,37 @@
       "englishName": "National Memorial",
       "chineseNames": ["全国爱国主义教育基地"]
     }
-  ]
+  ],
+  "pota_only_types": [
+    {
+      "id": "2ba16700-d41a-478f-8409-2172e8046d90",
+      "chineseName": "区域公园",
+      "englishName": "Regional Park"
+    },
+    {
+      "id": "6d800ba8-3619-431f-a3d6-11e8dbfbd20c",
+      "chineseName": "植物园",
+      "englishName": "Botanical Gardens"
+    },
+    {
+      "id": "509d8a01-59eb-4f4b-ad33-ceb54cd35ed2",
+      "chineseName": "滨海公园",
+      "englishName": "Coastal & Marine Park"
+    },
+    {
+      "id": "7aab89e9-ef6a-49d7-b26f-ff05e6b0aef5",
+      "chineseName": "湿地公园",
+      "englishName": "Wetland Reserve"
+    },
+    {
+      "id": "3c701d09-40d1-47df-b0e8-c375562c0b74",
+      "chineseName": "风景区",
+      "englishName": "Scenic Site"
+    }
+  ],
+  "default_pota_type": {
+    "id": "e563f13a-62e4-42f8-a915-25fc6cb144e0",
+    "chineseName": "公园",
+    "englishName": "Park"
+  }
 }

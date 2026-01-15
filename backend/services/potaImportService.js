@@ -410,6 +410,24 @@ export const identifyParkType = async (potaPark) => {
     }
   }
 
+  // 最后，检查默认的公园类型
+  const defaultPotaType = mappings.default_pota_type;
+  if (defaultPotaType) {
+    if (chinesePart.includes(defaultPotaType.chineseName)) {
+      console.log(
+        `通过默认中文关键词识别公园类型: ${defaultPotaType.chineseName} -> ${defaultPotaType.englishName}`
+      );
+      return defaultPotaType.id || null;
+    }
+
+    if (englishPart.includes(defaultPotaType.englishName)) {
+      console.log(
+        `通过默认英文关键词识别公园类型: ${defaultPotaType.englishName} -> ${defaultPotaType.chineseName}`
+      );
+      return defaultPotaType.id || null;
+    }
+  }
+
   // 如果没有匹配的类型，返回 null
   console.log(`无法识别公园类型，英文部分: ${englishPart || 'N/A'}`);
   return null;
@@ -421,7 +439,10 @@ export const identifyParkType = async (potaPark) => {
 export const transformPotaParkToInternal = async (potaPark, resolvedType = null) => {
   // 解析 locationDesc 字段，它包含了多个省份代码，用逗号分隔
   const provinces = potaPark.locationDesc
-    ? potaPark.locationDesc.split(',').map((item) => item.trim()).filter(Boolean)
+    ? potaPark.locationDesc
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
     : [];
 
   // 识别公园类型
@@ -551,7 +572,7 @@ export const importSinglePotaPark = async (
       importTime
     );
 
-    console.log(`成功导入公园: ${potaId} (ID: ${createdPark.id})`);
+    console.log(`成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parkTypeDesc}`);
     return {
       success: true,
       created: true,
@@ -638,7 +659,8 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         const detailResult = await fetchPotaParkDetail(potaId);
         parkDetail = detailResult.data;
       } catch (error) {
-        const failureReason = error.message || buildQueryParkFailureReason(QUERY_PARK_MAX_RETRIES, error);
+        const failureReason =
+          error.message || buildQueryParkFailureReason(QUERY_PARK_MAX_RETRIES, error);
         const fallbackName = extractChineseName(listPark.name) || listPark.name || potaId;
         const unprocessedPark = {
           reference: potaId,
@@ -898,8 +920,7 @@ const enqueueImportTask = ({ operatorId, operatorRole, operationType }) => {
 
 const getUserActiveTask = (userId) =>
   importTaskQueue.find(
-    (task) =>
-      task.operatorId === userId && (task.status === 'pending' || task.status === 'running')
+    (task) => task.operatorId === userId && (task.status === 'pending' || task.status === 'running')
   );
 
 export const getLatestImportTaskForUser = async (userId) => {

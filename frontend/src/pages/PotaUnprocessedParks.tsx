@@ -77,6 +77,9 @@ const PotaUnprocessedParks: React.FC = () => {
       }
     );
 
+    const defaultPotaType = parkTypeMapping.default_pota_type;
+    registerType(defaultPotaType.id, defaultPotaType.chineseName, defaultPotaType.englishName);
+
     return Array.from(typeMap.values());
   }, []);
 
