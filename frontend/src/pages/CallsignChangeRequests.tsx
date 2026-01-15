@@ -1,5 +1,5 @@
 // src/pages/CallsignChangeRequests.tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Paper,
@@ -26,6 +26,7 @@ import axios from 'axios';
 import { CallsignChangeRequestsDataSchema, CallsignReviewDataSchema } from '../../../shared/schemas/callsign';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
+import { useOnceOnMountWithAbort } from '../hooks/useOnceOnMount';
 import { getApiErrorMessage } from '../utils/error';
 
 interface CallsignChangeRequest {
@@ -53,9 +54,6 @@ function CallsignChangeRequests() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 用于取消之前的请求
-  const currentRequestController = useRef<AbortController | null>(null);
-
   // 审核对话框状态
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRequestId, setReviewRequestId] = useState<number | null>(null);
@@ -63,21 +61,22 @@ function CallsignChangeRequests() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
 
-  // 加载不同状态的呼号变更申请
-  const loadRequests = async (status: 'pending' | 'approved' | 'rejected' | null = null) => {
-    // 取消之前的请求
-    if (currentRequestController.current) {
-      currentRequestController.current.abort();
-    }
+  // 根据标签页确定要加载的状态
+  const getStatusForTab = (): 'pending' | 'approved' | 'rejected' | null => {
+    if (tab === 0) return 'pending';
+    if (tab === 1) return 'approved';
+    if (tab === 2) return 'rejected';
+    return null; // 所有状态
+  };
+
+  useOnceOnMountWithAbort(async (signal) => {
+    if (isAuthLoading || !currentUser) return;
 
     setLoading(true);
     setError(null);
 
-    // 使用 AbortController 避免重复请求的问题
-    const controller = new AbortController();
-    currentRequestController.current = controller;
-
     try {
+      const status = getStatusForTab();
       const params: { status?: string } = {};
       if (status) {
         params.status = status;
@@ -85,45 +84,26 @@ function CallsignChangeRequests() {
       const payload = await requestWithSchema(
         apiClient.get('/api/callsign-change-requests', {
           params,
-          signal: controller.signal,
+          signal,
         }),
         CallsignChangeRequestsDataSchema
       );
 
       // 只有当请求未被取消时才更新状态
-      if (!controller.signal.aborted) {
+      if (!signal.aborted) {
         setRequests(payload.requests || []);
       }
     } catch (e: unknown) {
       // 忽略被取消的请求错误
-      if (axios.isCancel(e) || (e instanceof Error && e.name === 'CanceledError')) {
+      if (axios.isCancel(e) || (e instanceof Error && e.name === 'CanceledError' || e.name === 'AbortError')) {
         console.debug('请求被取消:', e.message);
       } else {
         setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
       }
     } finally {
-      if (!controller.signal.aborted) {
+      if (!signal.aborted) {
         setLoading(false);
       }
-      // 清除当前控制器引用
-      if (currentRequestController.current === controller) {
-        currentRequestController.current = null;
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthLoading || !currentUser) return;
-
-    // 根据标签页加载不同状态的申请
-    if (tab === 0) {
-      loadRequests('pending');
-    } else if (tab === 1) {
-      loadRequests('approved');
-    } else if (tab === 2) {
-      loadRequests('rejected');
-    } else {
-      loadRequests(null); // 所有状态
     }
   }, [tab, isAuthLoading, currentUser]);
 

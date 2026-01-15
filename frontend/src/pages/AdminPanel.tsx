@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import {
 import { UserAdminAuditLogsDataSchema, UserUpdateDataSchema, UsersDataSchema, type User } from '../../../shared/schemas/user';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import { getApiErrorMessage } from '../utils/error';
 import { getRoleOptions, getRoleDisplayName } from '../utils/roleDisplay';
 
@@ -58,17 +59,6 @@ function AdminPanel() {
   const [logsError, setLogsError] = useState<string | null>(null);
   const roleChangeRequestRef = useRef<Record<number, boolean>>({});
   const activeChangeRequestRef = useRef<Record<number, boolean>>({});
-  const hasLoadedRef = useRef(false);
-  const userIdRef = useRef<number | null>(null);
-
-  // 只在用户 ID 真正变化时才重置加载标志
-  useEffect(() => {
-    const currentUserId = currentUser?.id ?? null;
-    if (currentUserId !== userIdRef.current) {
-      userIdRef.current = currentUserId;
-      hasLoadedRef.current = false;
-    }
-  }, [currentUser]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -98,14 +88,9 @@ function AdminPanel() {
     }
   };
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     // 等待认证加载完成，且用户已登录时才发起请求
     if (isAuthLoading || !currentUser) return;
-
-    // 使用 ref 确保组件挂载时只请求一次
-    if (hasLoadedRef.current) return;
-    hasLoadedRef.current = true;
-
     loadUsers();
     loadLogs();
   }, [isAuthLoading, currentUser]);

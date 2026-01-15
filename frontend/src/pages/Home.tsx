@@ -1,5 +1,5 @@
 // src/pages/Home.tsx
-import { useEffect, useState, useRef } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../auth/useAuth';
 import type { ChangeEvent } from 'react';
 import {
@@ -10,11 +10,12 @@ import {
   TableHead,
   TableRow,
   Paper,
-  TablePagination
+  TablePagination,
 } from '@mui/material';
 import { z } from 'zod';
 import { PotaParkSchema } from '../../../shared/schemas/potaExternal';
 import { apiClient, requestWithSchema } from '../services/apiClient';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 
 type PotaPark = z.infer<typeof PotaParkSchema>;
 
@@ -24,25 +25,10 @@ function Home() {
   const [parks, setParks] = useState<PotaPark[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(30);
-  const hasRequestedRef = useRef(false);
-  const userIdRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    // 只在用户 ID 真正变化时才重置请求标志
-    const currentUserId = user?.id ?? null;
-    if (currentUserId !== userIdRef.current) {
-      userIdRef.current = currentUserId;
-      hasRequestedRef.current = false;
-    }
-  }, [user]);
-
-  useEffect(() => {
+  useOnceOnMount(() => {
     // 等待认证加载完成，且用户已登录时才发起请求
     if (isAuthLoading || !user) return;
-
-    // 使用 ref 确保组件挂载时只请求一次
-    if (hasRequestedRef.current) return;
-    hasRequestedRef.current = true;
 
     // 请求 318 数据
     const loadParks = async () => {

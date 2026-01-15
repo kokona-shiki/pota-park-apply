@@ -1,5 +1,5 @@
 // src/pages/MyUploads.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import {
   Alert,
@@ -22,6 +22,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import { ApplicationDetailDataSchema, ApplicationsDataSchema } from '../../../shared/schemas/parkApplication';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import { getApiErrorMessage } from '../utils/error';
 import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
 import { ParkApplicationTable } from '../components/ParkApplicationTable';
@@ -50,18 +51,6 @@ function MyUploads() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [flowTarget, setFlowTarget] = useState<ParkApplication | null>(null);
 
-  const hasRequestedRef = useRef(false);
-  const userIdRef = useRef<number | null>(null);
-
-  // 只在用户 ID 真正变化时才重置请求标志
-  useEffect(() => {
-    const currentUserId = user?.id ?? null;
-    if (currentUserId !== userIdRef.current) {
-      userIdRef.current = currentUserId;
-      hasRequestedRef.current = false;
-    }
-  }, [user]);
-
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -80,14 +69,9 @@ function MyUploads() {
     }
   }, []);
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     // 等待认证加载完成，且用户已登录时才发起请求
     if (isAuthLoading || !user) return;
-
-    // 使用 ref 确保组件挂载时只请求一次（兼容 StrictMode）
-    if (hasRequestedRef.current) return;
-    hasRequestedRef.current = true;
-
     load();
   }, [isAuthLoading, user, load]);
 

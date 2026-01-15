@@ -1,5 +1,5 @@
 // src/pages/ApplicationsList.tsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import {
   Alert,
@@ -26,6 +26,7 @@ import {
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import { getApiErrorMessage } from '../utils/error';
 import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
 import { ParkApplicationTable } from '../components/ParkApplicationTable';
@@ -61,19 +62,7 @@ function ApplicationsList() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const reviewRequestRef = useRef<Record<number, boolean>>({});
 
-  const hasRequestedRef = useRef(false);
-  const userIdRef = useRef<number | null>(null);
-
   const isReviewer = hasPermission === true;
-
-  // 只在用户 ID 真正变化时才重置请求标志
-  useEffect(() => {
-    const currentUserId = user?.id ?? null;
-    if (currentUserId !== userIdRef.current) {
-      userIdRef.current = currentUserId;
-      hasRequestedRef.current = false;
-    }
-  }, [user]);
 
   const load = useCallback(async () => {
     try {
@@ -92,10 +81,8 @@ function ApplicationsList() {
     }
   }, []);
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     if (isAuthLoading || !user) return;
-    if (hasRequestedRef.current) return;
-    hasRequestedRef.current = true;
     load();
   }, [isAuthLoading, user, load]);
 
