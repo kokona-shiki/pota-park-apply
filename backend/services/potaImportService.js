@@ -433,7 +433,9 @@ export const identifyParkType = async (potaPark) => {
   }
 
   // 如果没有匹配的类型，返回 null
-  console.log(`无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`);
+  console.log(
+    `无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`
+  );
   return null;
 };
 
@@ -576,7 +578,9 @@ export const importSinglePotaPark = async (
       importTime
     );
 
-    console.log(`成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parktypeDesc}`);
+    console.log(
+      `成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parktypeDesc}`
+    );
     return {
       success: true,
       created: true,

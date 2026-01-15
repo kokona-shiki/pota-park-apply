@@ -267,6 +267,21 @@
       "id": "3c701d09-40d1-47df-b0e8-c375562c0b74",
       "chineseName": "风景区",
       "englishName": "Scenic Site"
+    },
+    {
+      "id": "8e963238-8d34-468f-a724-7244a066427c",
+      "chineseName": "国家野生风景河流",
+      "englishName": "National Wild & Scenic River"
+    },
+    {
+      "id": "61627980-18e2-499c-a3a3-249900425831",
+      "chineseName": "世界遗产公园",
+      "englishName": "World Heritage Site"
+    },
+    {
+      "id": "51818593-839d-4e93-9885-67315284105f",
+      "chineseName": "山地公园",
+      "englishName": "Mountain Park"
     }
   ],
   "default_pota_type": {
