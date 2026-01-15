@@ -1,5 +1,22 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { query, getOne } from './database.js';
 import { hashPassword, normalizeEmail, normalizeCallsign } from '../utils/auth.js';
+
+const loadRegionData = async () => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const regionPath = path.resolve(__dirname, '../../shared/region.json');
+  const content = await fs.readFile(regionPath, 'utf8');
+  const parsed = JSON.parse(content);
+
+  if (!Array.isArray(parsed)) {
+    throw new TypeError('shared/region.json 格式不正确，期望数组');
+  }
+
+  return parsed;
+};
 
 // 创建所有数据库表
 export const createTables = async () => {
@@ -740,45 +757,31 @@ export const initializeData = async () => {
       ON CONFLICT (role, permission_id) DO NOTHING
     `);
 
-    // 3. 初始化省份数据
-    await query(`
-      INSERT INTO provinces (iso_code, zh_name, en_name, sort_order) VALUES
-      ('CN-BJ', '北京市', 'Beijing', 1),
-      ('CN-TJ', '天津市', 'Tianjin', 2),
-      ('CN-HE', '河北省', 'Hebei', 3),
-      ('CN-SX', '山西省', 'Shanxi', 4),
-      ('CN-NM', '内蒙古自治区', 'Inner Mongolia', 5),
-      ('CN-LN', '辽宁省', 'Liaoning', 6),
-      ('CN-JL', '吉林省', 'Jilin', 7),
-      ('CN-HL', '黑龙江省', 'Heilongjiang', 8),
-      ('CN-SH', '上海市', 'Shanghai', 9),
-      ('CN-JS', '江苏省', 'Jiangsu', 10),
-      ('CN-ZJ', '浙江省', 'Zhejiang', 11),
-      ('CN-AH', '安徽省', 'Anhui', 12),
-      ('CN-FJ', '福建省', 'Fujian', 13),
-      ('CN-JX', '江西省', 'Jiangxi', 14),
-      ('CN-SD', '山东省', 'Shandong', 15),
-      ('CN-HA', '河南省', 'Henan', 16),
-      ('CN-HB', '湖北省', 'Hubei', 17),
-      ('CN-HN', '湖南省', 'Hunan', 18),
-      ('CN-GD', '广东省', 'Guangdong', 19),
-      ('CN-GX', '广西壮族自治区', 'Guangxi', 20),
-      ('CN-HI', '海南省', 'Hainan', 21),
-      ('CN-CQ', '重庆市', 'Chongqing', 22),
-      ('CN-SC', '四川省', 'Sichuan', 23),
-      ('CN-GZ', '贵州省', 'Guizhou', 24),
-      ('CN-YN', '云南省', 'Yunnan', 25),
-      ('CN-XZ', '西藏自治区', 'Tibet', 26),
-      ('CN-SN', '陕西省', 'Shaanxi', 27),
-      ('CN-GS', '甘肃省', 'Gansu', 28),
-      ('CN-QH', '青海省', 'Qinghai', 29),
-      ('CN-NX', '宁夏回族自治区', 'Ningxia', 30),
-      ('CN-XJ', '新疆维吾尔自治区', 'Xinjiang', 31),
-      ('CN-HK', '香港特别行政区', 'Hong Kong', 32),
-      ('CN-MO', '澳门特别行政区', 'Macao', 33),
-      ('CN-TW', '台湾省', 'Taiwan', 34)
-      ON CONFLICT (iso_code) DO NOTHING
-    `);
+    // 3. 初始化省份数据（从 shared/region.json 读取）
+    const regions = await loadRegionData();
+    if (regions.length > 0) {
+      const values = regions
+        .map((_, index) => {
+          const base = index * 4;
+          return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+        })
+        .join(',\n');
+      const params = regions.flatMap((item, index) => [
+        item.code,
+        item.name,
+        item.name,
+        index + 1,
+      ]);
+
+      await query(
+        `
+          INSERT INTO provinces (iso_code, zh_name, en_name, sort_order)
+          VALUES ${values}
+          ON CONFLICT (iso_code) DO NOTHING
+        `,
+        params
+      );
+    }
 
     // 4. 确保存在一个 system_admin（通过 env 配置首次管理员账号）
     await ensureInitialSystemAdmin();

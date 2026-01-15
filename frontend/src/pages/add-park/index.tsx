@@ -20,7 +20,7 @@ import type { SelectChangeEvent } from '@mui/material/Select';
 import Pinyin from 'pinyin-match';
 
 import parkTypeMappingData from '../../../../shared/park_type_mapping.json';
-import regionData from '../../assets/region.json';
+import regionData from '../../../../shared/region.json';
 import { MapContainer, Marker, useMap } from 'react-leaflet';
 import { UnifiedTileLayer } from '../../components/UnifiedTileLayer';
 import 'leaflet/dist/leaflet.css';

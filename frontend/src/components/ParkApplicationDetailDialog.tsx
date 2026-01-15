@@ -25,7 +25,7 @@ import type { ParkApplicationDetail } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { UnifiedTileLayer } from './UnifiedTileLayer';
 import parkTypeMappingData from '../../../shared/park_type_mapping.json';
-import regionData from '../assets/region.json';
+import regionData from '../../../shared/region.json';
 
 // 配置 Leaflet 图标
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;

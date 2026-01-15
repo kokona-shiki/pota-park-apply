@@ -1,0 +1,42 @@
+[
+  {"name": "北京", "code": "CN-BJ"},
+  {"name": "天津", "code": "CN-TJ"},
+  {"name": "河北", "code": "CN-HE"},
+  {"name": "山西", "code": "CN-SX"},
+  {"name": "内蒙古", "code": "CN-NM"},
+
+  {"name": "辽宁", "code": "CN-LN"},
+  {"name": "吉林", "code": "CN-JL"},
+  {"name": "黑龙江", "code": "CN-HL"},
+
+  {"name": "上海", "code": "CN-SH"},
+  {"name": "江苏", "code": "CN-JS"},
+  {"name": "浙江", "code": "CN-ZJ"},
+  {"name": "安徽", "code": "CN-AH"},
+  {"name": "福建", "code": "CN-FJ"},
+  {"name": "江西", "code": "CN-JX"},
+  {"name": "山东", "code": "CN-SD"},
+
+  {"name": "河南", "code": "CN-HA"},
+  {"name": "湖北", "code": "CN-HB"},
+  {"name": "湖南", "code": "CN-HN"},
+  {"name": "广东", "code": "CN-GD"},
+  {"name": "广西", "code": "CN-GX"},
+  {"name": "海南", "code": "CN-HI"},
+
+  {"name": "重庆", "code": "CN-CQ"},
+  {"name": "四川", "code": "CN-SC"},
+  {"name": "贵州", "code": "CN-GZ"},
+  {"name": "云南", "code": "CN-YN"},
+  {"name": "西藏", "code": "CN-XZ"},
+
+  {"name": "陕西", "code": "CN-SN"},
+  {"name": "甘肃", "code": "CN-GS"},
+  {"name": "青海", "code": "CN-QH"},
+  {"name": "宁夏", "code": "CN-NX"},
+  {"name": "新疆", "code": "CN-XJ"},
+
+  {"name": "香港", "code": "CN-HK"},
+  {"name": "澳门", "code": "CN-MO"},
+  {"name": "台湾", "code": "CN-TW"}
+]

@@ -18,6 +18,7 @@ import {
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import parkTypeMapping from '../../../shared/park_type_mapping.json';
+import regionMapping from '../../../shared/region.json';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
@@ -77,6 +78,12 @@ const PotaUnprocessedParks: React.FC = () => {
     );
 
     return Array.from(typeMap.values());
+  }, []);
+
+  const provinceByCode = useMemo(() => {
+    return new Map<string, string>(
+      regionMapping.map((item: { name: string; code: string }) => [item.code, item.name])
+    );
   }, []);
 
   useEffect(() => {
@@ -313,14 +320,18 @@ const PotaUnprocessedParks: React.FC = () => {
     },
     {
       field: 'locationDesc',
-      headerName: '位置描述',
+      headerName: '省份',
       flex: 1,
       minWidth: 150,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
-        <Tooltip title={params.value ?? ''}>
-          <span>{params.value ?? ''}</span>
-        </Tooltip>
-      ),
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
+        const code = params.value ?? '';
+        const province = provinceByCode.get(code) || code;
+        return (
+          <Tooltip title={code}>
+            <span>{province}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       field: 'manualType',

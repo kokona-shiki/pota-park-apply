@@ -18,7 +18,7 @@ import {
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { ParkApplication, TableColumnConfig } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta, truncateText } from '../utils/parkApplication';
-import regionData from '../assets/region.json';
+import regionData from '../../../shared/region.json';
 
 type Order = 'asc' | 'desc';
 type OrderBy = 'created_at' | 'park_name' | 'province_name' | 'status';

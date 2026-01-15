@@ -1,4 +1,18 @@
 // POTA API 数据映射工具函数
+import regionMapping from '../../../shared/region.json';
+
+const REGION_LIST = regionMapping as Array<{ name: string; code: string }>;
+const REGION_BY_ISO = new Map(REGION_LIST.map((item) => [item.code, item.name]));
+const ISO_BY_NAME = new Map(
+  REGION_LIST.map((item) => [item.name, item.code])
+);
+
+const normalizeProvinceName = (name: string): string => {
+  return name
+    .replaceAll(/省|市|特别行政区/g, '')
+    .replaceAll('自治区', '')
+    .trim();
+};
 
 // 访问方法中英文映射
 const ACCESS_METHODS_MAP: { [key: string]: string } = {
@@ -63,43 +77,10 @@ export const mapActivationMethodsWithBothLangs = (methods: string[]): Array<{ zh
   }));
 };
 
-// 将 locationDesc (ISO-3166 省份代码) 映射为省份代码
+// 将 locationDesc (ISO-3166 省份代码) 映射为 ISO-3166 代码（无效则返回空）
 export const mapLocationToProvince = (locationDesc: string): string => {
-  const locationMap: { [key: string]: string } = {
-    'CN-BJ': '11', // 北京
-    'CN-TJ': '12', // 天津
-    'CN-HE': '13', // 河北
-    'CN-SX': '14', // 山西
-    'CN-NM': '15', // 内蒙古
-    'CN-LN': '21', // 辽宁
-    'CN-JL': '22', // 吉林
-    'CN-HL': '23', // 黑龙江
-    'CN-SH': '31', // 上海
-    'CN-JS': '32', // 江苏
-    'CN-ZJ': '33', // 浙江
-    'CN-AH': '34', // 安徽
-    'CN-FJ': '35', // 福建
-    'CN-JX': '36', // 江西
-    'CN-SD': '37', // 山东
-    'CN-HA': '41', // 河南
-    'CN-HB': '42', // 湖北
-    'CN-HN': '43', // 湖南
-    'CN-GD': '44', // 广东
-    'CN-GX': '45', // 广西
-    'CN-HI': '46', // 海南
-    'CN-CQ': '50', // 重庆
-    'CN-SC': '51', // 四川
-    'CN-GZ': '52', // 贵州
-    'CN-YN': '53', // 云南
-    'CN-XZ': '54', // 西藏
-    'CN-SN': '61', // 陕西
-    'CN-GS': '62', // 甘肃
-    'CN-QH': '63', // 青海
-    'CN-NX': '64', // 宁夏
-    'CN-XJ': '65', // 新疆
-  };
-
-  return locationMap[locationDesc] || '';
+  const code = String(locationDesc || '').trim();
+  return REGION_BY_ISO.has(code) ? code : '';
 };
 
 // 从 OSM POI 的 display_name 解析省份和地市
@@ -166,45 +147,11 @@ export const parseOSMDisplayName = (displayName: string): { province: string; ci
 
 // 根据省份和地市名称获取省份代码（ISO-3166 格式）
 export const getProvinceCodeFromNames = (provinceName: string, _cityName: string): string => {
-  // 省份名称到 ISO-3166 代码的映射
-  const provinceNameMap: { [key: string]: string } = {
-    '北京': 'CN-BJ',
-    '天津': 'CN-TJ',
-    '河北': 'CN-HE',
-    '山西': 'CN-SX',
-    '内蒙古': 'CN-NM',
-    '辽宁': 'CN-LN',
-    '吉林': 'CN-JL',
-    '黑龙江': 'CN-HL',
-    '上海': 'CN-SH',
-    '江苏': 'CN-JS',
-    '浙江': 'CN-ZJ',
-    '安徽': 'CN-AH',
-    '福建': 'CN-FJ',
-    '江西': 'CN-JX',
-    '山东': 'CN-SD',
-    '河南': 'CN-HA',
-    '湖北': 'CN-HB',
-    '湖南': 'CN-HN',
-    '广东': 'CN-GD',
-    '广西': 'CN-GX',
-    '海南': 'CN-HI',
-    '重庆': 'CN-CQ',
-    '四川': 'CN-SC',
-    '贵州': 'CN-GZ',
-    '云南': 'CN-YN',
-    '西藏': 'CN-XZ',
-    '陕西': 'CN-SN',
-    '甘肃': 'CN-GS',
-    '青海': 'CN-QH',
-    '宁夏': 'CN-NX',
-    '新疆': 'CN-XJ',
-  };
+  const normalized = normalizeProvinceName(provinceName);
+  return ISO_BY_NAME.get(normalized) || '';
+};
 
-  // 直辖市特殊处理
-  if (['北京', '上海', '天津', '重庆'].includes(provinceName)) {
-    return provinceNameMap[provinceName] || '';
-  }
-
-  return provinceNameMap[provinceName] || '';
+// 根据 ISO-3166 代码获取省份简称
+export const getProvinceNameFromCode = (isoCode: string): string => {
+  return REGION_BY_ISO.get(isoCode) || '';
 };
