@@ -1,5 +1,5 @@
 import Pinyin from 'pinyin-match';
-import parkTypeMappingData from '../assets/park_type_mapping.json';
+import parkTypeMappingData from '../../../shared/park_type_mapping.json';
 
 // 模拟与 AddPark 组件中相同的逻辑
 const PARK_TYPE_MAPPING = parkTypeMappingData as {

@@ -28,6 +28,9 @@ export default defineConfig(({ mode }) => {
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer'
       },
+      fs: {
+        allow: ['..']
+      },
 
       // 让前端用同域 /api 调用后端（避免 CORS，并支持 curl 直接打到 Vite 端口）
       proxy: {

@@ -24,7 +24,7 @@ import shadow from 'leaflet/dist/images/marker-shadow.png';
 import type { ParkApplicationDetail } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { UnifiedTileLayer } from './UnifiedTileLayer';
-import parkTypeMappingData from '../assets/park_type_mapping.json';
+import parkTypeMappingData from '../../../shared/park_type_mapping.json';
 import regionData from '../assets/region.json';
 
 // 配置 Leaflet 图标

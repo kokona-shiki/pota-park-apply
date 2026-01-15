@@ -19,7 +19,7 @@ import {
 import type { SelectChangeEvent } from '@mui/material/Select';
 import Pinyin from 'pinyin-match';
 
-import parkTypeMappingData from '../../assets/park_type_mapping.json';
+import parkTypeMappingData from '../../../../shared/park_type_mapping.json';
 import regionData from '../../assets/region.json';
 import { MapContainer, Marker, useMap } from 'react-leaflet';
 import { UnifiedTileLayer } from '../../components/UnifiedTileLayer';
@@ -78,8 +78,8 @@ const PARK_TYPE_MAPPING = parkTypeMappingData as {
 };
 
 const PARK_TYPE_OPTIONS: ParkTypeOption[] = PARK_TYPE_MAPPING.chinese_to_english.map(
-  ({ chineseName: zh, englishName: en }, index) => ({
-    id: index,
+  ({ chineseName: zh, englishName: en }) => ({
+    id: crypto.randomUUID(),
     zh,
     en,
   })

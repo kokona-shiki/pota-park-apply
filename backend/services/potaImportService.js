@@ -119,10 +119,7 @@ export const loadParkTypeMappings = async () => {
     const __dirname = path.dirname(__filename);
 
     // 构建前端资产文件路径
-    const mappingFilePath = path.resolve(
-      __dirname,
-      '../../frontend/src/assets/park_type_mapping.json'
-    );
+    const mappingFilePath = path.resolve(__dirname, '../../shared/park_type_mapping.json');
 
     const fileContent = await fs.readFile(mappingFilePath, 'utf8');
     const mappings = JSON.parse(fileContent);

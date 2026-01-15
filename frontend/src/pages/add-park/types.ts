@@ -50,7 +50,7 @@ export type MapPOI = {
 };
 
 export type ParkTypeOption = {
-  id: number;
+  id: string;
   zh: string;
   en: string;
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import parkTypeMapping from '../assets/park_type_mapping.json';
+import parkTypeMapping from '../../../shared/park_type_mapping.json';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
@@ -55,12 +55,29 @@ const PotaUnprocessedParks: React.FC = () => {
   const hasFetchedRef = useRef(false);
 
   // 获取所有可用的公园类型
-  const allParkTypes = [
-    ...parkTypeMapping.chinese_to_english.map((item: { englishName: string }) => item.englishName),
-    ...(parkTypeMapping.pota_only_types || []).map(
-      (item: { englishName: string }) => item.englishName
-    ),
-  ];
+  const allParkTypes = useMemo(() => {
+    const typeMap = new Map<string, { id: string; zh: string; en: string }>();
+
+    const registerType = (zh: string, en: string) => {
+      if (!typeMap.has(zh)) {
+        typeMap.set(zh, { id: crypto.randomUUID(), zh, en });
+      }
+    };
+
+    parkTypeMapping.chinese_to_english.forEach(
+      (item: { chineseName: string; englishName: string }) => {
+        registerType(item.chineseName, item.englishName);
+      }
+    );
+
+    (parkTypeMapping.pota_only_types || []).forEach(
+      (item: { chineseName: string; englishName: string }) => {
+        registerType(item.chineseName, item.englishName);
+      }
+    );
+
+    return Array.from(typeMap.values());
+  }, []);
 
   useEffect(() => {
     if (!hasFetchedRef.current && hasPotaPermission !== null) {
@@ -110,13 +127,11 @@ const PotaUnprocessedParks: React.FC = () => {
     } catch (err: unknown) {
       const error = err as { response?: { status: number } };
       // 如果API调用失败（返回403或其他错误），则用户没有权限
-      if (error.response && error.response.status === 403) {
+      if (error.response?.status === 403) {
         // 明确的权限不足错误
-        setHasPermission(false);
-      } else {
-        // 其他错误，可能是网络问题等，但我们仍假设用户没有权限
-        setHasPermission(false);
       }
+      // 其他错误，可能是网络问题等，但我们仍假设用户没有权限
+      setHasPermission(false);
       console.error('检查权限失败:', err);
     } finally {
       // 无论成功还是失败，都要停止权限检查状态和loading状态
@@ -315,15 +330,31 @@ const PotaUnprocessedParks: React.FC = () => {
         <FormControl fullWidth size="small">
           <Select
             value={selectedType[params.row.reference] || ''}
-            onChange={(e) => handleTypeChange(params.row.reference, e.target.value as string)}
+            onChange={(e) => handleTypeChange(params.row.reference, String(e.target.value))}
             displayEmpty
+            MenuProps={{
+              anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+              transformOrigin: { vertical: 'top', horizontal: 'left' },
+              PaperProps: {
+                sx: {
+                  maxHeight: 320,
+                },
+              },
+            }}
           >
             <MenuItem value="">
               <em>请选择类型</em>
             </MenuItem>
-            {allParkTypes.map((type: string) => (
-              <MenuItem key={type} value={type}>
-                {type}
+            {allParkTypes.map((option: { id: string; zh: string; en: string }) => (
+              <MenuItem key={option.id} value={option.en}>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                    {option.zh}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                    {option.en}
+                  </Typography>
+                </Box>
               </MenuItem>
             ))}
           </Select>
@@ -417,6 +448,7 @@ const PotaUnprocessedParks: React.FC = () => {
           <DataGrid
             rows={unprocessedParks}
             columns={columns}
+            getRowId={(row) => row.reference}
             pageSizeOptions={[5, 10, 20, 50]}
             initialState={{
               pagination: {

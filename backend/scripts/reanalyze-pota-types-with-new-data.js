@@ -19,10 +19,7 @@ async function reanalyzePotaTypesWithNewData() {
     const potaParks = JSON.parse(potaDataContent);
 
     // 读取系统中的公园类型映射（包含新的 POTA 专用类型）
-    const systemTypesPath = path.resolve(
-      __dirname,
-      '../../frontend/src/assets/park_type_mapping.json'
-    );
+    const systemTypesPath = path.resolve(__dirname, '../../shared/park_type_mapping.json');
     const systemTypesContent = await fs.readFile(systemTypesPath, 'utf8');
     const systemTypes = JSON.parse(systemTypesContent);
 
