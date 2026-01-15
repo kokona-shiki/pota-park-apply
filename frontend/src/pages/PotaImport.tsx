@@ -80,7 +80,7 @@ function PotaImport() {
       setStatusLoading(true);
       setError(null);
       const res = await axios.get('/api/pota/import-status');
-      setCanImport(Boolean(res.data?.data?.canImport));
+      setCanImport(Boolean(res.data?.canImport));
     } catch (e: unknown) {
       const error = e as { response?: { status: number } };
       setCanImport(false);
@@ -98,7 +98,7 @@ function PotaImport() {
 
     try {
       const res = await axios.get('/api/pota/import-task/latest');
-      const latestTask = res.data?.data ?? null;
+      const latestTask = res.data ?? null;
       setTask(latestTask);
       if (
         latestTask &&
@@ -146,7 +146,7 @@ function PotaImport() {
       setInfo(null);
 
       const res = await axios.post('/api/pota/import');
-      setTask(res.data?.data?.task ?? null);
+      setTask(res.data?.task ?? null);
       setInfo(res.data?.message || '已提交 POTA 导入任务');
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, 'POTA公园导入失败'));
