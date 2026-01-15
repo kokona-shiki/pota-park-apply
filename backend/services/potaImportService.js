@@ -104,6 +104,7 @@ export const checkParkExistsByPotaId = async (potaId) => {
 
 // 缓存公园类型映射
 let parkTypeMappings = null;
+let parkTypeIndex = null;
 
 /**
  * 加载公园类型映射
@@ -136,10 +137,63 @@ export const loadParkTypeMappings = async () => {
   }
 };
 
+const buildParkTypeIndex = (mappings) => {
+  const allTypes = [
+    ...(mappings.chinese_to_english || []),
+    ...(mappings.pota_only_types || []),
+  ].filter((item) => item && item.id);
+
+  const byId = new Map();
+  const byEnglish = new Map();
+  const byChinese = new Map();
+
+  for (const item of allTypes) {
+    byId.set(item.id, { id: item.id, zh: item.chineseName, en: item.englishName });
+    byChinese.set(item.chineseName, item.id);
+    const ids = byEnglish.get(item.englishName) || [];
+    ids.push(item.id);
+    byEnglish.set(item.englishName, ids);
+  }
+
+  return {
+    allTypes,
+    byId,
+    byEnglish,
+    byChinese,
+  };
+};
+
+const getParkTypeIndex = async () => {
+  if (parkTypeIndex) {
+    return parkTypeIndex;
+  }
+  const mappings = await loadParkTypeMappings();
+  parkTypeIndex = buildParkTypeIndex(mappings);
+  return parkTypeIndex;
+};
+
+export const resolveParkTypeId = async (value) => {
+  if (!value) {
+    return null;
+  }
+  const { byId, byEnglish, byChinese } = await getParkTypeIndex();
+  if (byId.has(value)) {
+    return value;
+  }
+  if (byChinese.has(value)) {
+    return byChinese.get(value);
+  }
+  const englishIds = byEnglish.get(value);
+  if (englishIds && englishIds.length > 0) {
+    return englishIds[0];
+  }
+  return null;
+};
+
 /**
  * 根据公园名称识别公园类型
  * @param {Object} potaPark - POTA 公园数据
- * @returns {string|null} - 识别出的公园类型，如果无法识别则返回 null
+ * @returns {string|null} - 识别出的公园类型ID，如果无法识别则返回 null
  */
 export const identifyParkType = async (potaPark) => {
   const mappings = await loadParkTypeMappings();
@@ -165,7 +219,7 @@ export const identifyParkType = async (potaPark) => {
   for (const mapping of mappings.chinese_to_english) {
     if (chinesePart.includes(mapping.chineseName)) {
       console.log(`通过中文关键词识别公园类型: ${mapping.chineseName} -> ${mapping.englishName}`);
-      return mapping.englishName;
+      return mapping.id || null;
     }
   }
 
@@ -176,7 +230,7 @@ export const identifyParkType = async (potaPark) => {
         console.log(
           `通过POTA专用中文关键词识别公园类型: ${mapping.chineseName} -> ${mapping.englishName}`
         );
-        return mapping.englishName;
+        return mapping.id || null;
       }
     }
   }
@@ -200,7 +254,11 @@ export const identifyParkType = async (potaPark) => {
     }
 
     if (matchFound) {
-      possibleTypes.push({ type: mapping.englishName, length: mapping.englishName.length });
+      possibleTypes.push({
+        typeId: mapping.id,
+        englishName: mapping.englishName,
+        length: mapping.englishName.length,
+      });
     }
   }
 
@@ -220,7 +278,11 @@ export const identifyParkType = async (potaPark) => {
       }
 
       if (matchFound) {
-        possibleTypes.push({ type: mapping.englishName, length: mapping.englishName.length });
+        possibleTypes.push({
+          typeId: mapping.id,
+          englishName: mapping.englishName,
+          length: mapping.englishName.length,
+        });
       }
     }
   }
@@ -235,13 +297,13 @@ export const identifyParkType = async (potaPark) => {
     const longestMatches = possibleTypes.filter((item) => item.length === maxLength);
 
     if (longestMatches.length === 1) {
-      console.log(`通过英文部分识别公园类型: ${longestMatches[0].type}`);
-      return longestMatches[0].type;
+      console.log(`通过英文部分识别公园类型: ${longestMatches[0].englishName}`);
+      return longestMatches[0].typeId || null;
     } else {
       // 如果有多个相同长度的匹配，返回第一个
-      const matchedTypes = longestMatches.map((item) => item.type);
+      const matchedTypes = longestMatches.map((item) => item.englishName);
       console.log(`发现多个相同长度的匹配类型: ${matchedTypes.join(', ')}`);
-      return longestMatches[0].type;
+      return longestMatches[0].typeId || null;
     }
   } else {
     console.log(`英文部分无法匹配任何类型: ${englishPart}`);
@@ -835,9 +897,14 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
       qsos: parkData.qsos,
     };
 
+    const manualTypeId = await resolveParkTypeId(parkData.manualType);
+    if (!manualTypeId) {
+      throw new Error(`无法识别公园类型: ${parkData.manualType}`);
+    }
+
     // 使用指定的类型创建公园数据
     const internalPark = await transformPotaParkToInternal(potaPark);
-    internalPark.park_type = parkData.manualType; // 使用手动指定的类型
+    internalPark.park_type = manualTypeId; // 使用手动指定的类型ID
 
     // 创建公园并记录审核日志
     const createdPark = await createParkWithAudit(

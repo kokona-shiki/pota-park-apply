@@ -37,9 +37,17 @@ L.Icon.Default.mergeOptions({
 
 // 公园类型映射
 const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  chinese_to_english: Array<{ chineseName: string; englishName: string }>;
+  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
   english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
+  pota_only_types?: Array<{ id: string; chineseName: string; englishName: string }>;
 };
+
+const PARK_TYPE_BY_ID = new Map(
+  [
+    ...PARK_TYPE_MAPPING.chinese_to_english,
+    ...(PARK_TYPE_MAPPING.pota_only_types || []),
+  ].map((item) => [item.id, { zh: item.chineseName, en: item.englishName }])
+);
 
 const DEFAULT_DETAIL_MAP_ZOOM = 13;
 type LatLngTuple = [number, number];
@@ -50,13 +58,32 @@ type LatLngTuple = [number, number];
 function getParkTypeWithEnglish(parkType: string | null | undefined): string {
   if (!parkType) return '';
 
-  // 查找英文到中文的映射
+  const typeById = PARK_TYPE_BY_ID.get(parkType);
+  if (typeById) {
+    return `${typeById.zh} (${typeById.en})`;
+  }
+
+  // 查找英文到中文的映射（兼容旧数据）
   const mapping = PARK_TYPE_MAPPING.english_to_chinese.find(
     (item) => item.englishName === parkType
   );
   if (mapping && mapping.chineseNames.length > 0) {
     // 返回 中文 (英文) 格式
     return `${mapping.chineseNames[0]} (${parkType})`;
+  }
+
+  const chineseMapping = PARK_TYPE_MAPPING.chinese_to_english.find(
+    (item) => item.chineseName === parkType
+  );
+  if (chineseMapping) {
+    return `${chineseMapping.chineseName} (${chineseMapping.englishName})`;
+  }
+
+  const potaMapping = (PARK_TYPE_MAPPING.pota_only_types || []).find(
+    (item) => item.chineseName === parkType
+  );
+  if (potaMapping) {
+    return `${potaMapping.chineseName} (${potaMapping.englishName})`;
   }
 
   // 如果没有找到映射，直接返回原始值

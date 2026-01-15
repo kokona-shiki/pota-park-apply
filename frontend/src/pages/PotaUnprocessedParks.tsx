@@ -59,26 +59,49 @@ const PotaUnprocessedParks: React.FC = () => {
   const allParkTypes = useMemo(() => {
     const typeMap = new Map<string, { id: string; zh: string; en: string }>();
 
-    const registerType = (zh: string, en: string) => {
-      if (!typeMap.has(zh)) {
-        typeMap.set(zh, { id: crypto.randomUUID(), zh, en });
+    const registerType = (id: string, zh: string, en: string) => {
+      if (!typeMap.has(id)) {
+        typeMap.set(id, { id, zh, en });
       }
     };
 
     parkTypeMapping.chinese_to_english.forEach(
-      (item: { chineseName: string; englishName: string }) => {
-        registerType(item.chineseName, item.englishName);
+      (item: { id: string; chineseName: string; englishName: string }) => {
+        registerType(item.id, item.chineseName, item.englishName);
       }
     );
 
     (parkTypeMapping.pota_only_types || []).forEach(
-      (item: { chineseName: string; englishName: string }) => {
-        registerType(item.chineseName, item.englishName);
+      (item: { id: string; chineseName: string; englishName: string }) => {
+        registerType(item.id, item.chineseName, item.englishName);
       }
     );
 
     return Array.from(typeMap.values());
   }, []);
+
+  const parkTypeById = useMemo(
+    () => new Map(allParkTypes.map((option) => [option.id, option])),
+    [allParkTypes]
+  );
+
+  const parkTypeIdsByEnglish = useMemo(() => {
+    const map = new Map<string, string[]>();
+    allParkTypes.forEach((option) => {
+      const ids = map.get(option.en) ?? [];
+      ids.push(option.id);
+      map.set(option.en, ids);
+    });
+    return map;
+  }, [allParkTypes]);
+
+  const parkTypeIdByChinese = useMemo(() => {
+    const map = new Map<string, string>();
+    allParkTypes.forEach((option) => {
+      map.set(option.zh, option.id);
+    });
+    return map;
+  }, [allParkTypes]);
 
   const chineseNamesByEnglish = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -108,9 +131,30 @@ const PotaUnprocessedParks: React.FC = () => {
     return map;
   }, []);
 
+  const resolveTypeId = (value: string) => {
+    if (parkTypeById.has(value)) {
+      return value;
+    }
+    return (
+      parkTypeIdByChinese.get(value) || parkTypeIdsByEnglish.get(value)?.[0] || ''
+    );
+  };
+
   const getChineseTypeLabel = (englishName: string) => {
     const chineseNames = chineseNamesByEnglish.get(englishName);
     return chineseNames?.length ? chineseNames.join(' / ') : englishName;
+  };
+
+  const getSelectedTypeLabel = (reference?: string) => {
+    if (!reference) {
+      return '';
+    }
+    const selectedId = selectedType[reference];
+    const selectedOption = selectedId ? parkTypeById.get(selectedId) : undefined;
+    if (selectedOption?.zh) {
+      return selectedOption.zh;
+    }
+    return selectedOption?.en ? getChineseTypeLabel(selectedOption.en) : '';
   };
 
   const provinceByCode = useMemo(() => {
@@ -161,7 +205,7 @@ const PotaUnprocessedParks: React.FC = () => {
       // 初始化选中的类型
       const initialSelected: { [key: string]: string } = {};
       response.data.forEach((park: UnprocessedPark) => {
-        initialSelected[park.reference] = park.manualType || '';
+        initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
       });
       setSelectedType(initialSelected);
     } catch (err: unknown) {
@@ -192,7 +236,7 @@ const PotaUnprocessedParks: React.FC = () => {
       // 初始化选中的类型
       const initialSelected: { [key: string]: string } = {};
       response.data.forEach((park: UnprocessedPark) => {
-        initialSelected[park.reference] = park.manualType || '';
+        initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
       });
       setSelectedType(initialSelected);
     } catch (err) {
@@ -201,10 +245,10 @@ const PotaUnprocessedParks: React.FC = () => {
     }
   };
 
-  const handleTypeChange = (reference: string, type: string) => {
+  const handleTypeChange = (reference: string, typeId: string) => {
     setSelectedType((prev) => ({
       ...prev,
-      [reference]: type,
+      [reference]: typeId,
     }));
   };
 
@@ -217,9 +261,10 @@ const PotaUnprocessedParks: React.FC = () => {
     try {
       setProcessing(true);
 
+      const selectedOption = parkTypeById.get(selectedType[park.reference]);
       const parkData = {
         ...park,
-        manualType: selectedType[park.reference],
+        manualType: selectedOption?.id || '',
       };
 
       await axios.post(
@@ -248,10 +293,13 @@ const PotaUnprocessedParks: React.FC = () => {
   const handleBulkProcess = async () => {
     const parksToProcess = unprocessedParks
       .filter((park) => selectedType[park.reference])
-      .map((park) => ({
-        ...park,
-        manualType: selectedType[park.reference],
-      }));
+      .map((park) => {
+        const selectedOption = parkTypeById.get(selectedType[park.reference]);
+        return {
+          ...park,
+          manualType: selectedOption?.id || '',
+        };
+      });
 
     if (parksToProcess.length === 0) {
       alert('请至少选择一个公园并为其指定类型');
@@ -395,7 +443,7 @@ const PotaUnprocessedParks: React.FC = () => {
               <em>请选择类型</em>
             </MenuItem>
             {allParkTypes.map((option: { id: string; zh: string; en: string }) => (
-              <MenuItem key={option.id} value={option.en}>
+              <MenuItem key={option.id} value={option.id}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
                     {option.zh}
@@ -525,7 +573,7 @@ const PotaUnprocessedParks: React.FC = () => {
             您确定要将公园 <strong>{parkToProcess?.name}</strong> (ID: {parkToProcess?.reference})
             以类型{' '}
             <strong>
-              {getChineseTypeLabel(selectedType[parkToProcess?.reference || ''] || '')}
+              {getSelectedTypeLabel(parkToProcess?.reference)}
             </strong>{' '}
             导入吗？
           </Typography>

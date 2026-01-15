@@ -73,13 +73,13 @@ const normalIcon = new L.Icon({
 
 // 公园类型映射
 const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  chinese_to_english: Array<{ chineseName: string; englishName: string }>;
+  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
   english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
 };
 
 const PARK_TYPE_OPTIONS: ParkTypeOption[] = PARK_TYPE_MAPPING.chinese_to_english.map(
-  ({ chineseName: zh, englishName: en }) => ({
-    id: crypto.randomUUID(),
+  ({ id, chineseName: zh, englishName: en }) => ({
+    id,
     zh,
     en,
   })
@@ -174,6 +174,21 @@ function AddPark() {
   // 地图搜索相关的状态
   const [searchResults, setSearchResults] = useState<string[]>([]);
 
+  const parkTypeById = useMemo(
+    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.id, option])),
+    []
+  );
+  const parkTypeIdByEnglish = useMemo(
+    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.en, option.id])),
+    []
+  );
+  const resolveParkTypeId = (value: string) => {
+    if (parkTypeById.has(value)) {
+      return value;
+    }
+    return parkTypeIdByEnglish.get(value) || '';
+  };
+
   // 处理访问方法变更
   const handleAccessMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
@@ -234,7 +249,7 @@ function AddPark() {
     try {
       const result = await handleSubmit({
         parkName,
-        parkType,
+        parkType: resolveParkTypeId(parkType),
         province,
         provinces: formState.provinces,
         latitude,
@@ -306,9 +321,13 @@ function AddPark() {
             <Autocomplete
               disablePortal
               options={PARK_TYPE_OPTIONS}
-              value={PARK_TYPE_OPTIONS.find((option) => option.en === parkType) || null}
+              value={
+                PARK_TYPE_OPTIONS.find(
+                  (option) => option.id === parkType || option.en === parkType
+                ) || null
+              }
               onChange={(_, newValue) => {
-                updateFormState({ parkType: newValue ? newValue.en : '' });
+                updateFormState({ parkType: newValue ? newValue.id : '' });
               }}
               disabled={isPotaPark}
               getOptionLabel={(option) => {
@@ -360,7 +379,7 @@ function AddPark() {
                   </Box>
                 </li>
               )}
-              isOptionEqualToValue={(option, value) => option.en === value.en}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
             />
           </FormControl>
         </Box>

@@ -1,5 +1,6 @@
-import { insert, update, getOne, getMany, transaction } from '../config/database.js';
+import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
+import { resolveParkTypeId } from './potaImportService.js';
 
 // 提交公园申请
 export const submitParkApplication = async (userId, applicationData) => {
@@ -43,6 +44,14 @@ export const submitParkApplication = async (userId, applicationData) => {
     throw err;
   }
 
+  const parkTypeId = await resolveParkTypeId(park_type);
+  if (!parkTypeId) {
+    const err = new Error('公园类型无效');
+    // eslint-disable-next-line no-param-reassign
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+
   return await transaction(async (client) => {
     // 创建公园申请
     const application = await client.query(
@@ -59,7 +68,7 @@ export const submitParkApplication = async (userId, applicationData) => {
     `,
       [
         park_name,
-        park_type,
+        parkTypeId,
         Array.isArray(provinces) ? JSON.stringify(provinces) : provinces,
         latitude,
         longitude,
