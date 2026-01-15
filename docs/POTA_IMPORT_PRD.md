@@ -19,7 +19,7 @@ parkComments 作为我们公园的 description
 accessMethods 和 activationsMethods
 website
 locationDesc，这是公园省份的 ISO-3166，它可能有多个，用英文逗号区分，记得在前端显示为具体的省份简称
-公园类型通过 name 和 parkTypeDesc 得出，优先通过 name 判断，如果 name 无法判断，则通过 parkTypeDesc 判断，如果两者都无法判断，则将公园设为「未处理的公园」
+公园类型通过 name 和 parktypeDesc 得出，优先通过 name 判断，如果 name 无法判断，则通过 parktypeDesc 判断，如果两者都无法判断，则将公园设为「未处理的公园」
 
 四、query_park 接口必须有延时处理，延时时间不得少于 1 秒，延时时间需要随机变化，延时时间不得大于 3 秒
 
@@ -62,7 +62,7 @@ locationDesc，这是公园省份的 ISO-3166，它可能有多个，用英文�
 query_park 接口请查看 @protocols/query_park.log 接口，具体的 response 详见 @protocols/query_park_response.json
 没有现成的调用代码，请你自行实现
 
-2. 公园类型判定规则在目前的 POTA 导入过程中已经存在，name 即为中文部分，parkTypeDesc 即为英文部分，请你根据现有的规则实现
+2. 公园类型判定规则在目前的 POTA 导入过程中已经存在，name 即为中文部分，parktypeDesc 即为英文部分，请你根据现有的规则实现
 
 3. 是的，沿用现有的表
 我需要存储 POTA_ID，name，失败原因；

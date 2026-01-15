@@ -295,8 +295,12 @@ export const identifyParkType = async (potaPark) => {
   const mappings = await loadParkTypeMappings();
 
   const rawName = typeof potaPark?.name === 'string' ? potaPark.name.trim() : '';
-  const rawTypeDesc =
-    typeof potaPark?.parkTypeDesc === 'string' ? potaPark.parkTypeDesc.trim() : '';
+  let rawTypeDesc = '';
+  if (typeof potaPark?.parktypeDesc === 'string') {
+    rawTypeDesc = potaPark.parktypeDesc.trim();
+  } else if (typeof potaPark?.parkTypeDesc === 'string') {
+    rawTypeDesc = potaPark.parkTypeDesc.trim();
+  }
 
   if (!rawName && !rawTypeDesc) {
     return null;
@@ -429,7 +433,7 @@ export const identifyParkType = async (potaPark) => {
   }
 
   // 如果没有匹配的类型，返回 null
-  console.log(`无法识别公园类型，英文部分: ${englishPart || 'N/A'}`);
+  console.log(`无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`);
   return null;
 };
 
@@ -698,7 +702,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
           grid: enrichedPark.grid6 || enrichedPark.grid4 || '',
           activations: listPark.activations ?? null,
           qsos: listPark.qsos ?? null,
-          parkTypeDesc: enrichedPark.parkTypeDesc || '',
+          parkTypeDesc: enrichedPark.parktypeDesc || enrichedPark.parkTypeDesc || '',
           accessMethods: enrichedPark.accessMethods || '',
           activationMethods: enrichedPark.activationMethods || '',
           website: enrichedPark.website || '',
