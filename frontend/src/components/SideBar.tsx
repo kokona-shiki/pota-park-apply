@@ -17,6 +17,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import InfoIcon from '@mui/icons-material/Info';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import HistoryIcon from '@mui/icons-material/History';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
 
@@ -126,6 +127,12 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                   <ListIcon />
                 </ListItemIcon>
                 <ListItemText primary="POTA 未处理公园" />
+              </ListItemButton>
+              <ListItemButton onClick={() => navigate('/pota-sync-logs')}>
+                <ListItemIcon>
+                  <HistoryIcon />
+                </ListItemIcon>
+                <ListItemText primary="POTA 同步日志" />
               </ListItemButton>
             </>
           )}

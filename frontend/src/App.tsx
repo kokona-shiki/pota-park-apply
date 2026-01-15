@@ -18,6 +18,7 @@ import AdminPanel from './pages/AdminPanel';
 import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
+import PotaSyncLogs from './pages/PotaSyncLogs';
 import { z } from 'zod';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from './services/apiClient';
@@ -842,6 +843,14 @@ function App() {
                 element={
                   <RequirePotaPermission>
                     <PotaUnprocessedParks />
+                  </RequirePotaPermission>
+                }
+              />
+              <Route
+                path="/pota-sync-logs"
+                element={
+                  <RequirePotaPermission>
+                    <PotaSyncLogs />
                   </RequirePotaPermission>
                 }
               />
