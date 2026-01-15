@@ -325,7 +325,12 @@ const PotaUnprocessedParks: React.FC = () => {
       minWidth: 150,
       renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
         const code = params.value ?? '';
-        const province = provinceByCode.get(code) || code;
+        const codes = code
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+        const provinces = codes.map((item) => provinceByCode.get(item) || item);
+        const province = provinces.join('、') || code;
         return (
           <Tooltip title={code}>
             <span>{province}</span>
