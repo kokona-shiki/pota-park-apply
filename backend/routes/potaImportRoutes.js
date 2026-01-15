@@ -34,6 +34,29 @@ const requirePotaImportPermission = async (req, res, next) => {
 };
 
 /**
+ * 获取导入权限状态
+ */
+router.get('/api/pota/import-status', authenticateToken, async (req, res) => {
+  try {
+    const hasImportPermission = await checkUserPermission(req.user.id, 'pota_import');
+    const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
+
+    return sendOk(
+      res,
+      {
+        canImport: hasImportPermission || hasSyncPermission,
+        hasImportPermission,
+        hasSyncPermission,
+      },
+      '获取导入权限状态成功'
+    );
+  } catch (error) {
+    console.error('获取导入权限状态失败:', error);
+    return sendError(res, error, { bizMessage: '获取导入权限状态失败' });
+  }
+});
+
+/**
  * 获取需要手动处理的公园列表
  */
 router.get(
@@ -184,10 +207,10 @@ router.post(
 );
 
 /**
- * 手动触发POTA导入（会更新未处理公园列表）
+ * 触发POTA导入（会更新未处理公园列表）
  */
 router.post(
-  '/api/pota/manual-import',
+  '/api/pota/import',
   authenticateToken,
   requirePotaImportPermission,
   async (req, res) => {
