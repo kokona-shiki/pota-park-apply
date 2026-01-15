@@ -80,6 +80,39 @@ const PotaUnprocessedParks: React.FC = () => {
     return Array.from(typeMap.values());
   }, []);
 
+  const chineseNamesByEnglish = useMemo(() => {
+    const map = new Map<string, string[]>();
+
+    (parkTypeMapping.english_to_chinese || []).forEach(
+      (item: { englishName: string; chineseNames: string[] }) => {
+        map.set(item.englishName, item.chineseNames);
+      }
+    );
+
+    parkTypeMapping.chinese_to_english.forEach(
+      (item: { chineseName: string; englishName: string }) => {
+        if (!map.has(item.englishName)) {
+          map.set(item.englishName, [item.chineseName]);
+        }
+      }
+    );
+
+    (parkTypeMapping.pota_only_types || []).forEach(
+      (item: { chineseName: string; englishName: string }) => {
+        if (!map.has(item.englishName)) {
+          map.set(item.englishName, [item.chineseName]);
+        }
+      }
+    );
+
+    return map;
+  }, []);
+
+  const getChineseTypeLabel = (englishName: string) => {
+    const chineseNames = chineseNamesByEnglish.get(englishName);
+    return chineseNames?.length ? chineseNames.join(' / ') : englishName;
+  };
+
   const provinceByCode = useMemo(() => {
     return new Map<string, string>(
       regionMapping.map((item: { name: string; code: string }) => [item.code, item.name])
@@ -490,7 +523,11 @@ const PotaUnprocessedParks: React.FC = () => {
         <DialogContent>
           <Typography>
             您确定要将公园 <strong>{parkToProcess?.name}</strong> (ID: {parkToProcess?.reference})
-            以类型 <strong>{selectedType[parkToProcess?.reference || '']}</strong> 导入吗？
+            以类型{' '}
+            <strong>
+              {getChineseTypeLabel(selectedType[parkToProcess?.reference || ''] || '')}
+            </strong>{' '}
+            导入吗？
           </Typography>
         </DialogContent>
         <DialogActions>
