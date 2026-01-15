@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { autoTriggerPotaImport } from '../services/potaImportService.js';
+import { autoTriggerPotaImport } from '../services/pota-import/potaImportService.js';
 
 // 定义定时任务
 class Scheduler {

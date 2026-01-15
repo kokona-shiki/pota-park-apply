@@ -11,7 +11,7 @@ import {
   manualTriggerPotaImport,
   getLatestImportTaskForUser,
   markImportTaskRead,
-} from '../services/potaImportService.js';
+} from '../services/pota-import/potaImportService.js';
 import { getOne } from '../config/database.js';
 import { sendOk, sendError, sendBizError, sendHttpError } from '../utils/response.js';
 import {

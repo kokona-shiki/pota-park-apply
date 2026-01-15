@@ -1,6 +1,6 @@
 import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
-import { resolveParkTypeId } from './potaImportService.js';
+import { resolveParkTypeId } from './pota-import/parkTypeResolver.js';
 
 type AppError = Error & { status?: number; code?: string };
 
