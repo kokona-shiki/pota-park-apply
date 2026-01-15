@@ -8,6 +8,7 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  Collapse,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import AddIcon from '@mui/icons-material/Add';
@@ -18,6 +19,9 @@ import InfoIcon from '@mui/icons-material/Info';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import HistoryIcon from '@mui/icons-material/History';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
 
@@ -31,6 +35,7 @@ interface SideBarProps {
 function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
+  const [potaMenuOpen, setPotaMenuOpen] = useState(false);
 
   // 系统管理员只能进行用户管理，不显示其他功能入口
 
@@ -110,30 +115,53 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
 
           {isPotaRepresentative && (
             <>
-              <ListItemButton onClick={() => setPotaAuthDialogOpen(true)}>
+              <ListItemButton onClick={() => setPotaMenuOpen(!potaMenuOpen)}>
                 <ListItemIcon>
-                  <VpnKeyIcon />
+                  <SettingsIcon />
                 </ListItemIcon>
-                <ListItemText primary="POTA 认证" />
+                <ListItemText primary="POTA 管理" />
+                {potaMenuOpen ? <ExpandLess /> : <ExpandMore />}
               </ListItemButton>
-              <ListItemButton onClick={() => navigate('/pota-import')}>
-                <ListItemIcon>
-                  <UploadIcon />
-                </ListItemIcon>
-                <ListItemText primary="POTA 公园导入" />
-              </ListItemButton>
-              <ListItemButton onClick={() => navigate('/pota-unprocessed')}>
-                <ListItemIcon>
-                  <ListIcon />
-                </ListItemIcon>
-                <ListItemText primary="POTA 未处理公园" />
-              </ListItemButton>
-              <ListItemButton onClick={() => navigate('/pota-sync-logs')}>
-                <ListItemIcon>
-                  <HistoryIcon />
-                </ListItemIcon>
-                <ListItemText primary="POTA 同步日志" />
-              </ListItemButton>
+              <Collapse in={potaMenuOpen} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  <ListItemButton
+                    sx={{ pl: 4 }}
+                    onClick={() => setPotaAuthDialogOpen(true)}
+                  >
+                    <ListItemIcon>
+                      <VpnKeyIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="POTA 认证" />
+                  </ListItemButton>
+                  <ListItemButton
+                    sx={{ pl: 4 }}
+                    onClick={() => navigate('/pota-import')}
+                  >
+                    <ListItemIcon>
+                      <UploadIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="公园导入" />
+                  </ListItemButton>
+                  <ListItemButton
+                    sx={{ pl: 4 }}
+                    onClick={() => navigate('/pota-unprocessed')}
+                  >
+                    <ListItemIcon>
+                      <ListIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="未处理公园" />
+                  </ListItemButton>
+                  <ListItemButton
+                    sx={{ pl: 4 }}
+                    onClick={() => navigate('/pota-sync-logs')}
+                  >
+                    <ListItemIcon>
+                      <HistoryIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="同步日志" />
+                  </ListItemButton>
+                </List>
+              </Collapse>
             </>
           )}
 
