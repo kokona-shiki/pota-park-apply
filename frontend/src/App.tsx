@@ -158,6 +158,39 @@ function RequireAuth({ children }: { children: ReactElement }) {
   return children;
 }
 
+/**
+ * 需要 POTA 权限的路由保护
+ */
+function RequirePotaPermission({ children }: { children: ReactElement }) {
+  const { user, isAuthLoading } = useAuthRequired();
+  const location = useLocation();
+  
+  // 如果正在加载认证状态,显示加载提示
+  if (isAuthLoading) {
+    return (
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+      >
+        <Typography>加载中...</Typography>
+      </Box>
+    );
+  }
+
+  // 认证加载完成,检查用户是否登录
+  if (!user) {
+    // 保存目标路径到 localStorage,以便登录后跳转
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
+    }
+    return (
+      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
+    );
+  }
+
+  // 不再检查权限，让后端处理权限控制
+  return children;
+}
+
 function RequireSysAdmin({ children }: { children: ReactElement }) {
   const { user, isAuthLoading } = useAuthRequired();
   const location = useLocation();
@@ -675,15 +708,6 @@ function App() {
     };
   }, [ensureValidAccessToken, getCurrentAccessToken, logout, navigate]);
 
-  // 使用权限检查替代角色检查
-  const { hasPermission: hasReviewPermission } = usePermission('review_application');
-  const { hasPermission: hasViewAllUsersPermission } = usePermission('view_all_users');
-  const { hasPermission: hasPotaImportPermission } = usePermission('pota_import');
-
-  const isAdmin = hasReviewPermission === true;
-  const isSysAdmin = hasViewAllUsersPermission === true;
-  const isPotaRepresentative = hasPotaImportPermission === true;
-
   return (
     <AuthContext.Provider
       value={{
@@ -697,107 +721,123 @@ function App() {
         isTokenReady: isTokenReadyRef.current,
       }}
     >
-      <Box sx={{ display: 'flex' }}>
-        {!isAuthPage && (
-          <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-        )}
-        {!isAuthPage && (
-          <SideBar
-            isOpen={isSidebarOpen}
-            isAdmin={isAdmin}
-            isSysAdmin={isSysAdmin}
-            isPotaRepresentative={isPotaRepresentative}
-          />
-        )}
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-          {!isAuthPage && <Toolbar />}
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <RequireAuth>
-                  <Home />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/add-park"
-              element={
-                <RequireNotSysAdmin>
-                  <AddPark />
-                </RequireNotSysAdmin>
-              }
-            />
-            <Route
-              path="/applications"
-              element={
-                <RequireNotSysAdmin>
-                  <ApplicationsList />
-                </RequireNotSysAdmin>
-              }
-            />
-            <Route
-              path="/my-uploads"
-              element={
-                <RequireNotSysAdmin>
-                  <MyUploads />
-                </RequireNotSysAdmin>
-              }
-            />
-            <Route
-              path="/export"
-              element={
-                <RequireNotSysAdmin>
-                  <ExportPage />
-                </RequireNotSysAdmin>
-              }
-            />
-            <Route path="/about" element={<About />} />
-            <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-            <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
-            <Route
-              path="/user-info"
-              element={
-                <RequireAuth>
-                  <UserInfo />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/admin-panel"
-              element={
-                <RequireSysAdmin>
-                  <AdminPanel />
-                </RequireSysAdmin>
-              }
-            />
-            <Route
-              path="/callsign-change-requests"
-              element={
-                <RequireSysAdmin>
-                  <CallsignChangeRequests />
-                </RequireSysAdmin>
-              }
-            />
-            <Route
-              path="/pota-import"
-              element={
-                <RequireAuth>
-                  <PotaImport />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/pota-unprocessed"
-              element={
-                <RequireAuth>
-                  <PotaUnprocessedParks />
-                </RequireAuth>
-              }
-            />
-          </Routes>
+      {isAuthLoading ? (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '100vh',
+          }}
+        >
+          <Typography>加载中...</Typography>
         </Box>
-      </Box>
+      ) : (
+        <Box sx={{ display: 'flex' }}>
+          {!isAuthPage && (
+            <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+          )}
+          {!isAuthPage && (
+            <SideBar
+              isOpen={isSidebarOpen}
+              isAdmin={!!user && user.permissions?.includes('review_application') === true}
+              isSysAdmin={!!user && user.permissions?.includes('view_all_users') === true}
+              isPotaRepresentative={!!user && user.permissions?.includes('pota_import') === true}
+            />
+          )}
+          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+            {!isAuthPage && <Toolbar />}
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <RequireAuth>
+                    <Home />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/add-park"
+                element={
+                  <RequireNotSysAdmin>
+                    <AddPark />
+                  </RequireNotSysAdmin>
+                }
+              />
+              <Route
+                path="/applications"
+                element={
+                  <RequireNotSysAdmin>
+                    <ApplicationsList />
+                  </RequireNotSysAdmin>
+                }
+              />
+              <Route
+                path="/my-uploads"
+                element={
+                  <RequireNotSysAdmin>
+                    <MyUploads />
+                  </RequireNotSysAdmin>
+                }
+              />
+              <Route
+                path="/export"
+                element={
+                  <RequireNotSysAdmin>
+                    <ExportPage />
+                  </RequireNotSysAdmin>
+                }
+              />
+              <Route path="/about" element={<About />} />
+              <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+              <Route
+                path="/register"
+                element={!user ? <Register /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/user-info"
+                element={
+                  <RequireAuth>
+                    <UserInfo />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin-panel"
+                element={
+                  <RequireSysAdmin>
+                    <AdminPanel />
+                  </RequireSysAdmin>
+                }
+              />
+              <Route
+                path="/callsign-change-requests"
+                element={
+                  <RequireSysAdmin>
+                    <CallsignChangeRequests />
+                  </RequireSysAdmin>
+                }
+              />
+              <Route
+                path="/pota-import"
+                element={
+                  <RequirePotaPermission>
+                    <PotaImport />
+                  </RequirePotaPermission>
+                }
+              />
+              <Route
+                path="/pota-unprocessed"
+                element={
+                  <RequirePotaPermission>
+                    <PotaUnprocessedParks />
+                  </RequirePotaPermission>
+                }
+              />
+            </Routes>
+          </Box>
+        </Box>
+      )}
     </AuthContext.Provider>
   );
 }
