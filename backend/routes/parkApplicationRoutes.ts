@@ -1,15 +1,45 @@
 import express from 'express';
+import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as parkApplicationService from '../services/parkApplicationService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
+import { ParkApplicationSubmitRequestSchema } from '../../shared/schemas/parkApplication.js';
 
 const router = express.Router();
+
+const reviewSchema = z.object({
+  status: z.union([z.literal('approved'), z.literal('rejected')]),
+  reviewNotes: z.string().optional(),
+  rejectionReason: z.string().nullable().optional(),
+});
+
+const reReviewSchema = z.object({
+  status: z.union([z.literal('approved'), z.literal('rejected')]),
+  reviewNotes: z.string().optional(),
+});
+
+const syncSchema = z.object({
+  potaNotes: z.string().optional(),
+});
+
+const reminderSchema = z.object({
+  reminderType: z.union([z.literal('general'), z.literal('urgent'), z.literal('escalated')]),
+  notes: z.string().optional(),
+  remindedTo: z.union([z.string(), z.number()]).optional(),
+});
 
 // 提交公园申请
 router.post('/api/park-applications', authenticateToken, async (req, res) => {
   try {
-    const applicationData = req.body;
+    const parsed = ParkApplicationSubmitRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'MISSING_FIELDS', '缺少必填字段', {
+        missingFields: parsed.error.issues.map((issue) => issue.path.join('.')),
+      });
+    }
+
+    const applicationData = parsed.data;
 
     // 验证省份字段（必须有省份信息）
     const hasProvinces =
@@ -28,7 +58,7 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
     }
 
     const application = await parkApplicationService.submitParkApplication(
-      req.user.id,
+      req.user?.id,
       applicationData
     );
 
@@ -45,7 +75,7 @@ router.get('/api/my-applications', authenticateToken, async (req, res) => {
     const { status, province } = req.query;
 
     const applications = await parkApplicationService.getMyApplications(
-      req.user.id,
+      req.user?.id,
       status,
       province
     );
@@ -66,10 +96,10 @@ router.get('/api/park-applications', authenticateToken, async (req, res) => {
     const { status, province, applicantId } = req.query;
 
     const applications = await parkApplicationService.getApplications(
-      req.user.id,
+      req.user?.id,
       status,
       province,
-      applicantId ? parseInt(applicantId, 10) : null
+      applicantId ? parseInt(applicantId as string, 10) : null
     );
 
     return sendOk(res, { applications }, 'ok');
@@ -88,7 +118,7 @@ router.get('/api/park-applications/:id', authenticateToken, async (req, res) => 
     const { id } = req.params;
 
     const application = await parkApplicationService.getApplicationById(
-      req.user.id,
+      req.user?.id,
       parseInt(id, 10)
     );
 
@@ -107,14 +137,18 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, reviewNotes, rejectionReason } = req.body;
+      const parsed = reviewSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'VALIDATION_ERROR', '无效的审核状态', null);
+      }
+      const { status, reviewNotes, rejectionReason } = parsed.data;
 
       if (!status || !['approved', 'rejected'].includes(status)) {
         return sendBizError(res, 'VALIDATION_ERROR', '无效的审核状态', null);
       }
 
       const application = await parkApplicationService.reviewApplication(
-        req.user.id,
+        req.user?.id,
         parseInt(id, 10),
         status,
         reviewNotes,
@@ -133,14 +167,18 @@ router.put(
 router.put('/api/park-applications/:id/re-review', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, reviewNotes } = req.body;
+    const parsed = reReviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'VALIDATION_ERROR', '无效的状态', null);
+    }
+    const { status, reviewNotes } = parsed.data;
 
     if (!status || !['approved', 'rejected'].includes(status)) {
       return sendBizError(res, 'VALIDATION_ERROR', '无效的状态', null);
     }
 
     const application = await parkApplicationService.reReviewApplication(
-      req.user.id,
+      req.user?.id,
       parseInt(id, 10),
       status,
       reviewNotes
@@ -161,10 +199,14 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { potaNotes } = req.body;
+      const parsed = syncSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'VALIDATION_ERROR', '无效的备注内容', null);
+      }
+      const { potaNotes } = parsed.data;
 
       const application = await parkApplicationService.syncToPOTA(
-        req.user.id,
+        req.user?.id,
         parseInt(id, 10),
         potaNotes
       );
@@ -182,7 +224,7 @@ router.get('/api/park-applications/:id/audit-logs', authenticateToken, async (re
   try {
     const { id } = req.params;
 
-    const logs = await parkApplicationService.getAuditLogs(req.user.id, parseInt(id, 10));
+    const logs = await parkApplicationService.getAuditLogs(req.user?.id, parseInt(id, 10));
 
     return sendOk(res, { logs }, 'ok');
   } catch (error) {
@@ -199,18 +241,22 @@ router.post(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { reminderType, notes, remindedTo } = req.body;
+      const parsed = reminderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'VALIDATION_ERROR', '无效的提醒类型', null);
+      }
+      const { reminderType, notes, remindedTo } = parsed.data;
 
       if (!reminderType || !['general', 'urgent', 'escalated'].includes(reminderType)) {
         return sendBizError(res, 'VALIDATION_ERROR', '无效的提醒类型', null);
       }
 
       const reminder = await parkApplicationService.createReviewReminder(
-        req.user.id,
+        req.user?.id,
         parseInt(id, 10),
         reminderType,
         notes,
-        remindedTo ? parseInt(remindedTo, 10) : null
+        remindedTo ? parseInt(String(remindedTo), 10) : null
       );
 
       return sendOk(res, { reminder }, '审核提醒创建成功');
@@ -227,8 +273,8 @@ router.get('/api/review-reminders', authenticateToken, async (req, res) => {
     const { applicationId, acknowledged } = req.query;
 
     const reminders = await parkApplicationService.getReviewReminders(
-      req.user.id,
-      applicationId ? parseInt(applicationId, 10) : null,
+      req.user?.id,
+      applicationId ? parseInt(applicationId as string, 10) : null,
       acknowledged !== null ? acknowledged === 'true' : null
     );
 

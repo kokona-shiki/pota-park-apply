@@ -19,7 +19,8 @@ import {
   Alert,
   Divider
 } from '@mui/material';
-import axios from 'axios';
+import { UserAdminAuditLogsDataSchema, UserUpdateDataSchema, UsersDataSchema, type User } from '../../../shared/schemas/user';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
 import { getRoleOptions, getRoleDisplayName } from '../utils/roleDisplay';
@@ -49,7 +50,7 @@ function AdminPanel() {
   const { user: currentUser, isAuthLoading } = useAuth();
   const [tab, setTab] = useState(0);
 
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [logs, setLogs] = useState<UserAdminAuditLog[]>([]);
@@ -72,8 +73,8 @@ function AdminPanel() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/api/users');
-      setUsers(res.data.users || []);
+      const payload = await requestWithSchema(apiClient.get('/api/users'), UsersDataSchema);
+      setUsers(payload.users || []);
     } catch (e: any) {
       alert(getApiErrorMessage(e, '获取用户列表失败'));
     } finally {
@@ -85,8 +86,11 @@ function AdminPanel() {
     setLogsLoading(true);
     setLogsError(null);
     try {
-      const res = await axios.get('/api/user-admin-audit-logs', { params: { limit: 200 } });
-      setLogs(res.data.logs || []);
+      const payload = await requestWithSchema(
+        apiClient.get('/api/user-admin-audit-logs', { params: { limit: 200 } }),
+        UserAdminAuditLogsDataSchema
+      );
+      setLogs(payload.logs || []);
     } catch (e: any) {
       setLogsError(getApiErrorMessage(e, '获取操作日志失败'));
     } finally {
@@ -106,7 +110,7 @@ function AdminPanel() {
     loadLogs();
   }, [isAuthLoading, currentUser]);
 
-  const handleRoleChange = async (targetUser: any, newRole: string) => {
+  const handleRoleChange = async (targetUser: User, newRole: string) => {
     const reason = window.prompt('请输入修改角色理由（必填）');
     if (!reason || !reason.trim()) {
       alert('必须填写理由');
@@ -117,8 +121,11 @@ function AdminPanel() {
     roleChangeRequestRef.current[targetUser.id] = true;
 
     try {
-      const res = await axios.put(`/api/users/${targetUser.id}/role`, { role: newRole, reason });
-      const updated = res.data.user;
+      const payload = await requestWithSchema(
+        apiClient.put(`/api/users/${targetUser.id}/role`, { role: newRole, reason }),
+        UserUpdateDataSchema
+      );
+      const updated = payload.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
       alert(getApiErrorMessage(e, '修改角色失败'));
@@ -127,13 +134,16 @@ function AdminPanel() {
     }
   };
 
-  const handleActiveChange = async (targetUser: any, isActive: boolean) => {
+  const handleActiveChange = async (targetUser: User, isActive: boolean) => {
     if (activeChangeRequestRef.current[targetUser.id]) return;
     activeChangeRequestRef.current[targetUser.id] = true;
 
     try {
-      const res = await axios.put(`/api/users/${targetUser.id}/active`, { isActive });
-      const updated = res.data.user;
+      const payload = await requestWithSchema(
+        apiClient.put(`/api/users/${targetUser.id}/active`, { isActive }),
+        UserUpdateDataSchema
+      );
+      const updated = payload.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     } catch (e: any) {
       alert(getApiErrorMessage(e, '封禁/解封失败'));

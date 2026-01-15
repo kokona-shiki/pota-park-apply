@@ -1,4 +1,6 @@
-import axios from 'axios';
+import { z } from 'zod';
+import { apiClient, requestWithSchema } from '../../apiClient';
+import { OsmGeocodeItemSchema, OsmReverseSchema } from '../schemas';
 import type { IMapService } from '../IMapService';
 import type {
   TileConfig,
@@ -57,16 +59,12 @@ export class OSMService implements IMapService {
       params.append('accept-language', options.language);
     }
 
-    const response = await axios.get<
-      Array<{
-        display_name: string;
-        lat: string;
-        lon: string;
-        boundingbox?: [string, string, string, string];
-      }>
-    >(`${this.GEOCODING_PROXY_PATH}/search?${params.toString()}`);
+    const items = await requestWithSchema(
+      apiClient.get(`${this.GEOCODING_PROXY_PATH}/search?${params.toString()}`),
+      z.array(OsmGeocodeItemSchema)
+    );
 
-    return response.data.map((item) => ({
+    return items.map((item) => ({
       address: item.display_name,
       location: {
         latitude: Number.parseFloat(item.lat),
@@ -99,12 +97,15 @@ export class OSMService implements IMapService {
       params.append('accept-language', options.language);
     }
 
-    const response = await axios.get(`${this.GEOCODING_PROXY_PATH}/reverse?${params.toString()}`);
+    const payload = await requestWithSchema(
+      apiClient.get(`${this.GEOCODING_PROXY_PATH}/reverse?${params.toString()}`),
+      OsmReverseSchema
+    );
 
     return {
-      address: response.data.display_name,
+      address: payload.display_name,
       location,
-      components: response.data.address,
+      components: payload.address,
     };
   }
 }

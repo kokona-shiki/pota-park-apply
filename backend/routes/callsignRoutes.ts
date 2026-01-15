@@ -3,19 +3,20 @@ import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
+import { CallsignChangeRequestCreateSchema, CallsignChangeReviewSchema } from '../../shared/schemas/callsign.js';
 
 const router = express.Router();
 
 // 申请呼号变更
 router.post('/api/callsign-change-requests', authenticateToken, async (req, res) => {
   try {
-    const { newCallsign, reason } = req.body;
-
-    if (!newCallsign || !reason) {
+    const parsed = CallsignChangeRequestCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
       return sendBizError(res, 'VALIDATION_ERROR', '新呼号和申请原因不能为空', null);
     }
+    const { newCallsign, reason } = parsed.data;
 
-    const request = await userService.requestCallsignChange(req.user.id, newCallsign, reason);
+    const request = await userService.requestCallsignChange(req.user?.id, newCallsign, reason);
 
     return sendOk(res, { request }, '呼号变更申请提交成功');
   } catch (error) {
@@ -37,7 +38,10 @@ router.get(
       return sendOk(res, { requests }, 'ok');
     } catch (error) {
       console.error('获取呼号变更申请失败:', error);
-      return sendError(res, error, { httpMessage: '获取呼号变更申请失败', bizMessage: '获取呼号变更申请失败' });
+      return sendError(res, error, {
+        httpMessage: '获取呼号变更申请失败',
+        bizMessage: '获取呼号变更申请失败',
+      });
     }
   }
 );
@@ -50,14 +54,18 @@ router.put(
   async (req, res) => {
     try {
       const { requestId } = req.params;
-      const { status, reviewNotes } = req.body;
+      const parsed = CallsignChangeReviewSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'VALIDATION_ERROR', '无效的审核状态', null);
+      }
+      const { status, reviewNotes } = parsed.data;
 
       if (!status || !['approved', 'rejected'].includes(status)) {
         return sendBizError(res, 'VALIDATION_ERROR', '无效的审核状态', null);
       }
 
       const result = await userService.reviewCallsignChange(
-        req.user.id,
+        req.user?.id,
         parseInt(requestId, 10),
         status,
         reviewNotes

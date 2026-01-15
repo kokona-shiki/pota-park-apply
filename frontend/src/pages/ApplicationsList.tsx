@@ -18,7 +18,12 @@ import {
   Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import axios from 'axios';
+import {
+  ApplicationDetailDataSchema,
+  ApplicationsDataSchema,
+  ParkApplicationDetailPartialSchema,
+} from '../../../shared/schemas/parkApplication';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
@@ -74,8 +79,11 @@ function ApplicationsList() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get<{ applications?: ParkApplication[] }>('/api/park-applications');
-      setApplications(res.data?.applications ?? []);
+      const payload = await requestWithSchema(
+        apiClient.get('/api/park-applications'),
+        ApplicationsDataSchema
+      );
+      setApplications(payload.applications ?? []);
       setPage(0);
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, '获取申请列表失败'));
@@ -114,10 +122,11 @@ function ApplicationsList() {
 
     try {
       setDetailLoading(true);
-      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
-        `/api/park-applications/${app.id}`
+      const payload = await requestWithSchema(
+        apiClient.get(`/api/park-applications/${app.id}`),
+        ApplicationDetailDataSchema
       );
-      setSelected(res.data?.application ?? null);
+      setSelected(payload.application ?? null);
     } catch (e: unknown) {
       setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
     } finally {
@@ -135,10 +144,11 @@ function ApplicationsList() {
 
     try {
       setDetailLoading(true);
-      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
-        `/api/park-applications/${app.id}`
+      const payload = await requestWithSchema(
+        apiClient.get(`/api/park-applications/${app.id}`),
+        ApplicationDetailDataSchema
       );
-      setSelected(res.data?.application ?? null);
+      setSelected(payload.application ?? null);
     } catch (e: unknown) {
       setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
     } finally {
@@ -185,16 +195,18 @@ function ApplicationsList() {
       setReviewSubmitting(true);
       setDetailError(null);
 
-      const res = await axios.put<{ application?: Partial<ParkApplicationDetail> }>(
-        `/api/park-applications/${selected.id}/review`,
-        {
+      const payload = await requestWithSchema(
+        apiClient.put(`/api/park-applications/${selected.id}/review`, {
           status,
           reviewNotes: reviewNotes.trim(),
           rejectionReason: status === 'rejected' ? rejectionReason.trim() : null,
-        }
+        }),
+        ApplicationDetailDataSchema.extend({
+          application: ParkApplicationDetailPartialSchema.optional(),
+        })
       );
 
-      const updated = res.data?.application;
+      const updated = payload.application;
       if (updated) {
         setApplications((prev) =>
           prev.map((a) => (a.id === selected.id ? { ...a, ...updated } : a))

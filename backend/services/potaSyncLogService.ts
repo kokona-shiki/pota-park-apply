@@ -1,14 +1,32 @@
 import { query, getMany, insert } from '../config/database.js';
 
+type PotaSyncLogPark = {
+  reference: string;
+  name: string;
+  status: 'success' | 'failed' | 'skipped';
+  reason?: string;
+};
+
+type PotaSyncLogFilters = {
+  startDate?: string;
+  endDate?: string;
+  operationType?: string;
+};
+
+type PotaSyncLogPagination = {
+  page?: number;
+  pageSize?: number;
+};
+
 /**
  * 记录POTA同步日志
  */
 export const logPotaSync = async (
-  operator,
-  operationType,
-  parksImported,
-  status,
-  details = null
+  operator: string,
+  operationType: string,
+  parksImported: PotaSyncLogPark[],
+  status: string,
+  details: string | null = null
 ) => {
   try {
     const logEntry = await insert(
@@ -33,7 +51,10 @@ export const logPotaSync = async (
 /**
  * 获取POTA同步日志列表
  */
-export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
+export const getPotaSyncLogs = async (
+  filters: PotaSyncLogFilters = {},
+  pagination: PotaSyncLogPagination = {}
+) => {
   try {
     const {
       page = 1,
@@ -44,7 +65,7 @@ export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
     } = { ...pagination, ...filters };
 
     let whereClause = '';
-    const params = [];
+    const params: Array<string | number> = [];
     let paramIndex = 1;
 
     // 构建过滤条件
@@ -75,10 +96,10 @@ export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
       `SELECT COUNT(*) as total FROM pota_sync_logs ${whereClause}`,
       params
     );
-    const total = parseInt(countResult.rows[0].total);
+    const total = Number.parseInt(countResult.rows[0].total, 10);
 
     // 计算偏移量
-    const offset = (page - 1) * pageSize;
+    const offset = (Number(page) - 1) * Number(pageSize);
 
     // 添加分页和排序
     const orderBy = 'ORDER BY sync_date DESC';
@@ -107,10 +128,10 @@ export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
     return {
       logs,
       pagination: {
-        page: parseInt(page),
-        pageSize: parseInt(pageSize),
+        page: Number.parseInt(String(page), 10),
+        pageSize: Number.parseInt(String(pageSize), 10),
         total,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: Math.ceil(total / Number(pageSize)),
       },
     };
   } catch (error) {
@@ -122,7 +143,7 @@ export const getPotaSyncLogs = async (filters = {}, pagination = {}) => {
 /**
  * 获取单个POTA同步日志详情
  */
-export const getPotaSyncLogById = async (logId) => {
+export const getPotaSyncLogById = async (logId: number) => {
   try {
     const log = await query(
       `
@@ -151,7 +172,7 @@ export const getPotaSyncLogById = async (logId) => {
 /**
  * 验证用户是否有查看POTA同步日志的权限
  */
-export const hasPotaSyncLogPermission = async (userId) => {
+export const hasPotaSyncLogPermission = async (userId: number) => {
   try {
     const result = await query(
       `
@@ -166,7 +187,7 @@ export const hasPotaSyncLogPermission = async (userId) => {
       [userId]
     );
 
-    return parseInt(result.rows[0].count) > 0;
+    return Number.parseInt(result.rows[0].count, 10) > 0;
   } catch (error) {
     console.error('检查POTA同步日志权限失败:', error.message);
     return false;

@@ -2,12 +2,13 @@
   "name": "pota-park-backend",
   "version": "1.0.0",
   "description": "POTA Park Apply Backend API",
-  "main": "index.js",
+  "main": "index.ts",
   "type": "module",
   "packageManager": "pnpm@8.15.0",
   "scripts": {
-    "dev": "node index.js",
-    "start": "node index.js",
+    "dev": "tsx index.ts",
+    "start": "tsx index.ts",
+    "build": "tsc -p tsconfig.json",
     "init-db": "node scripts/initDatabase.js",
     "migrate:remove-admin-review-permissions": "node migrations/001-remove-system-admin-review-permissions.js",
     "test-api": "node test/test-api.js",
@@ -24,12 +25,19 @@
     "express-rate-limit": "^7.5.1",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "pg": "^8.11.3",
     "puppeteer": "^24.34.0",
-    "node-cron": "^3.0.3"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-rate-limit": "^6.0.2",
+    "@types/node": "^24.10.1",
+    "nodemon": "^3.0.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
   }
 }

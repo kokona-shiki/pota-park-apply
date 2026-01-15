@@ -18,10 +18,13 @@ import AdminPanel from './pages/AdminPanel';
 import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
-import axios from 'axios';
+import { z } from 'zod';
+import { AuthPayloadSchema } from '../../shared/schemas/auth';
+import { apiClient, requestWithSchema } from './services/apiClient';
 import { usePermission } from './hooks/usePermission';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
+import { safeParseJsonWithSchema } from './utils/parseJson';
 
 const TOKEN_EXP_SKEW_MS = 60 * 1000; // exp 提前 60 秒视为“即将过期”
 const REFRESH_LOCK_KEY = 'pota_is_refreshing';
@@ -29,9 +32,21 @@ const REFRESH_LOCK_TTL_MS = 30 * 1000;
 const REFRESH_WAIT_TIMEOUT_MS = 35 * 1000;
 const TAB_ID_KEY = 'pota_tab_id';
 
+const JwtPayloadSchema = z
+  .object({
+    exp: z.number().optional(),
+    iat: z.number().optional(),
+  })
+  .passthrough();
+
+const RefreshLockSchema = z.object({
+  owner: z.string(),
+  ts: z.number(),
+});
+
 type AuthData = {
   accessToken: string;
-  user: unknown;
+  user: AuthUser;
 };
 
 type RefreshLock = {
@@ -65,7 +80,7 @@ function decodeJwtPayload(token: string) {
     if (parts.length !== 3) return null;
     const payload = parts[1];
     const json = atob(base64UrlToBase64(payload));
-    return JSON.parse(json);
+    return safeParseJsonWithSchema(JwtPayloadSchema, json);
   } catch {
     return null;
   }
@@ -95,9 +110,7 @@ function readAuthData() {
   const raw = localStorage.getItem(AUTH_DATA_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as AuthData;
-    if (!parsed?.accessToken) return null;
-    return parsed;
+    return safeParseJsonWithSchema(AuthPayloadSchema, raw);
   } catch {
     return null;
   }
@@ -111,9 +124,7 @@ function readRefreshLock(): RefreshLock | null {
   const raw = localStorage.getItem(REFRESH_LOCK_KEY);
   if (!raw) return null;
   try {
-    const lock = JSON.parse(raw) as RefreshLock;
-    if (!lock?.owner || typeof lock.ts !== 'number') return null;
-    return lock;
+    return safeParseJsonWithSchema(RefreshLockSchema, raw);
   } catch {
     return null;
   }
@@ -291,21 +302,16 @@ function App() {
     locationRef.current = location;
   }, [location]);
 
-  // axios 在需要时携带 cookie（同源下也会自动携带，这里显式开启以兼容未来配置）
-  useEffect(() => {
-    axios.defaults.withCredentials = true;
-  }, []);
-
   // token -> axios 默认 Authorization
   useEffect(() => {
     accessTokenRef.current = accessToken;
 
     if (accessToken) {
-      axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
       isTokenReadyRef.current = true;
       console.log(
         '[App] Authorization header 已设置:',
-        axios.defaults.headers.common.Authorization.substring(0, 50) + '...'
+        apiClient.defaults.headers.common.Authorization.substring(0, 50) + '...'
       );
     }
     // 不要在 accessToken 为 null 时清除 header，避免初始加载时的竞态条件
@@ -350,7 +356,7 @@ function App() {
     localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()));
 
     // 通知后端清除 refresh cookie（失败也不影响前端登出）
-    axios.post('/api/logout').catch((e) => {
+    requestWithSchema(apiClient.post('/api/logout'), z.null()).catch((e) => {
       console.warn('退出登录请求失败（忽略）:', e?.message || e);
     });
 
@@ -366,15 +372,10 @@ function App() {
   }, []);
 
   const performRefreshAsLeader = useCallback(async () => {
-    const res = await axios.post(
-      '/api/refresh-token',
-      {},
-      { headers: { 'X-Tab-Id': tabIdRef.current } }
+    const { accessToken: newAccessToken, user: newUser } = await requestWithSchema(
+      apiClient.post('/api/refresh-token', {}, { headers: { 'X-Tab-Id': tabIdRef.current } }),
+      AuthPayloadSchema
     );
-    const { accessToken: newAccessToken, user: newUser } = res.data as {
-      accessToken: string;
-      user: unknown;
-    };
 
     if (!newAccessToken || !newUser) {
       throw new Error('刷新 token 返回数据不完整');
@@ -502,7 +503,7 @@ function App() {
     const stored = readAuthData();
     if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
       console.log('[App] 从 localStorage 恢复登录态（token 有效）');
-      axios.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
+      apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
       isTokenReadyRef.current = true;
       setAccessToken(stored.accessToken);
       setUser(stored.user as AuthUser);
@@ -554,9 +555,15 @@ function App() {
         }
 
         try {
-          const authData: AuthData = JSON.parse(e.newValue);
+          const authData = safeParseJsonWithSchema(AuthPayloadSchema, e.newValue);
+          if (!authData) {
+            setAccessToken(null);
+            setUser(null);
+            rejectAllWaiters(new Error('认证信息解析失败'));
+            return;
+          }
           setAccessToken(authData.accessToken);
-          setUser(authData.user as AuthUser);
+          setUser(authData.user);
           console.log('[App] 从其他标签页同步 token');
           resolveAllWaiters(authData.accessToken || null);
         } catch (err) {
@@ -587,7 +594,7 @@ function App() {
     interceptorRegisteredRef.current = true;
 
     // request interceptor
-    axios.interceptors.request.use(async (config) => {
+    apiClient.interceptors.request.use(async (config) => {
       const url = String((config as { url?: string })?.url || '');
       const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
       const isRefreshRequest = url.includes('/api/refresh-token');
@@ -624,17 +631,21 @@ function App() {
     });
 
     // response interceptor
-    axios.interceptors.response.use(
+    apiClient.interceptors.response.use(
       (res) => {
         // 统一后端返回：{ code, message, data }
         const payload = res?.data as {
           code?: number;
           message?: string;
           data?: unknown;
+          pagination?: unknown;
           [key: string]: unknown;
         };
         if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
           if (payload.code === 0) {
+            if ('pagination' in payload) {
+              return { ...res, data: payload };
+            }
             return { ...res, data: payload.data };
           }
 
@@ -689,7 +700,7 @@ function App() {
                 Authorization: `Bearer ${token}`,
               };
             }
-            return axios(originalRequest);
+            return apiClient(originalRequest);
           })
           .catch((refreshErr) => {
             const from = locationRef.current;

@@ -1,13 +1,5 @@
 import { createContext } from 'react';
-
-export type AuthUser = {
-  id: number;
-  email?: string | null;
-  callsign?: string | null;
-  role?: string | null;
-  permissions?: string[];
-  is_active?: boolean;
-};
+import type { AuthUser } from '../../../shared/schemas/auth';
 
 export type AuthContextValue = {
   user: AuthUser | null;

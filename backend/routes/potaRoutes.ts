@@ -1,4 +1,5 @@
 import express from 'express';
+import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 import potaAuthService from '../services/potaAuthService.js';
@@ -9,7 +10,11 @@ const router = express.Router();
 /**
  * 检查用户是否具有 POTA 导入权限
  */
-const requirePotaImportPermission = async (req, res, next) => {
+const requirePotaImportPermission = async (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
   // 由于authenticateToken中间件已经设置了权限信息，直接检查即可
   if (!req.user || !req.user.hasPotaImportPermission) {
     return res
@@ -19,32 +24,42 @@ const requirePotaImportPermission = async (req, res, next) => {
   next();
 };
 
+const potaLoginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+const potaCallbackSchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1),
+});
+
 /**
  * POTA 登录（使用账号密码 + Puppeteer）
  */
 router.post('/api/pota/login', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
+    const parsed = potaLoginSchema.safeParse(req.body);
+    if (!parsed.success) {
       return sendBizError(res, 'MISSING_PARAMS', '用户名和密码不能为空', null);
     }
+    const { username, password } = parsed.data;
 
     // 使用 Puppeteer 登录
-    const { tokens, pkce } = await potaAuthService.loginWithCredentials(username, password);
+    const { tokens } = await potaAuthService.loginWithCredentials(username, password);
 
     // 解析 token 获取过期时间
     const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
 
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
 
     // 存储 token 到数据库（加密）
     await potaAuthService.storeTokens(
-      req.user.id,
+      req.user?.id,
       {
         idToken: tokens.idToken,
         accessToken: tokens.accessToken,
@@ -55,7 +70,7 @@ router.post('/api/pota/login', authenticateToken, requirePotaImportPermission, a
     );
 
     // 清理 PKCE 参数（如果存在）
-    await potaAuthService.clearPKCE(req.user.id);
+    await potaAuthService.clearPKCE(req.user?.id);
 
     return sendOk(res, {
       success: true,
@@ -64,7 +79,7 @@ router.post('/api/pota/login', authenticateToken, requirePotaImportPermission, a
     });
   } catch (error) {
     console.error('POTA 登录失败:', error);
-    return sendError(res, error, { bizMessage: error.message || 'POTA 登录失败' });
+    return sendError(res, error, { bizMessage: (error as Error)?.message || 'POTA 登录失败' });
   }
 });
 
@@ -80,7 +95,7 @@ router.post(
       const pkce = potaAuthService.generatePKCE();
 
       // 保存 PKCE 参数到数据库
-      await potaAuthService.storePKCE(req.user.id, pkce);
+      await potaAuthService.storePKCE(req.user?.id, pkce);
 
       const authUrl = potaAuthService.getAuthorizationUrl(pkce);
 
@@ -104,14 +119,14 @@ router.post(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const { code, state } = req.body;
-
-      if (!code || !state) {
+      const parsed = potaCallbackSchema.safeParse(req.body);
+      if (!parsed.success) {
         return sendBizError(res, 'MISSING_PARAMS', '缺少授权码或状态参数', null);
       }
+      const { code, state } = parsed.data;
 
       // 从数据库获取保存的 PKCE 参数
-      const pkceData = await potaAuthService.getPKCE(req.user.id, state);
+      const pkceData = await potaAuthService.getPKCE(req.user?.id, state);
 
       if (!pkceData) {
         return sendBizError(res, 'INVALID_STATE', '无效的状态参数或已过期', null);
@@ -124,14 +139,14 @@ router.post(
       const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
 
       // 获取用户密码哈希
-      const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+      const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
       if (!user) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
 
       // 存储 token 到数据库（加密）
       await potaAuthService.storeTokens(
-        req.user.id,
+        req.user?.id,
         {
           idToken: tokens.idToken,
           accessToken: tokens.accessToken,
@@ -142,7 +157,7 @@ router.post(
       );
 
       // 清理 PKCE 参数
-      await potaAuthService.clearPKCE(req.user.id);
+      await potaAuthService.clearPKCE(req.user?.id);
 
       return sendOk(res, {
         success: true,
@@ -162,12 +177,12 @@ router.post(
 router.get('/api/pota/token', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
 
-    const idToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
+    const idToken = await potaAuthService.getValidToken(req.user?.id, user.password_hash);
     const tokenInfo = potaAuthService.decodeJWT(idToken);
 
     return sendOk(res, {
@@ -177,8 +192,8 @@ router.get('/api/pota/token', authenticateToken, requirePotaImportPermission, as
   } catch (error) {
     console.error('获取 POTA token 失败:', error);
 
-    if (error.message.includes('未找到') || error.message.includes('刷新失败')) {
-      return sendBizError(res, 'NO_TOKEN', error.message, {
+    if ((error as Error).message.includes('未找到') || (error as Error).message.includes('刷新失败')) {
+      return sendBizError(res, 'NO_TOKEN', (error as Error).message, {
         requiresAuth: true,
       });
     }
@@ -201,11 +216,11 @@ router.delete(
         await potaAuthService.logoutFromPota();
       } catch (logoutError) {
         // 即使 POTA 登出失败，也继续清除本地 token
-        console.warn('POTA 登出接口调用失败，继续清除本地 token:', logoutError.message);
+        console.warn('POTA 登出接口调用失败，继续清除本地 token:', (logoutError as Error).message);
       }
 
       // 清除本地 token
-      await potaAuthService.deleteTokens(req.user.id);
+      await potaAuthService.deleteTokens(req.user?.id);
 
       return sendOk(res, null, '已断开 POTA 连接');
     } catch (error) {
@@ -221,7 +236,7 @@ router.delete(
 router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
@@ -229,7 +244,7 @@ router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, a
     // 使用 getValidToken 方法，它会自动处理 token 刷新
     // 这样确保返回的过期时间是最新的
     try {
-      const validToken = await potaAuthService.getValidToken(req.user.id, user.password_hash);
+      const validToken = await potaAuthService.getValidToken(req.user?.id, user.password_hash);
       const tokenInfo = potaAuthService.decodeJWT(validToken);
 
       return sendOk(res, {
@@ -239,7 +254,7 @@ router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, a
       });
     } catch (error) {
       // 如果 token 已过期且无法刷新，则返回未连接状态
-      if (error.message.includes('未找到') || error.message.includes('刷新失败')) {
+      if ((error as Error).message.includes('未找到') || (error as Error).message.includes('刷新失败')) {
         return sendOk(res, {
           connected: false,
           expiresAt: null,

@@ -1,6 +1,7 @@
 // src/pages/add-park/useSubmit.ts
 import { useState, useRef } from 'react';
-import axios from 'axios';
+import { ApplicationDetailDataSchema, ParkApplicationSubmitRequestSchema } from '../../../../shared/schemas/parkApplication';
+import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { getApiErrorMessage } from '../../utils/error';
 import {
   mapAccessMethodsWithBothLangs,
@@ -74,20 +75,20 @@ export const useSubmit = () => {
     setSubmitting(true);
 
     try {
-      await axios.post(
-        '/api/park-applications',
-        {
-          park_name: name,
-          park_type: type,
-          provinces: provs.length > 0 ? provs : [prov], // 省份数组
-          latitude: latNum,
-          longitude: lonNum,
-          website: params.website,
-          access_methods: mapAccessMethodsWithBothLangs(access),
-          activation_methods: mapActivationMethodsWithBothLangs(activation),
-          confirmed_authenticity: params.confirmed,
-        },
-        { timeout: 5000 }
+      const requestBody = ParkApplicationSubmitRequestSchema.parse({
+        park_name: name,
+        park_type: type,
+        provinces: provs.length > 0 ? provs : [prov], // 省份数组
+        latitude: latNum,
+        longitude: lonNum,
+        website: params.website,
+        access_methods: mapAccessMethodsWithBothLangs(access),
+        activation_methods: mapActivationMethodsWithBothLangs(activation),
+        confirmed_authenticity: params.confirmed,
+      });
+      await requestWithSchema(
+        apiClient.post('/api/park-applications', requestBody, { timeout: 5000 }),
+        ApplicationDetailDataSchema
       ); // 5秒超时
 
       return { success: true };

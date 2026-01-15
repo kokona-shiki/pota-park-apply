@@ -1,6 +1,8 @@
 // src/pages/add-park/useSearch.ts
 import { useState } from 'react';
-import axios from 'axios';
+import { z } from 'zod';
+import { PotaLookupItemSchema, PotaParkInfoSchema } from '../../../../shared/schemas/potaExternal';
+import { apiClient, requestWithSchema } from '../../services/apiClient';
 import type { PotaLookupItem, PotaParkInfo, MapPOI } from './types';
 import {
   mapLocationToProvince,
@@ -22,24 +24,27 @@ export const useSearch = () => {
 
     try {
       // 第一步：搜索公园列表
-      const searchRes = await axios.get<PotaLookupItem[]>(
-        `/proxy-api/pota/lookup?search=${encodeURIComponent(parkName)}`,
-        { timeout: 5000 } // 5秒超时
+      const searchRes = await requestWithSchema(
+        apiClient.get(`/proxy-api/pota/lookup?search=${encodeURIComponent(parkName)}`, {
+          timeout: 5000,
+        }),
+        z.array(PotaLookupItemSchema)
       );
 
-      if (searchRes.data.length === 0) {
+      if (searchRes.length === 0) {
         throw new Error('未找到匹配的 POTA 公园');
       }
 
       // 第二步：获取所有公园的详细信息
       const parksInfo = await Promise.all(
-        searchRes.data.map(async (item) => {
+        searchRes.map(async (item) => {
           try {
-            const parkRes = await axios.get<PotaParkInfo>(
-              `/proxy-api/pota/park/${encodeURIComponent(item.value)}`,
-              { timeout: 5000 }
+            return await requestWithSchema(
+              apiClient.get(`/proxy-api/pota/park/${encodeURIComponent(item.value)}`, {
+                timeout: 5000,
+              }),
+              PotaParkInfoSchema
             );
-            return parkRes.data;
           } catch (err) {
             console.error(`Failed to fetch park ${item.value}:`, err);
             return null;

@@ -178,7 +178,7 @@ npm install -g pm2
 module.exports = {
   apps: [{
     name: 'pota-backend',
-    script: 'index.js',
+    script: 'index.ts',
     cwd: './backend',
     instances: 'max',
     exec_mode: 'cluster',
@@ -218,7 +218,7 @@ pm2 stop pota-backend
 
 #### 强制 HTTPS
 ```javascript
-// 在 index.js 中添加
+// 在 index.ts 中添加
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
     if (req.header('x-forwarded-proto') !== 'https') {

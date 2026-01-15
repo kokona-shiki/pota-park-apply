@@ -24,7 +24,9 @@ import {
   FormHelperText,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import axios from 'axios';
+import { CallsignChangeRequestCreateSchema, CallsignChangeRequestDataSchema } from '../../../shared/schemas/callsign';
+import { UserUpdateDataSchema } from '../../../shared/schemas/user';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
@@ -85,18 +87,15 @@ function UserInfo() {
     setSuccessMessage('');
 
     try {
-      const response = await axios.put(`/api/users/${user.id}`, {
-        field: 'email',
-        value: email,
-        reason: '用户自行修改邮箱',
-        oldPassword: emailOldPassword,
-      });
-
-      const data = response.data;
-
-      if (response.status !== 200) {
-        throw new Error(data.bizMessage || '更新邮箱失败');
-      }
+      await requestWithSchema(
+        apiClient.put(`/api/users/${user.id}`, {
+          field: 'email',
+          value: email,
+          reason: '用户自行修改邮箱',
+          oldPassword: emailOldPassword,
+        }),
+        UserUpdateDataSchema
+      );
 
       // 更新成功后刷新用户信息
       await refreshSession();
@@ -143,17 +142,14 @@ function UserInfo() {
 
     try {
       // 调用修改密码的API，后端需要特别处理密码哈希
-      const response = await axios.put(`/api/users/${user.id}/change-password`, {
-        oldPassword: oldPassword,
-        newPassword: newPassword,
-        reason: '用户自行修改密码',
-      });
-
-      const data = response.data;
-
-      if (response.status !== 200) {
-        throw new Error(data.bizMessage || '更新密码失败');
-      }
+      await requestWithSchema(
+        apiClient.put(`/api/users/${user.id}/change-password`, {
+          oldPassword: oldPassword,
+          newPassword: newPassword,
+          reason: '用户自行修改密码',
+        }),
+        UserUpdateDataSchema
+      );
 
       // 更新成功后刷新用户信息
       await refreshSession();
@@ -252,16 +248,14 @@ function UserInfo() {
     setSuccessMessage('');
 
     try {
-      const response = await axios.post('/api/callsign-change-requests', {
+      const requestBody = CallsignChangeRequestCreateSchema.parse({
         newCallsign: callsign,
         reason: callsignReason,
       });
-
-      const data = response.data;
-
-      if (response.status !== 200) {
-        throw new Error(data.bizMessage || '呼号变更申请提交失败');
-      }
+      await requestWithSchema(
+        apiClient.post('/api/callsign-change-requests', requestBody),
+        CallsignChangeRequestDataSchema
+      );
 
       // 更新成功后刷新用户信息
       await refreshSession();

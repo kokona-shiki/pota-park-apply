@@ -15,30 +15,22 @@ import {
   DialogActions,
 } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
-import axios from 'axios';
+import { z } from 'zod';
+import {
+  ImportTaskResultSummarySchema,
+  ImportTaskSchema,
+  PotaImportLatestTaskDataSchema,
+  PotaImportMarkReadDataSchema,
+  PotaImportStatusDataSchema,
+  PotaImportTriggerDataSchema,
+} from '../../../shared/schemas/potaImport';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
 import { useNavigate } from 'react-router-dom';
 
-interface ImportTaskResultSummary {
-  total: number;
-  imported: number;
-  skipped: number;
-  errors: number;
-  needsManual: number;
-}
+type ImportTaskResultSummary = z.infer<typeof ImportTaskResultSummarySchema>;
 
-interface ImportTask {
-  id: string;
-  status: 'pending' | 'running' | 'success' | 'partial_success' | 'failed';
-  operationType: 'manual' | 'auto';
-  createdAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  queuePosition: number;
-  result: ImportTaskResultSummary | null;
-  error: string | null;
-  readAt: string | null;
-}
+type ImportTask = z.infer<typeof ImportTaskSchema>;
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
@@ -79,8 +71,11 @@ function PotaImport() {
     try {
       setStatusLoading(true);
       setError(null);
-      const res = await axios.get('/api/pota/import-status');
-      setCanImport(Boolean(res.data?.canImport));
+      const payload = await requestWithSchema(
+        apiClient.get('/api/pota/import-status'),
+        PotaImportStatusDataSchema
+      );
+      setCanImport(Boolean(payload.canImport));
     } catch (e: unknown) {
       const error = e as { response?: { status: number } };
       setCanImport(false);
@@ -97,8 +92,10 @@ function PotaImport() {
     if (!user) return;
 
     try {
-      const res = await axios.get('/api/pota/import-task/latest');
-      const latestTask = res.data ?? null;
+      const latestTask = await requestWithSchema(
+        apiClient.get('/api/pota/import-task/latest'),
+        PotaImportLatestTaskDataSchema
+      );
       setTask(latestTask);
       if (
         latestTask &&
@@ -145,9 +142,12 @@ function PotaImport() {
       setError(null);
       setInfo(null);
 
-      const res = await axios.post('/api/pota/import');
-      setTask(res.data?.task ?? null);
-      setInfo(res.data?.message || '已提交 POTA 导入任务');
+      const payload = await requestWithSchema(
+        apiClient.post('/api/pota/import'),
+        PotaImportTriggerDataSchema
+      );
+      setTask(payload.task ?? null);
+      setInfo(payload.message || '已提交 POTA 导入任务');
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, 'POTA公园导入失败'));
     } finally {
@@ -158,7 +158,10 @@ function PotaImport() {
   const handleCloseCompleteDialog = useCallback(async () => {
     if (task?.id) {
       try {
-        await axios.post(`/api/pota/import-task/${task.id}/read`);
+        await requestWithSchema(
+          apiClient.post(`/api/pota/import-task/${task.id}/read`),
+          PotaImportMarkReadDataSchema
+        );
       } catch (e) {
         console.warn('标记导入任务已读失败', e);
       }

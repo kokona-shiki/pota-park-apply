@@ -1,9 +1,56 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import puppeteer from 'puppeteer';
-import { getOne, query, transaction } from '../config/database.js';
+import { getOne, query } from '../config/database.js';
+
+type PkcePayload = {
+  codeVerifier: string;
+  codeChallenge: string;
+  state: string;
+};
+
+type TokenExchangeResult = {
+  idToken: string;
+  accessToken?: string;
+  refreshToken: string;
+  expiresIn?: number;
+  expiresAt?: Date;
+  tokenType?: string;
+};
+
+type TokenRefreshResult = {
+  idToken: string;
+  accessToken?: string;
+  refreshToken: string;
+  expiresIn?: number;
+};
+
+type StoredTokens = {
+  idToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+};
+
+type DecodedTokenInfo = {
+  userId: string;
+  email?: string;
+  callsign?: string;
+  potaId?: string;
+  groups: string[];
+  issuedAt: Date;
+  expiresAt: Date;
+  expiresIn: number;
+  isExpired: () => boolean;
+  willExpireSoon: (minutes?: number) => boolean;
+};
 
 class PotaAuthService {
+  private cognitoDomain: string;
+  private clientId: string;
+  private redirectUri: string;
+  private masterEncryptionKey: Buffer;
+  private algorithm: string;
+
   constructor() {
     this.cognitoDomain = 'parksontheair.auth.us-east-2.amazoncognito.com';
     this.clientId = '7hluqct0n2nckib7i7sd5753oa';
@@ -28,7 +75,7 @@ class PotaAuthService {
   /**
    * 为指定用户生成派生密钥
    */
-  async generateUserDerivedKey(userId, passwordHash) {
+  async generateUserDerivedKey(userId: number, passwordHash: string) {
     // 从数据库获取用户的 POTA 加密盐值
     const userData = await getOne('SELECT pota_encryption_salt FROM users WHERE id = $1', [userId]);
 
@@ -48,7 +95,7 @@ class PotaAuthService {
     const saltBuffer = crypto.createHash('sha256').update(`${userId}:${potaSalt}`).digest();
 
     // 使用 pbkdf2 进行密钥派生
-    const derivedKey = await new Promise((resolve, reject) => {
+    const derivedKey = await new Promise<Buffer>((resolve, reject) => {
       crypto.pbkdf2(
         passwordHash, // 使用密码哈希作为输入
         saltBuffer, // 使用用户ID和盐值的组合作为salt
@@ -68,7 +115,7 @@ class PotaAuthService {
   /**
    * 加密数据（针对特定用户）
    */
-  async encryptForUser(userId, passwordHash, text) {
+  async encryptForUser(userId: number, passwordHash: string, text: string) {
     const userKey = await this.generateUserDerivedKey(userId, passwordHash);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(this.algorithm, userKey, iv);
@@ -81,7 +128,7 @@ class PotaAuthService {
   /**
    * 解密数据（针对特定用户）
    */
-  async decryptForUser(userId, passwordHash, encrypted) {
+  async decryptForUser(userId: number, passwordHash: string, encrypted: string) {
     const userKey = await this.generateUserDerivedKey(userId, passwordHash);
     const [ivHex, authTagHex, encryptedText] = encrypted.split(':');
     const iv = Buffer.from(ivHex, 'hex');
@@ -96,7 +143,7 @@ class PotaAuthService {
   /**
    * 生成 PKCE 参数
    */
-  generatePKCE() {
+  generatePKCE(): PkcePayload {
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
     const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
 
@@ -112,7 +159,7 @@ class PotaAuthService {
   /**
    * 生成授权 URL
    */
-  getAuthorizationUrl(pkce) {
+  getAuthorizationUrl(pkce: PkcePayload) {
     const params = new URLSearchParams({
       redirect_uri: this.redirectUri,
       response_type: 'code',
@@ -130,7 +177,7 @@ class PotaAuthService {
   /**
    * 用授权码交换 token
    */
-  async exchangeCodeForToken(code, codeVerifier) {
+  async exchangeCodeForToken(code: string, codeVerifier: string): Promise<TokenExchangeResult> {
     try {
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
@@ -194,7 +241,7 @@ class PotaAuthService {
   /**
    * 使用 refresh token 刷新
    */
-  async refreshToken(refreshToken) {
+  async refreshToken(refreshToken: string): Promise<TokenRefreshResult> {
     try {
       const response = await axios.post(
         `https://${this.cognitoDomain}/oauth2/token`,
@@ -225,7 +272,7 @@ class PotaAuthService {
   /**
    * 解析 JWT token 获取过期时间
    */
-  decodeJWT(token) {
+  decodeJWT(token: string): DecodedTokenInfo {
     try {
       const parts = token.split('.');
       if (parts.length !== 3) {
@@ -259,7 +306,7 @@ class PotaAuthService {
   /**
    * 存储 PKCE 参数
    */
-  async storePKCE(userId, pkce) {
+  async storePKCE(userId: number, pkce: PkcePayload) {
     await query(
       `INSERT INTO pota_pkce (user_id, code_verifier, state)
        VALUES ($1, $2, $3)
@@ -272,7 +319,7 @@ class PotaAuthService {
   /**
    * 获取 PKCE 参数
    */
-  async getPKCE(userId, state) {
+  async getPKCE(userId: number, state: string) {
     return await getOne('SELECT code_verifier FROM pota_pkce WHERE user_id = $1 AND state = $2', [
       userId,
       state,
@@ -282,14 +329,16 @@ class PotaAuthService {
   /**
    * 清除 PKCE 参数
    */
-  async clearPKCE(userId) {
+  async clearPKCE(userId: number) {
     await query('DELETE FROM pota_pkce WHERE user_id = $1', [userId]);
   }
 
   /**
    * 存储 token
    */
-  async storeTokens(userId, tokens, passwordHash) {
+  async storeTokens(userId: number, tokens: TokenExchangeResult, passwordHash: string) {
+    const expiresAt =
+      tokens.expiresAt ?? (tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000) : null);
     await query(
       `INSERT INTO pota_tokens (user_id, id_token_encrypted, access_token_encrypted, refresh_token_encrypted, expires_at)
        VALUES ($1, $2, $3, $4, $5)
@@ -307,7 +356,7 @@ class PotaAuthService {
           ? await this.encryptForUser(userId, passwordHash, tokens.accessToken)
           : null,
         await this.encryptForUser(userId, passwordHash, tokens.refreshToken),
-        tokens.expiresAt,
+        expiresAt,
       ]
     );
   }
@@ -315,7 +364,7 @@ class PotaAuthService {
   /**
    * 获取存储的 token
    */
-  async getStoredTokens(userId, passwordHash) {
+  async getStoredTokens(userId: number, passwordHash: string): Promise<StoredTokens | null> {
     const stored = await getOne(
       'SELECT id_token_encrypted, refresh_token_encrypted, expires_at FROM pota_tokens WHERE user_id = $1',
       [userId]
@@ -344,7 +393,7 @@ class PotaAuthService {
   /**
    * 获取有效的 token（自动刷新）
    */
-  async getValidToken(userId, passwordHash) {
+  async getValidToken(userId: number, passwordHash: string) {
     const stored = await this.getStoredTokens(userId, passwordHash);
 
     if (!stored) {
@@ -387,7 +436,7 @@ class PotaAuthService {
   /**
    * 删除 token
    */
-  async deleteTokens(userId) {
+  async deleteTokens(userId: number) {
     await query('DELETE FROM pota_tokens WHERE user_id = $1', [userId]);
   }
 
@@ -467,7 +516,7 @@ class PotaAuthService {
   /**
    * 生成 Cognito ASF Data（高级安全功能数据）
    */
-  generateCognitoAsfData(username) {
+  generateCognitoAsfData(username: string) {
     const userAgent =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
     const deviceId = `az3dtn1jjy0e9omv3z8j:${Date.now()}`;
@@ -505,7 +554,7 @@ class PotaAuthService {
   /**
    * 使用 Puppeteer 进行 POTA 登录（用户提供账号密码）
    */
-  async loginWithCredentials(username, password) {
+  async loginWithCredentials(username: string, password: string) {
     let browser = null;
     let page = null;
 

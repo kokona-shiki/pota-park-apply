@@ -19,5 +19,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'JSON',
+          property: 'parse',
+          message: '请使用 safeParseJsonWithSchema(...) 进行校验解析',
+        },
+      ],
+    },
   },
 ])

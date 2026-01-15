@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
 
 function Register() {
@@ -20,8 +21,9 @@ function Register() {
     setError(null);
     setSubmitting(true);
 
-    axios
-      .post('/api/register', { callsign, email, password })
+    const requestBody = RegisterRequestSchema.parse({ callsign, email, password });
+
+    requestWithSchema(apiClient.post('/api/register', requestBody), UserInfoDataSchema)
       .then(() => {
         navigate('/login', { replace: true, state: { from: location?.state?.from, reason: '注册成功，请使用新账号登录' } });
       })

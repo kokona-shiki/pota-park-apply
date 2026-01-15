@@ -8,6 +8,109 @@ import { getOne, getMany, query, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { logPotaSync } from './potaSyncLogService.js';
 
+type PotaPark = {
+  reference?: string;
+  potaId?: string;
+  pota_ref?: string;
+  potaRef?: string;
+  name?: string;
+  parktypeDesc?: string;
+  parkTypeDesc?: string;
+  locationDesc?: string;
+  latitude?: number;
+  longitude?: number;
+  website?: string;
+  parkComments?: string;
+  accessMethods?: string;
+  activationMethods?: string;
+  grid6?: string;
+  grid4?: string;
+  activations?: number;
+  qsos?: number;
+  [key: string]: unknown;
+};
+
+type ParkTypeMappingItem = {
+  id: string;
+  chineseName: string;
+  englishName: string;
+};
+
+type ParkTypeMappings = {
+  chinese_to_english: ParkTypeMappingItem[];
+  english_to_chinese?: ParkTypeMappingItem[];
+  pota_only_types?: ParkTypeMappingItem[];
+  default_pota_type?: ParkTypeMappingItem;
+};
+
+type ParkTypeIndexItem = {
+  id: string;
+  zh: string;
+  en: string;
+};
+
+type ParkTypeIndex = {
+  allTypes: ParkTypeMappingItem[];
+  byId: Map<string, ParkTypeIndexItem>;
+  byEnglish: Map<string, string[]>;
+  byChinese: Map<string, string>;
+};
+
+type InternalPark = {
+  park_name: string;
+  park_type: string | null;
+  provinces: string[];
+  latitude?: number;
+  longitude?: number;
+  website?: string | null;
+  description?: string;
+  access_methods: string[];
+  activation_methods: string[];
+  confirmed_authenticity: boolean;
+  pota_ref?: string;
+};
+
+type UnprocessedPark = {
+  reference?: string;
+  name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationDesc?: string;
+  grid?: string;
+  activations?: number | null;
+  qsos?: number | null;
+  failureReason?: string;
+  parkTypeDesc?: string;
+  accessMethods?: string;
+  activationMethods?: string;
+  website?: string;
+  parkComments?: string;
+  manualType?: string;
+  message?: string;
+};
+
+type ImportResult = {
+  total: number;
+  imported: number;
+  skipped: number;
+  errors: Array<Record<string, unknown>>;
+  needs_manual_confirmation: UnprocessedPark[];
+};
+
+type ImportTask = {
+  id: string;
+  operatorId: number;
+  operatorRole: string;
+  operationType: 'manual' | 'auto';
+  status: 'pending' | 'running' | 'success' | 'partial_success' | 'failed';
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  result: ImportResult | null;
+  error: string | null;
+  readAt: string | null;
+};
+
 // POTA API 基础 URL
 const POTA_API_BASE_URL = 'https://api.pota.app';
 const QUERY_PARK_MAX_RETRIES = 3;
@@ -15,7 +118,7 @@ const QUERY_PARK_MIN_DELAY_MS = 1000;
 const QUERY_PARK_MAX_DELAY_MS = 3000;
 const IMPORT_TASK_QUEUE_MAX = 5;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const getRandomDelayMs = () =>
   Math.floor(Math.random() * (QUERY_PARK_MAX_DELAY_MS - QUERY_PARK_MIN_DELAY_MS + 1)) +
@@ -26,7 +129,7 @@ const applyQueryParkDelay = async () => {
   await sleep(delay);
 };
 
-const normalizeCsvList = (value) => {
+const normalizeCsvList = (value?: string) => {
   if (typeof value !== 'string') {
     return [];
   }
@@ -36,31 +139,42 @@ const normalizeCsvList = (value) => {
     .filter(Boolean);
 };
 
-const formatQueryParkError = (error) => {
+type ErrorResponse = {
+  status?: number;
+  data?: unknown;
+};
+
+type ErrorLike = {
+  message?: string;
+  response?: ErrorResponse;
+};
+
+const formatQueryParkError = (error: unknown) => {
   if (!error) {
     return '未知错误';
   }
-  if (error.response) {
-    const status = error.response.status;
-    const data = error.response.data;
+  const errorLike = error as ErrorLike;
+  if (errorLike.response) {
+    const status = errorLike.response.status;
+    const data = errorLike.response.data;
     let detail = '';
     if (typeof data === 'string') {
       detail = data;
     } else if (data) {
       detail = JSON.stringify(data);
-    } else if (error.message) {
-      detail = error.message;
+    } else if (errorLike.message) {
+      detail = errorLike.message;
     }
     const suffix = detail ? ` - ${detail}` : '';
     return `HTTP ${status}${suffix}`;
   }
-  return error.message || '未知错误';
+  return errorLike.message || '未知错误';
 };
 
-const buildQueryParkFailureReason = (attempts, error) =>
+const buildQueryParkFailureReason = (attempts: number, error: unknown) =>
   `查询 POTA 公园 失败（${attempts}/${QUERY_PARK_MAX_RETRIES}次）：${formatQueryParkError(error)}`;
 
-const extractChineseName = (name) => {
+const extractChineseName = (name?: string) => {
   if (typeof name !== 'string') {
     return '';
   }
@@ -136,7 +250,7 @@ export const fetchAllChineseParks = async () => {
 /**
  * 查询 POTA 公园详情
  */
-export const fetchPotaParkDetail = async (reference) => {
+export const fetchPotaParkDetail = async (reference: string) => {
   let lastError;
 
   for (let attempt = 1; attempt <= QUERY_PARK_MAX_RETRIES; attempt++) {
@@ -154,7 +268,7 @@ export const fetchPotaParkDetail = async (reference) => {
       });
 
       if (response && response.data) {
-        return { data: response.data, attempts: attempt };
+        return { data: response.data as PotaPark, attempts: attempt };
       }
     } catch (error) {
       lastError = error;
@@ -169,13 +283,13 @@ export const fetchPotaParkDetail = async (reference) => {
   throw error;
 };
 
-const getPotaReference = (park) =>
+const getPotaReference = (park: PotaPark) =>
   park?.reference || park?.potaId || park?.pota_ref || park?.potaRef || '';
 
 /**
  * 根据 POTA ID 检查公园是否已存在于系统中
  */
-export const checkParkExistsByPotaId = async (potaId) => {
+export const checkParkExistsByPotaId = async (potaId: string) => {
   // 为了能够根据 POTA ID 检查公园是否已存在，我们需要在 pota_notes 字段中存储 POTA ID
   // 我们约定在 pota_notes 中以特定格式存储 POTA ID，例如 "POTA Ref: CN-XXXX"
 
@@ -199,8 +313,8 @@ export const checkParkExistsByPotaId = async (potaId) => {
 };
 
 // 缓存公园类型映射
-let parkTypeMappings = null;
-let parkTypeIndex = null;
+let parkTypeMappings: ParkTypeMappings | null = null;
+let parkTypeIndex: ParkTypeIndex | null = null;
 
 /**
  * 加载公园类型映射
@@ -219,7 +333,7 @@ export const loadParkTypeMappings = async () => {
     const mappingFilePath = path.resolve(__dirname, '../../shared/park_type_mapping.json');
 
     const fileContent = await fs.readFile(mappingFilePath, 'utf8');
-    const mappings = JSON.parse(fileContent);
+    const mappings = JSON.parse(fileContent) as ParkTypeMappings;
 
     parkTypeMappings = mappings;
     return mappings;
@@ -229,19 +343,21 @@ export const loadParkTypeMappings = async () => {
     return {
       chinese_to_english: [],
       english_to_chinese: [],
+      pota_only_types: [],
+      default_pota_type: undefined,
     };
   }
 };
 
-const buildParkTypeIndex = (mappings) => {
+const buildParkTypeIndex = (mappings: ParkTypeMappings): ParkTypeIndex => {
   const allTypes = [
     ...(mappings.chinese_to_english || []),
     ...(mappings.pota_only_types || []),
   ].filter((item) => item && item.id);
 
-  const byId = new Map();
-  const byEnglish = new Map();
-  const byChinese = new Map();
+  const byId = new Map<string, ParkTypeIndexItem>();
+  const byEnglish = new Map<string, string[]>();
+  const byChinese = new Map<string, string>();
 
   for (const item of allTypes) {
     byId.set(item.id, { id: item.id, zh: item.chineseName, en: item.englishName });
@@ -268,7 +384,7 @@ const getParkTypeIndex = async () => {
   return parkTypeIndex;
 };
 
-export const resolveParkTypeId = async (value) => {
+export const resolveParkTypeId = async (value?: string | null) => {
   if (!value) {
     return null;
   }
@@ -291,7 +407,7 @@ export const resolveParkTypeId = async (value) => {
  * @param {Object} potaPark - POTA 公园数据
  * @returns {string|null} - 识别出的公园类型ID，如果无法识别则返回 null
  */
-export const identifyParkType = async (potaPark) => {
+export const identifyParkType = async (potaPark: PotaPark) => {
   const mappings = await loadParkTypeMappings();
 
   const rawName = typeof potaPark?.name === 'string' ? potaPark.name.trim() : '';
@@ -340,7 +456,7 @@ export const identifyParkType = async (potaPark) => {
 
   // 从英文部分识别：如果中文部分无法识别，尝试通过英文部分匹配
   // 检查英文部分是否匹配系统定义的英文类型
-  let possibleTypes = [];
+  const possibleTypes: Array<{ typeId: string; englishName: string; length: number }> = [];
 
   // 检查标准英文类型
   for (const mapping of mappings.english_to_chinese || []) {
@@ -442,7 +558,10 @@ export const identifyParkType = async (potaPark) => {
 /**
  * 将 POTA 公园数据转换为系统内部格式
  */
-export const transformPotaParkToInternal = async (potaPark, resolvedType = null) => {
+export const transformPotaParkToInternal = async (
+  potaPark: PotaPark,
+  resolvedType: string | null = null
+): Promise<InternalPark> => {
   // 解析 locationDesc 字段，它包含了多个省份代码，用逗号分隔
   const provinces = potaPark.locationDesc
     ? potaPark.locationDesc
@@ -474,7 +593,12 @@ export const transformPotaParkToInternal = async (potaPark, resolvedType = null)
 /**
  * 创建公园申请并记录审核日志
  */
-export const createParkWithAudit = async (parkData, operatorId, operatorRole, importTime) => {
+export const createParkWithAudit = async (
+  parkData: InternalPark,
+  operatorId: number,
+  operatorRole: string,
+  importTime: string
+) => {
   return await transaction(async (client) => {
     // 插入公园申请
     const insertQuery = `
@@ -546,11 +670,11 @@ export const createParkWithAudit = async (parkData, operatorId, operatorRole, im
  * 导入单个 POTA 公园
  */
 export const importSinglePotaPark = async (
-  potaPark,
-  operatorId,
-  operatorRole,
-  importTime,
-  resolvedType = null
+  potaPark: PotaPark,
+  operatorId: number,
+  operatorRole: string,
+  importTime: string,
+  resolvedType: string | null = null
 ) => {
   const potaId = potaPark.reference;
 
@@ -601,13 +725,14 @@ export const importSinglePotaPark = async (
 /**
  * 执行 POTA 公园批量导入
  */
-export const importPotaParks = async (operatorId, operatorRole) => {
+export const importPotaParks = async (operatorId: number, operatorRole: string) => {
   console.log(`开始执行 POTA 公园导入，操作员: ${operatorId}, 角色: ${operatorRole}`);
 
   const importTime = new Date().toISOString();
 
   // 准备日志记录所需的数据
-  const parksImported = [];
+  const parksImported: Array<{ reference: string; name: string; status: string; reason?: string }> =
+    [];
 
   try {
     // 获取所有中国公园数据
@@ -633,7 +758,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
 
     console.log(`准备导入 ${parksData.length} 个公园`);
 
-    const results = {
+    const results: ImportResult = {
       total: parksData.length,
       imported: 0,
       skipped: 0,
@@ -641,7 +766,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
       needs_manual_confirmation: [],
     };
 
-    const unprocessedParks = [];
+    const unprocessedParks: UnprocessedPark[] = [];
 
     for (const listPark of parksData) {
       const potaId = getPotaReference(listPark);
@@ -655,7 +780,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         results.skipped++;
         parksImported.push({
           reference: potaId,
-          name: listPark.name,
+          name: listPark.name || potaId,
           status: 'skipped',
           reason: 'Already exists',
         });
@@ -670,7 +795,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         const failureReason =
           error.message || buildQueryParkFailureReason(QUERY_PARK_MAX_RETRIES, error);
         const fallbackName = extractChineseName(listPark.name) || listPark.name || potaId;
-        const unprocessedPark = {
+        const unprocessedPark: UnprocessedPark = {
           reference: potaId,
           name: fallbackName,
           activations: listPark.activations ?? null,
@@ -689,7 +814,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         continue;
       }
 
-      const enrichedPark = {
+      const enrichedPark: PotaPark = {
         ...parkDetail,
         activations: listPark.activations ?? parkDetail?.activations,
         qsos: listPark.qsos ?? parkDetail?.qsos,
@@ -697,27 +822,27 @@ export const importPotaParks = async (operatorId, operatorRole) => {
 
       const parkType = await identifyParkType(enrichedPark);
       if (!parkType) {
-        const unprocessedPark = {
+        const unprocessedPark: UnprocessedPark = {
           reference: potaId,
           name: enrichedPark.name || extractChineseName(listPark.name) || potaId,
           latitude: enrichedPark.latitude ?? null,
           longitude: enrichedPark.longitude ?? null,
           locationDesc: enrichedPark.locationDesc || '',
-          grid: enrichedPark.grid6 || enrichedPark.grid4 || '',
+          grid: (enrichedPark.grid6 || enrichedPark.grid4 || '') as string,
           activations: listPark.activations ?? null,
           qsos: listPark.qsos ?? null,
           parkTypeDesc: enrichedPark.parktypeDesc || enrichedPark.parkTypeDesc || '',
-          accessMethods: enrichedPark.accessMethods || '',
-          activationMethods: enrichedPark.activationMethods || '',
-          website: enrichedPark.website || '',
-          parkComments: enrichedPark.parkComments || '',
+          accessMethods: (enrichedPark.accessMethods || '') as string,
+          activationMethods: (enrichedPark.activationMethods || '') as string,
+          website: (enrichedPark.website || '') as string,
+          parkComments: (enrichedPark.parkComments || '') as string,
           failureReason: '无法自动识别公园类型，需要手动确认',
         };
         results.needs_manual_confirmation.push(unprocessedPark);
         unprocessedParks.push(unprocessedPark);
         parksImported.push({
           reference: potaId,
-          name: unprocessedPark.name,
+          name: unprocessedPark.name || potaId,
           status: 'skipped',
           reason: 'Requires manual confirmation',
         });
@@ -737,7 +862,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
           results.skipped++;
           parksImported.push({
             reference: potaId,
-            name: enrichedPark.name,
+            name: enrichedPark.name || potaId,
             status: 'skipped',
             reason: 'Already exists',
           });
@@ -745,7 +870,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
           results.imported++;
           parksImported.push({
             reference: potaId,
-            name: enrichedPark.name,
+            name: enrichedPark.name || potaId,
             status: 'success',
           });
         }
@@ -753,7 +878,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
         results.errors.push(result);
         parksImported.push({
           reference: result.potaId || potaId,
-          name: enrichedPark.name,
+          name: enrichedPark.name || potaId,
           status: 'failed',
           reason: result.error,
         });
@@ -805,7 +930,7 @@ export const importPotaParks = async (operatorId, operatorRole) => {
   }
 };
 
-const importTaskQueue = [];
+const importTaskQueue: ImportTask[] = [];
 let importTaskRunning = false;
 let importTaskSequence = 1;
 
@@ -814,13 +939,13 @@ const getActiveImportTasks = () =>
 
 const isImportQueueFull = () => getActiveImportTasks().length >= IMPORT_TASK_QUEUE_MAX;
 
-const getPendingQueuePosition = (taskId) => {
+const getPendingQueuePosition = (taskId: string) => {
   const pending = importTaskQueue.filter((task) => task.status === 'pending');
   const index = pending.findIndex((task) => task.id === taskId);
   return index === -1 ? 0 : index + 1;
 };
 
-const deriveTaskStatusFromResult = (result) => {
+const deriveTaskStatusFromResult = (result: ImportResult | null) => {
   if (!result) {
     return 'failed';
   }
@@ -846,7 +971,7 @@ const cleanupImportTasks = () => {
   importTaskQueue.splice(0, importTaskQueue.length, ...activeTasks, ...keepCompleted);
 };
 
-const formatTaskResultSummary = (result) => {
+const formatTaskResultSummary = (result: ImportResult | null) => {
   if (!result) {
     return null;
   }
@@ -859,7 +984,7 @@ const formatTaskResultSummary = (result) => {
   };
 };
 
-const buildTaskResponse = (task) => ({
+const buildTaskResponse = (task: ImportTask) => ({
   id: task.id,
   status: task.status,
   operationType: task.operationType,
@@ -906,8 +1031,16 @@ const startNextImportTask = async () => {
   }
 };
 
-const enqueueImportTask = ({ operatorId, operatorRole, operationType }) => {
-  const task = {
+const enqueueImportTask = ({
+  operatorId,
+  operatorRole,
+  operationType,
+}: {
+  operatorId: number;
+  operatorRole: string;
+  operationType: 'manual' | 'auto';
+}) => {
+  const task: ImportTask = {
     id: `pota-import-${importTaskSequence++}`,
     operatorId,
     operatorRole,
@@ -926,12 +1059,12 @@ const enqueueImportTask = ({ operatorId, operatorRole, operationType }) => {
   return task;
 };
 
-const getUserActiveTask = (userId) =>
+const getUserActiveTask = (userId: number) =>
   importTaskQueue.find(
     (task) => task.operatorId === userId && (task.status === 'pending' || task.status === 'running')
   );
 
-export const getLatestImportTaskForUser = async (userId) => {
+export const getLatestImportTaskForUser = async (userId: number) => {
   const userTasks = importTaskQueue.filter(
     (task) => task.operatorId === userId && task.operationType === 'manual'
   );
@@ -942,7 +1075,7 @@ export const getLatestImportTaskForUser = async (userId) => {
   return buildTaskResponse(latestTask);
 };
 
-export const markImportTaskRead = async (userId, taskId) => {
+export const markImportTaskRead = async (userId: number, taskId: string) => {
   const task = importTaskQueue.find(
     (item) => item.id === taskId && item.operatorId === userId && item.operationType === 'manual'
   );
@@ -956,7 +1089,7 @@ export const markImportTaskRead = async (userId, taskId) => {
 /**
  * 手动触发 POTA 公园导入（供 API 调用）
  */
-export const manualTriggerPotaImport = async (userId) => {
+export const manualTriggerPotaImport = async (userId: number) => {
   // 检查用户权限（必须是 POTA 代表且有导入权限）
   const hasImportPermission = await checkUserPermission(userId, 'pota_import');
   const hasSyncPermission = await checkUserPermission(userId, 'sync_to_pota');
@@ -1046,8 +1179,8 @@ export const autoTriggerPotaImport = async () => {
   }
 };
 
-const normalizeUnprocessedParks = (parks = []) => {
-  const uniqueParks = new Map();
+const normalizeUnprocessedParks = (parks: UnprocessedPark[] = []) => {
+  const uniqueParks = new Map<string, UnprocessedPark>();
 
   for (const park of parks) {
     if (!park?.reference) {
@@ -1079,7 +1212,7 @@ export const getUnprocessedParks = async () => {
 /**
  * 设置未处理的公园列表
  */
-export const setUnprocessedParks = async (parks) => {
+export const setUnprocessedParks = async (parks: UnprocessedPark[]) => {
   const normalizedParks = normalizeUnprocessedParks(parks);
 
   return transaction(async (client) => {
@@ -1090,11 +1223,11 @@ export const setUnprocessedParks = async (parks) => {
       return [];
     }
 
-    const values = [];
+    const values: Array<string | unknown> = [];
     const placeholders = normalizedParks
       .map((park, index) => {
         const baseIndex = index * 2;
-        values.push(park.reference, JSON.stringify(park));
+        values.push(park.reference as string, JSON.stringify(park));
         return `($${baseIndex + 1}, $${baseIndex + 2}::jsonb)`;
       })
       .join(', ');
@@ -1124,7 +1257,11 @@ export const clearUnprocessedParks = async () => {
 /**
  * 处理单个未处理的公园
  */
-export const processUnprocessedPark = async (parkData, operatorId, operatorRole) => {
+export const processUnprocessedPark = async (
+  parkData: UnprocessedPark,
+  operatorId: number,
+  operatorRole: string
+) => {
   try {
     console.log(`处理未处理公园: ${parkData.reference}, 指定类型: ${parkData.manualType}`);
 
@@ -1135,7 +1272,7 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
 
     let parkDetail = null;
     try {
-      const detailResult = await fetchPotaParkDetail(parkData.reference);
+      const detailResult = await fetchPotaParkDetail(parkData.reference as string);
       parkDetail = detailResult.data;
     } catch (error) {
       return {
@@ -1145,7 +1282,7 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
       };
     }
 
-    const enrichedPark = {
+    const enrichedPark: PotaPark = {
       ...parkDetail,
       reference: parkData.reference,
       name: parkDetail?.name || parkData.name || parkData.reference,
@@ -1188,7 +1325,11 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
 /**
  * 批量处理未处理的公园
  */
-export const bulkProcessUnprocessedParks = async (parksData, operatorId, operatorRole) => {
+export const bulkProcessUnprocessedParks = async (
+  parksData: UnprocessedPark[],
+  operatorId: number,
+  operatorRole: string
+) => {
   const results = [];
 
   for (const parkData of parksData) {

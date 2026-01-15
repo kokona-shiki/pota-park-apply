@@ -2,8 +2,28 @@ import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { resolveParkTypeId } from './potaImportService.js';
 
+type AppError = Error & { status?: number; code?: string };
+
+type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
+
+type ParkApplicationSubmitInput = {
+  park_name: string;
+  park_type?: string;
+  provinces: string[];
+  latitude: number;
+  longitude: number;
+  website?: string;
+  description?: string;
+  access_methods: string[];
+  activation_methods: string[];
+  confirmed_authenticity: boolean;
+};
+
 // 提交公园申请
-export const submitParkApplication = async (userId, applicationData) => {
+export const submitParkApplication = async (
+  userId: number,
+  applicationData: ParkApplicationSubmitInput
+) => {
   const {
     park_name,
     park_type,
@@ -20,34 +40,29 @@ export const submitParkApplication = async (userId, applicationData) => {
   // 检查权限
   const canSubmit = await checkUserPermission(userId, 'submit_application');
   if (!canSubmit) {
-    const err = new Error('没有权限提交申请');
+    const err: AppError = new Error('没有权限提交申请');
     // 鉴权/鉴权相关错误：返回 4xx
-    // eslint-disable-next-line no-param-reassign
     err.status = 403;
-    // eslint-disable-next-line no-param-reassign
     err.code = 'FORBIDDEN';
     throw err;
   }
 
   // 验证访问方法和激活方法格式
   if (!Array.isArray(access_methods) || access_methods.length === 0) {
-    const err = new Error('至少需要选择一个访问方法');
-    // eslint-disable-next-line no-param-reassign
+    const err: AppError = new Error('至少需要选择一个访问方法');
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
 
   if (!Array.isArray(activation_methods) || activation_methods.length === 0) {
-    const err = new Error('至少需要选择一个激活方法');
-    // eslint-disable-next-line no-param-reassign
+    const err: AppError = new Error('至少需要选择一个激活方法');
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
 
   const parkTypeId = await resolveParkTypeId(park_type);
   if (!parkTypeId) {
-    const err = new Error('公园类型无效');
-    // eslint-disable-next-line no-param-reassign
+    const err: AppError = new Error('公园类型无效');
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
@@ -103,7 +118,11 @@ export const submitParkApplication = async (userId, applicationData) => {
 
 // 获取申请列表
 // 获取当前用户的公园申请列表（普通用户）
-export const getMyApplications = async (userId, status = null, province = null) => {
+export const getMyApplications = async (
+  userId: number,
+  status: ApplicationStatus | null = null,
+  province: string | null = null
+) => {
   let query = `
     SELECT pa.*, u.email as applicant_email, u.callsign as applicant_callsign,
            COALESCE(p.zh_name, '') as province_name, 
@@ -116,7 +135,7 @@ export const getMyApplications = async (userId, status = null, province = null) 
     WHERE pa.applicant_id = $1
   `;
 
-  const params = [userId];
+  const params: Array<string | number> = [userId];
   let paramIndex = 2;
 
   if (status) {
@@ -138,10 +157,10 @@ export const getMyApplications = async (userId, status = null, province = null) 
 
 // 获取公园申请列表（审核员/管理员）
 export const getApplications = async (
-  userId,
-  status = null,
-  province = null,
-  applicantId = null
+  userId: number,
+  status: ApplicationStatus | null = null,
+  province: string | null = null,
+  applicantId: number | null = null
 ) => {
   let query = `
     SELECT pa.*, 
@@ -156,7 +175,7 @@ export const getApplications = async (
     WHERE 1=1
   `;
 
-  const params = [];
+  const params: Array<string | number> = [];
   let paramIndex = 1;
 
   // 权限检查：普通用户只能看到自己的申请
@@ -191,7 +210,7 @@ export const getApplications = async (
 };
 
 // 获取申请详情
-export const getApplicationById = async (userId, applicationId) => {
+export const getApplicationById = async (userId: number, applicationId: number) => {
   const application = await getOne(
     `
     SELECT pa.*, 
@@ -223,11 +242,11 @@ export const getApplicationById = async (userId, applicationId) => {
 
 // 审核申请
 export const reviewApplication = async (
-  reviewerId,
-  applicationId,
-  status,
-  reviewNotes,
-  rejectionReason = null
+  reviewerId: number,
+  applicationId: number,
+  status: 'approved' | 'rejected',
+  reviewNotes: string,
+  rejectionReason: string | null = null
 ) => {
   // 检查权限
   const canReview = await checkUserPermission(reviewerId, 'review_application');
@@ -288,7 +307,12 @@ export const reviewApplication = async (
 };
 
 // 重新审核申请（系统管理员和POTA代表权限）
-export const reReviewApplication = async (operatorId, applicationId, newStatus, reviewNotes) => {
+export const reReviewApplication = async (
+  operatorId: number,
+  applicationId: number,
+  newStatus: 'approved' | 'rejected',
+  reviewNotes: string
+) => {
   // 获取当前申请信息
   const currentApplication = await getOne(
     `
@@ -355,7 +379,7 @@ export const reReviewApplication = async (operatorId, applicationId, newStatus, 
 };
 
 // POTA系统录入
-export const syncToPOTA = async (operatorId, applicationId, potaNotes) => {
+export const syncToPOTA = async (operatorId: number, applicationId: number, potaNotes: string) => {
   // 检查权限
   const canSync = await checkUserPermission(operatorId, 'sync_to_pota');
   if (!canSync) {
@@ -422,7 +446,7 @@ export const syncToPOTA = async (operatorId, applicationId, potaNotes) => {
 };
 
 // 获取申请审核记录
-export const getAuditLogs = async (userId, applicationId) => {
+export const getAuditLogs = async (userId: number, applicationId: number) => {
   // 检查申请存在性和权限
   await getApplicationById(userId, applicationId);
 
@@ -440,11 +464,11 @@ export const getAuditLogs = async (userId, applicationId) => {
 
 // 创建审核提醒
 export const createReviewReminder = async (
-  userId,
-  applicationId,
-  reminderType,
-  notes,
-  remindedTo = null
+  userId: number,
+  applicationId: number,
+  reminderType: string,
+  notes: string,
+  remindedTo: number | null = null
 ) => {
   // 检查权限
   const canRemind = await checkUserPermission(userId, 'remind_review');
@@ -479,7 +503,11 @@ export const createReviewReminder = async (
 };
 
 // 获取审核提醒列表
-export const getReviewReminders = async (userId, applicationId = null, acknowledged = null) => {
+export const getReviewReminders = async (
+  userId: number,
+  applicationId: number | null = null,
+  acknowledged: boolean | null = null
+) => {
   let query = `
     SELECT rr.*, 
            app.park_name,
@@ -492,7 +520,7 @@ export const getReviewReminders = async (userId, applicationId = null, acknowled
     WHERE 1=1
   `;
 
-  const params = [];
+  const params: Array<string | number | boolean> = [];
   let paramIndex = 1;
 
   // 权限检查：普通用户只能看到自己创建的提醒

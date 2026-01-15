@@ -23,6 +23,8 @@ import {
   Divider,
 } from '@mui/material';
 import axios from 'axios';
+import { CallsignChangeRequestsDataSchema, CallsignReviewDataSchema } from '../../../shared/schemas/callsign';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
 
@@ -80,14 +82,17 @@ function CallsignChangeRequests() {
       if (status) {
         params.status = status;
       }
-      const res = await axios.get('/api/callsign-change-requests', {
-        params,
-        signal: controller.signal,
-      });
+      const payload = await requestWithSchema(
+        apiClient.get('/api/callsign-change-requests', {
+          params,
+          signal: controller.signal,
+        }),
+        CallsignChangeRequestsDataSchema
+      );
 
       // 只有当请求未被取消时才更新状态
       if (!controller.signal.aborted) {
-        setRequests(res.data.requests || []);
+        setRequests(payload.requests || []);
       }
     } catch (e: unknown) {
       // 忽略被取消的请求错误
@@ -134,23 +139,22 @@ function CallsignChangeRequests() {
 
     setReviewLoading(true);
     try {
-      const res = await axios.put(`/api/callsign-change-requests/${reviewRequestId}/review`, {
-        status: reviewStatus,
-        reviewNotes: reviewNotes,
-      });
+      const payload = await requestWithSchema(
+        apiClient.put(`/api/callsign-change-requests/${reviewRequestId}/review`, {
+          status: reviewStatus,
+          reviewNotes: reviewNotes,
+        }),
+        CallsignReviewDataSchema
+      );
 
       // 更新本地状态
       setRequests((prev) =>
         prev.map((req) => {
           if (req.id === reviewRequestId) {
             // 检查响应结构并更新相应字段
-            const responseData = res.data;
-            // 直接访问 request 对象（而不是 res.data.data.request）
-            if (responseData && typeof responseData === 'object' && 'request' in responseData) {
-              const requestData = responseData.request;
-              if (requestData) {
-                return { ...req, ...requestData };
-              }
+            const requestData = payload.request;
+            if (requestData) {
+              return { ...req, ...requestData };
             }
             // 如果响应结构不符合预期，至少更新状态和审核信息
             return {

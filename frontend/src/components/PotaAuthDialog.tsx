@@ -21,16 +21,14 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
-import axios from 'axios';
+import { z } from 'zod';
+import { PotaAuthResultDataSchema, PotaStatusSchema } from '../../../shared/schemas/pota';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 
-type PotaStatus = {
-  connected: boolean;
-  expiresAt: string | null;
-  willExpireSoon?: boolean;
-};
+type PotaStatus = z.infer<typeof PotaStatusSchema>;
 
 interface PotaAuthDialogProps {
   open: boolean;
@@ -60,22 +58,8 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       setLoading(true);
       setError(null);
       // axios interceptor 已经提取了 data，所以 res.data 直接就是状态对象
-      const res = await axios.get<{
-        connected: boolean;
-        expiresAt: string | null;
-        willExpireSoon?: boolean;
-      }>('/api/pota/status');
-
-      if (res.data) {
-        setStatus({
-          connected: res.data.connected,
-          expiresAt: res.data.expiresAt,
-          willExpireSoon: res.data.willExpireSoon,
-        });
-      } else {
-        // 如果返回格式异常，设置默认状态
-        setStatus({ connected: false, expiresAt: null });
-      }
+      const statusPayload = await requestWithSchema(apiClient.get('/api/pota/status'), PotaStatusSchema);
+      setStatus(statusPayload);
     } catch (e: unknown) {
       const errMsg = getApiErrorMessage(e, '获取 POTA 连接状态失败');
       setError(errMsg);
@@ -141,7 +125,10 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
       setSuccess(null);
 
       // 发送账号密码到后端进行登录
-      await axios.post('/api/pota/login', { username, password });
+      await requestWithSchema(
+        apiClient.post('/api/pota/login', { username, password }),
+        PotaAuthResultDataSchema
+      );
 
       // 登录成功
       setAuthDialogOpen(false);
@@ -171,7 +158,7 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
     try {
       setLoading(true);
       setError(null);
-      await axios.delete('/api/pota/token');
+      await requestWithSchema(apiClient.delete('/api/pota/token'), z.null());
       await loadStatus();
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, '断开连接失败'));

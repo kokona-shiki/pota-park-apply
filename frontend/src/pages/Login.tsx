@@ -17,7 +17,8 @@ import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { AuthPayloadSchema, LoginRequestSchema } from '../../../shared/schemas/auth';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { REDIRECT_KEY } from '../auth/context';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
@@ -71,17 +72,18 @@ function Login() {
     setError(null);
     setSubmitting(true);
 
-    axios
-      .post('/api/login', { identifier, password })
-      .then((res) => {
+    const requestBody = LoginRequestSchema.parse({ identifier, password });
+
+    requestWithSchema(apiClient.post('/api/login', requestBody), AuthPayloadSchema)
+      .then((payload) => {
         // refreshToken 由后端通过 HttpOnly Cookie 下发（前端 JS 不可读）
-        setAccessToken(res.data.accessToken);
-        setUser(res.data.user);
+        setAccessToken(payload.accessToken);
+        setUser(payload.user);
 
         // 保存到 localStorage (包含过期时间信息)
         const authData = {
-          accessToken: res.data.accessToken,
-          user: res.data.user
+          accessToken: payload.accessToken,
+          user: payload.user
         };
         localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
 

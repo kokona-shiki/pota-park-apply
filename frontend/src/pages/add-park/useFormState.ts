@@ -1,13 +1,32 @@
 // src/pages/add-park/useFormState.ts
 import { useState, useCallback, useEffect } from 'react';
+import { z } from 'zod';
 import type { FormState } from './types';
+import { safeParseJsonWithSchema } from '../../utils/parseJson';
 
 const FORM_STATE_KEY = 'addParkFormData';
+
+const FormStateSchema = z.object({
+  parkName: z.string(),
+  parkType: z.string(),
+  province: z.string(),
+  provinces: z.array(z.string()),
+  latitude: z.string(),
+  longitude: z.string(),
+  website: z.string(),
+  accessMethods: z.array(z.string()),
+  activationMethods: z.array(z.string()),
+  confirmed: z.boolean(),
+  isPotaPark: z.boolean(),
+  mapCenter: z.tuple([z.number(), z.number()]),
+  mapZoom: z.number(),
+});
 
 export const loadSavedState = (): FormState | null => {
   try {
     const saved = localStorage.getItem(FORM_STATE_KEY);
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    return safeParseJsonWithSchema(FormStateSchema, saved);
   } catch {
     return null;
   }

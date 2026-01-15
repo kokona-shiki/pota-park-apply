@@ -1,10 +1,33 @@
 import express from 'express';
+import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 
 const router = express.Router();
+
+const updateUserInfoSchema = z.object({
+  field: z.string(),
+  value: z.unknown(),
+  reason: z.string().optional(),
+  oldPassword: z.string().optional(),
+});
+
+const updateUserRoleSchema = z.object({
+  role: z.string().min(1),
+  reason: z.string().min(1),
+});
+
+const updateUserActiveSchema = z.object({
+  isActive: z.boolean(),
+});
+
+const updateUserPasswordSchema = z.object({
+  oldPassword: z.string().min(1),
+  newPassword: z.string().min(1),
+  reason: z.string().optional(),
+});
 
 // 获取用户列表（仅管理员）
 router.get(
@@ -15,11 +38,11 @@ router.get(
     try {
       const { role, isActive } = req.query;
 
-      let isActiveParsed = null;
+      let isActiveParsed: boolean | null = null;
       if (isActive === 'true') isActiveParsed = true;
       if (isActive === 'false') isActiveParsed = false;
 
-      const users = await userService.getUsers(role || null, isActiveParsed);
+      const users = await userService.getUsers((role as string) || null, isActiveParsed);
 
       return sendOk(res, { users }, 'ok');
     } catch (error) {
@@ -36,7 +59,11 @@ router.get(
 router.put('/api/users/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { field, value, reason, oldPassword } = req.body;
+    const parsed = updateUserInfoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'VALIDATION_ERROR', '字段名和新值不能为空', null);
+    }
+    const { field, value, reason, oldPassword } = parsed.data;
 
     if (!field || value === undefined || value === null) {
       return sendBizError(res, 'VALIDATION_ERROR', '字段名和新值不能为空', null);
@@ -48,7 +75,7 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
     }
 
     const updatedUser = await userService.updateUserInfo(
-      req.user.id,
+      req.user?.id,
       parseInt(userId, 10),
       field,
       value,
@@ -67,14 +94,18 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
 router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role, reason } = req.body;
+    const parsed = updateUserRoleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'VALIDATION_ERROR', '角色不能为空', null);
+    }
+    const { role, reason } = parsed.data;
 
     if (!role) {
       return sendBizError(res, 'VALIDATION_ERROR', '角色不能为空', null);
     }
 
     const updatedUser = await userService.updateUserRole(
-      req.user.id,
+      req.user?.id,
       parseInt(userId, 10),
       role,
       reason
@@ -91,14 +122,18 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
 router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { isActive } = req.body;
+    const parsed = updateUserActiveSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'VALIDATION_ERROR', 'isActive 必须为 boolean', null);
+    }
+    const { isActive } = parsed.data;
 
     if (typeof isActive !== 'boolean') {
       return sendBizError(res, 'VALIDATION_ERROR', 'isActive 必须为 boolean', null);
     }
 
     const updatedUser = await userService.updateUserActive(
-      req.user.id,
+      req.user?.id,
       parseInt(userId, 10),
       isActive
     );
@@ -120,11 +155,11 @@ router.get(
       const { action, targetUserId, operatorId, limit, offset } = req.query;
 
       const logs = await userService.getUserAdminAuditLogs({
-        action: action || null,
-        targetUserId: targetUserId || null,
-        operatorId: operatorId || null,
-        limit: limit || 200,
-        offset: offset || 0,
+        action: (action as string) || null,
+        targetUserId: (targetUserId as string) || null,
+        operatorId: (operatorId as string) || null,
+        limit: (limit as string) || 200,
+        offset: (offset as string) || 0,
       });
 
       return sendOk(res, { logs }, 'ok');
@@ -142,7 +177,11 @@ router.get(
 router.put('/api/users/:userId/change-password', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { oldPassword, newPassword, reason } = req.body;
+    const parsed = updateUserPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendBizError(res, 'VALIDATION_ERROR', '原密码和新密码不能为空', null);
+    }
+    const { oldPassword, newPassword, reason } = parsed.data;
 
     if (!oldPassword) {
       return sendBizError(res, 'VALIDATION_ERROR', '原密码不能为空', null);
@@ -157,12 +196,12 @@ router.put('/api/users/:userId/change-password', authenticateToken, async (req, 
     }
 
     // 确保用户只能修改自己的密码
-    if (req.user.id !== parseInt(userId, 10)) {
+    if (req.user?.id !== parseInt(userId, 10)) {
       return sendBizError(res, 'PERMISSION_ERROR', '只能修改自己的密码', null);
     }
 
     const updatedUser = await userService.updateUserPassword(
-      req.user.id,
+      req.user?.id,
       oldPassword,
       newPassword,
       reason

@@ -101,7 +101,7 @@ app.use('*', (_req, res) => {
 });
 
 // 全局错误处理
-app.use((err, _req, res, _next) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('服务器错误:', err);
   res.status(500).json({
     code: 'SERVER_ERROR',

@@ -9,15 +9,15 @@ router.get('/pota/sync-logs', requirePermission('pota_import'), async (req, res)
   try {
     const { page, pageSize, startDate, endDate, operationType, search } = req.query;
 
-    const filters = {};
-    if (startDate) filters.startDate = startDate;
-    if (endDate) filters.endDate = endDate;
-    if (operationType) filters.operationType = operationType;
-    if (search) filters.search = search;
+    const filters: Record<string, string> = {};
+    if (startDate) filters.startDate = String(startDate);
+    if (endDate) filters.endDate = String(endDate);
+    if (operationType) filters.operationType = String(operationType);
+    if (search) filters.search = String(search);
 
-    const pagination = {};
-    if (page) pagination.page = parseInt(page);
-    if (pageSize) pagination.pageSize = parseInt(pageSize);
+    const pagination: Record<string, number> = {};
+    if (page) pagination.page = parseInt(String(page), 10);
+    if (pageSize) pagination.pageSize = parseInt(String(pageSize), 10);
 
     const result = await getPotaSyncLogs(filters, pagination);
 
@@ -28,10 +28,11 @@ router.get('/pota/sync-logs', requirePermission('pota_import'), async (req, res)
       pagination: result.pagination,
     });
   } catch (error) {
-    console.error('获取POTA同步日志失败:', error);
+    const err = error as Error;
+    console.error('获取POTA同步日志失败:', err);
     res.status(500).json({
       code: 1,
-      message: '获取POTA同步日志失败: ' + error.message,
+      message: `获取POTA同步日志失败: ${err.message}`,
     });
   }
 });
@@ -41,7 +42,7 @@ router.get('/pota/sync-logs/:id', requirePermission('pota_import'), async (req, 
   try {
     const { id } = req.params;
 
-    const log = await getPotaSyncLogById(parseInt(id));
+    const log = await getPotaSyncLogById(parseInt(id, 10));
 
     if (!log) {
       return res.status(404).json({
@@ -56,10 +57,11 @@ router.get('/pota/sync-logs/:id', requirePermission('pota_import'), async (req, 
       data: log,
     });
   } catch (error) {
-    console.error('获取POTA同步日志详情失败:', error);
+    const err = error as Error;
+    console.error('获取POTA同步日志详情失败:', err);
     res.status(500).json({
       code: 1,
-      message: '获取POTA同步日志详情失败: ' + error.message,
+      message: `获取POTA同步日志详情失败: ${err.message}`,
     });
   }
 });

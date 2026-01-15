@@ -1,4 +1,5 @@
 import express from 'express';
+import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { checkUserPermission } from '../utils/auth.js';
 import {
@@ -13,16 +14,25 @@ import {
 } from '../services/potaImportService.js';
 import { getOne } from '../config/database.js';
 import { sendOk, sendError, sendBizError, sendHttpError } from '../utils/response.js';
+import {
+  PotaUnprocessedParkProcessRequestSchema,
+  PotaUnprocessedParkBulkProcessRequestSchema,
+  PotaUnprocessedParkSchema,
+} from '../../shared/schemas/pota.js';
 
 const router = express.Router();
 
 /**
  * 检查用户是否有 POTA 导入权限
  */
-const requirePotaImportPermission = async (req, res, next) => {
+const requirePotaImportPermission = async (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
   try {
-    const hasImportPermission = await checkUserPermission(req.user.id, 'pota_import');
-    const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
+    const hasImportPermission = await checkUserPermission(req.user?.id, 'pota_import');
+    const hasSyncPermission = await checkUserPermission(req.user?.id, 'sync_to_pota');
 
     if (!hasImportPermission && !hasSyncPermission) {
       return sendHttpError(res, 403, 'FORBIDDEN', '没有权限执行此操作', null);
@@ -40,8 +50,8 @@ const requirePotaImportPermission = async (req, res, next) => {
  */
 router.get('/api/pota/import-status', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
-    const hasImportPermission = await checkUserPermission(req.user.id, 'pota_import');
-    const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
+    const hasImportPermission = await checkUserPermission(req.user?.id, 'pota_import');
+    const hasSyncPermission = await checkUserPermission(req.user?.id, 'sync_to_pota');
 
     return sendOk(
       res,
@@ -85,7 +95,16 @@ router.post(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const { parks } = req.body;
+      const parsed = z
+        .object({
+          parks: z.array(PotaUnprocessedParkSchema),
+        })
+        .safeParse(req.body);
+
+      if (!parsed.success) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园列表不能为空', null);
+      }
+      const { parks } = parsed.data;
 
       if (!parks || !Array.isArray(parks)) {
         return sendBizError(res, 'MISSING_PARAMS', '公园列表不能为空', null);
@@ -127,14 +146,18 @@ router.post(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const { parkData } = req.body;
+      const parsed = PotaUnprocessedParkProcessRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园数据、参考ID和类型不能为空', null);
+      }
+      const { parkData } = parsed.data;
 
       if (!parkData || !parkData.reference || !parkData.manualType) {
         return sendBizError(res, 'MISSING_PARAMS', '公园数据、参考ID和类型不能为空', null);
       }
 
       // 获取用户信息
-      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user.id]);
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
       if (!userInfo) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
@@ -143,9 +166,8 @@ router.post(
 
       if (result.success) {
         return sendOk(res, result, result.message);
-      } else {
-        return sendBizError(res, 'PROCESS_FAILED', result.error, { reference: parkData.reference });
       }
+      return sendBizError(res, 'PROCESS_FAILED', result.error, { reference: parkData.reference });
     } catch (error) {
       console.error('处理未处理公园失败:', error);
       return sendError(res, error, { bizMessage: '处理未处理公园失败' });
@@ -162,7 +184,11 @@ router.post(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const { parksData } = req.body;
+      const parsed = PotaUnprocessedParkBulkProcessRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'MISSING_PARAMS', '公园数据列表不能为空', null);
+      }
+      const { parksData } = parsed.data;
 
       if (!parksData || !Array.isArray(parksData) || parksData.length === 0) {
         return sendBizError(res, 'MISSING_PARAMS', '公园数据列表不能为空', null);
@@ -181,7 +207,7 @@ router.post(
       }
 
       // 获取用户信息
-      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user.id]);
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
       if (!userInfo) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
@@ -217,7 +243,7 @@ router.post(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.id;
 
       const result = await manualTriggerPotaImport(userId);
 
@@ -244,7 +270,7 @@ router.get(
   requirePotaImportPermission,
   async (req, res) => {
     try {
-      const task = await getLatestImportTaskForUser(req.user.id);
+      const task = await getLatestImportTaskForUser(req.user?.id);
       return sendOk(res, task, '获取导入任务成功');
     } catch (error) {
       console.error('获取导入任务失败:', error);
@@ -263,7 +289,7 @@ router.post(
   async (req, res) => {
     try {
       const { taskId } = req.params;
-      const task = await markImportTaskRead(req.user.id, taskId);
+      const task = await markImportTaskRead(req.user?.id, taskId);
       if (!task) {
         return sendBizError(res, 'TASK_NOT_FOUND', '未找到可标记的导入任务', null);
       }

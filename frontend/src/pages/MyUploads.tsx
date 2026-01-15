@@ -19,7 +19,8 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import axios from 'axios';
+import { ApplicationDetailDataSchema, ApplicationsDataSchema } from '../../../shared/schemas/parkApplication';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
 import type { ParkApplication, ParkApplicationDetail } from '../types/parkApplication';
@@ -65,8 +66,11 @@ function MyUploads() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get<{ applications?: ParkApplication[] }>('/api/my-applications');
-      const next = res.data?.applications ?? [];
+      const payload = await requestWithSchema(
+        apiClient.get('/api/my-applications'),
+        ApplicationsDataSchema
+      );
+      const next = payload.applications ?? [];
       setUploads(next);
       setPage(0);
     } catch (e: unknown) {
@@ -122,10 +126,11 @@ function MyUploads() {
     setDetailError(null);
     try {
       setDetailLoading(true);
-      const res = await axios.get<{ application?: ParkApplicationDetail | null }>(
-        `/api/park-applications/${app.id}`
+      const payload = await requestWithSchema(
+        apiClient.get(`/api/park-applications/${app.id}`),
+        ApplicationDetailDataSchema
       );
-      setSelected(res.data?.application ?? null);
+      setSelected(payload.application ?? null);
     } catch (e: unknown) {
       setDetailError(getApiErrorMessage(e, '获取申请详情失败'));
     } finally {

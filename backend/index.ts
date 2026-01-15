@@ -22,7 +22,7 @@ const startServer = async () => {
     const mapProvider = getMapProvider();
 
     // 启动定时任务
-    scheduler.init().catch((err) => {
+    scheduler.init().catch((err: Error) => {
       console.error('❌ 定时任务初始化失败:', err);
     });
 
@@ -79,9 +79,14 @@ const startServer = async () => {
       console.log('📥 POTA 公园导入:');
       console.log('POST /api/pota/import - 手动触发 POTA 公园导入');
       console.log('GET  /api/pota/import-status - 获取导入权限状态');
+      console.log('GET  /api/pota/import-task/latest - 获取导入任务');
+      console.log('GET  /api/pota/unprocessed-parks - 获取未处理公园');
+      console.log('POST /api/pota/process-unprocessed-park - 处理未处理公园');
+      console.log('POST /api/pota/bulk-process-unprocessed-parks - 批量处理未处理公园');
+      console.log('');
     });
   } catch (error) {
-    console.error('启动服务器失败:', error);
+    console.error('❌ 服务器启动失败:', (error as Error)?.message || error);
     process.exit(1);
   }
 };

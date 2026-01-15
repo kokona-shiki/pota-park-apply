@@ -1,6 +1,6 @@
 // src/pages/ExportPage.tsx
 import { Button } from '@mui/material';
-import axios from 'axios';
+import { apiClient } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 
@@ -14,7 +14,7 @@ function ExportPage() {
   const isAdmin = hasPermission === true && user != null;
 
   const handleExport = (type: ExportType, scope: ExportScope) => {
-    axios.get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' }).then((res) => {
+    apiClient.get(`/api/export/${type}?scope=${scope}`, { responseType: 'blob' }).then((res) => {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;

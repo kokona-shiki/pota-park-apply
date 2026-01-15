@@ -21,24 +21,19 @@ import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import parkTypeMapping from '../../../shared/park_type_mapping.json';
 import regionMapping from '../../../shared/region.json';
 import { useAuth } from '../auth/useAuth';
-import axios from 'axios';
+import { z } from 'zod';
+import {
+  PotaUnprocessedParkBulkProcessRequestSchema,
+  PotaUnprocessedParkBulkProcessResultSchema,
+  PotaUnprocessedParkProcessRequestSchema,
+  PotaUnprocessedParkProcessResultSchema,
+  PotaUnprocessedParksDataSchema,
+  PotaUnprocessedParkSchema,
+} from '../../../shared/schemas/pota';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
 
-interface UnprocessedPark {
-  reference: string;
-  name: string;
-  latitude: number | null;
-  longitude: number | null;
-  locationDesc: string;
-  grid: string;
-  attempts: number;
-  activations: number;
-  qsos: number;
-  message?: string;
-  failureReason?: string;
-  suggestedType?: string | null;
-  manualType?: string | null;
-}
+type UnprocessedPark = z.infer<typeof PotaUnprocessedParkSchema>;
 
 const PotaUnprocessedParks: React.FC = () => {
   const { user, accessToken } = useAuth();
@@ -177,17 +172,20 @@ const PotaUnprocessedParks: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/pota/unprocessed-parks', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      setUnprocessedParks(response.data);
+      const parks = await requestWithSchema(
+        apiClient.get('/api/pota/unprocessed-parks', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }),
+        PotaUnprocessedParksDataSchema
+      );
+      setUnprocessedParks(parks);
       setHasPermission(true);
 
       // 初始化选中的类型
       const initialSelected: { [key: string]: string } = {};
-      response.data.forEach((park: UnprocessedPark) => {
+      parks.forEach((park: UnprocessedPark) => {
         initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
       });
       setSelectedType(initialSelected);
@@ -225,16 +223,14 @@ const PotaUnprocessedParks: React.FC = () => {
         manualType: selectedOption?.id || '',
       };
 
-      await axios.post(
-        '/api/pota/process-unprocessed-park',
-        {
-          parkData,
-        },
-        {
+      const requestBody = PotaUnprocessedParkProcessRequestSchema.parse({ parkData });
+      await requestWithSchema(
+        apiClient.post('/api/pota/process-unprocessed-park', requestBody, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        }
+        }),
+        PotaUnprocessedParkProcessResultSchema
       );
 
       // 成功后刷新列表
@@ -267,16 +263,16 @@ const PotaUnprocessedParks: React.FC = () => {
     try {
       setProcessing(true);
 
-      await axios.post(
-        '/api/pota/bulk-process-unprocessed-parks',
-        {
-          parksData: parksToProcess,
-        },
-        {
+      const requestBody = PotaUnprocessedParkBulkProcessRequestSchema.parse({
+        parksData: parksToProcess,
+      });
+      await requestWithSchema(
+        apiClient.post('/api/pota/bulk-process-unprocessed-parks', requestBody, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        }
+        }),
+        PotaUnprocessedParkBulkProcessResultSchema
       );
 
       // 成功后刷新列表

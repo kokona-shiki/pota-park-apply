@@ -12,11 +12,12 @@ COPY backend/package.json ./backend/package.json
 # 只安装 backend 相关依赖
 RUN pnpm install --frozen-lockfile --filter ./backend...
 
-# 拷贝 backend 源码
+# 拷贝 backend 源码与共享 schema
 COPY backend ./backend
+COPY shared ./shared
 
 WORKDIR /app/backend
 
 EXPOSE 3000
 
-CMD ["node", "index.js"]
+CMD ["pnpm", "start"]

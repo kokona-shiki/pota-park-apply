@@ -25,27 +25,15 @@ import {
 } from '@mui/material';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { DataGrid } from '@mui/x-data-grid';
-import axios from 'axios';
+import { z } from 'zod';
+import { PotaSyncLogSchema, PotaSyncLogsPayloadSchema } from '../../../shared/schemas/pota';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { ParkApplicationDetailDialog } from '../components/ParkApplicationDetailDialog';
 import type { ParkApplicationDetail } from '../types/parkApplication';
 
-interface PotaSyncLog {
-  id: number;
-  operator: string;
-  operationType: 'auto' | 'manual';
-  syncDate: string;
-  parksImported: Array<{
-    reference: string;
-    name: string;
-    status: 'success' | 'failed' | 'skipped';
-    reason?: string;
-  }>;
-  status: 'success' | 'partial_success' | 'failed';
-  details: string;
-  createdAt: string;
-}
+type PotaSyncLog = z.infer<typeof PotaSyncLogSchema>;
 
 const PotaSyncLogs: React.FC = () => {
   const { user } = useAuth(); // 检查用户权限
@@ -100,16 +88,14 @@ const PotaSyncLogs: React.FC = () => {
         params.search = searchTerm;
       }
 
-      const response = await axios.get('/api/pota/sync-logs', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        params,
-      });
+      const payload = await requestWithSchema(
+        apiClient.get('/api/pota/sync-logs', { params }),
+        PotaSyncLogsPayloadSchema
+      );
 
-      setLogs(response.data.data);
-      setTotalLogs(response.data.pagination.total);
-      setTotalPages(response.data.pagination.totalPages);
+      setLogs(payload.data);
+      setTotalLogs(payload.pagination.total);
+      setTotalPages(payload.pagination.totalPages);
     } catch (err) {
       setError('获取同步日志失败');
       console.error(err);

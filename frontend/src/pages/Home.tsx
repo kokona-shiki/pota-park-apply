@@ -12,16 +12,11 @@ import {
   Paper,
   TablePagination
 } from '@mui/material';
-import axios from 'axios';
+import { z } from 'zod';
+import { PotaParkSchema } from '../../../shared/schemas/potaExternal';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 
-type PotaPark = {
-  reference: string;
-  name: string;
-  grid?: string;
-  attempts?: number;
-  activations?: number;
-  qsos?: number;
-};
+type PotaPark = z.infer<typeof PotaParkSchema>;
 
 function Home() {
   const { user, isAuthLoading } = useAuth();
@@ -52,8 +47,11 @@ function Home() {
     // 请求 318 数据
     const loadParks = async () => {
       try {
-        const res = await axios.get<PotaPark[]>('/proxy-api/pota/entity/parks/318');
-        const sorted = [...res.data].sort((a, b) => (b.qsos || 0) - (a.qsos || 0));
+        const parks = await requestWithSchema(
+          apiClient.get('/proxy-api/pota/entity/parks/318'),
+          z.array(PotaParkSchema)
+        );
+        const sorted = [...parks].sort((a, b) => (b.qsos || 0) - (a.qsos || 0));
         setParks(sorted);
       } catch (err) {
         console.error(err);

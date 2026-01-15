@@ -1,9 +1,12 @@
 import { renderHook, act } from '@testing-library/react';
 import { useSubmit } from '../useSubmit';
 
-// Mock axios
-jest.mock('axios', () => ({
-  post: jest.fn(),
+// Mock api client
+jest.mock('../../../services/apiClient', () => ({
+  apiClient: {
+    post: jest.fn(),
+  },
+  requestWithSchema: jest.fn(),
 }));
 
 // Mock error utility
@@ -20,7 +23,9 @@ jest.mock('../../../utils/potaMapping', () => ({
 }));
 
 describe('useSubmit Hook', () => {
-  const mockPost = jest.requireMock('axios').post;
+  const { apiClient, requestWithSchema } = jest.requireMock('../../../services/apiClient');
+  const mockPost = apiClient.post;
+  const mockRequestWithSchema = requestWithSchema;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -73,6 +78,7 @@ describe('useSubmit Hook', () => {
     };
 
     mockPost.mockResolvedValue({ data: {} });
+    mockRequestWithSchema.mockResolvedValue({ application: null });
 
     let errorOccurred = false;
 
@@ -104,6 +110,7 @@ describe('useSubmit Hook', () => {
     };
 
     mockPost.mockResolvedValue({ data: {} });
+    mockRequestWithSchema.mockResolvedValue({ application: null });
 
     let errorOccurred = false;
 
@@ -135,6 +142,7 @@ describe('useSubmit Hook', () => {
     };
 
     mockPost.mockResolvedValue({ data: {} });
+    mockRequestWithSchema.mockResolvedValue({ application: null });
 
     let errorOccurred = false;
 

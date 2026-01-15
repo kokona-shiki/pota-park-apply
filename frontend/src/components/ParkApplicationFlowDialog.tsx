@@ -20,7 +20,8 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import { ApplicationAuditLogsDataSchema } from '../../../shared/schemas/parkApplication';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import type { ParkApplication, AuditLog, ApplicationStatus } from '../types/parkApplication';
 import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { getApiErrorMessage } from '../utils/error';
@@ -308,10 +309,11 @@ export function ParkApplicationFlowDialog({
       try {
         setAuditLogsLoading(true);
         setAuditLogsError(null);
-        const res = await axios.get<{ logs?: AuditLog[] }>(
-          `/api/park-applications/${application.id}/audit-logs`
+        const payload = await requestWithSchema(
+          apiClient.get(`/api/park-applications/${application.id}/audit-logs`),
+          ApplicationAuditLogsDataSchema
         );
-        setAuditLogs(res.data?.logs || []);
+        setAuditLogs(payload.logs || []);
       } catch (e: unknown) {
         setAuditLogsError(getApiErrorMessage(e, '获取审核日志失败'));
       } finally {

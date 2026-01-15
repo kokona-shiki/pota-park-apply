@@ -11,6 +11,25 @@ import {
   revokeAllRefreshTokensForUser,
 } from '../utils/auth.js';
 
+type UserAdminAuditPayload = {
+  action: string;
+  operatorId: number;
+  targetUserId: number;
+  oldRole?: string | null;
+  newRole?: string | null;
+  oldIsActive?: boolean | null;
+  newIsActive?: boolean | null;
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+type RegisterUserPayload = {
+  email: string;
+  callsign: string;
+  password: string;
+  role?: string;
+};
+
 // -----------------
 // 审计日志（封禁/解封不需要理由；修改角色必须理由）
 // -----------------
@@ -24,7 +43,7 @@ export const logUserAdminAudit = async ({
   newIsActive = null,
   reason = null,
   metadata = {},
-}) => {
+}: UserAdminAuditPayload) => {
   await query(
     `
     INSERT INTO user_admin_audit_logs (
@@ -44,7 +63,7 @@ export const logUserAdminAudit = async ({
 };
 
 // 用户注册
-export const registerUser = async (userData) => {
+export const registerUser = async (userData: RegisterUserPayload) => {
   const email = normalizeEmail(userData.email);
   const callsign = normalizeCallsign(userData.callsign);
   const { password, role = 'user' } = userData;
@@ -81,7 +100,7 @@ export const registerUser = async (userData) => {
 };
 
 // 用户登录
-export const loginUser = async (identifier, password) => {
+export const loginUser = async (identifier: string, password: string) => {
   const user = await findUserByIdentifier(identifier);
 
   if (!user) {
@@ -114,12 +133,12 @@ export const loginUser = async (identifier, password) => {
 
 // 更新用户信息
 export const updateUserInfo = async (
-  operatorId,
-  targetUserId,
-  field,
-  newValue,
-  reason,
-  oldPassword = null
+  operatorId: number,
+  targetUserId: number,
+  field: string,
+  newValue: string,
+  reason: string,
+  oldPassword: string | null = null
 ) => {
   const canModify = await checkUserModificationPermission(operatorId, targetUserId, field);
   if (!canModify) {
@@ -167,7 +186,7 @@ export const updateUserInfo = async (
 };
 
 // 申请呼号变更
-export const requestCallsignChange = async (userId, newCallsign, reason) => {
+export const requestCallsignChange = async (userId: number, newCallsign: string, reason: string) => {
   const normalized = normalizeCallsign(newCallsign);
 
   const existingUser = await getOne(
@@ -211,7 +230,12 @@ export const requestCallsignChange = async (userId, newCallsign, reason) => {
 };
 
 // 审核呼号变更
-export const reviewCallsignChange = async (reviewerId, requestId, status, reviewNotes) => {
+export const reviewCallsignChange = async (
+  reviewerId: number,
+  requestId: number,
+  status: string,
+  reviewNotes: string
+) => {
   const request = await getOne(
     `
     SELECT ccr.*, u.email
@@ -263,7 +287,7 @@ export const reviewCallsignChange = async (reviewerId, requestId, status, review
 };
 
 // 获取呼号变更申请列表
-export const getCallsignChangeRequests = async (status) => {
+export const getCallsignChangeRequests = async (status: string | null) => {
   let queryText = `
     SELECT ccr.*, u.email as applicant_email, u.callsign as applicant_callsign,
            r.email as reviewer_email, r.callsign as reviewer_callsign
@@ -272,7 +296,7 @@ export const getCallsignChangeRequests = async (status) => {
     LEFT JOIN users r ON ccr.reviewer_id = r.id
   `;
 
-  const params = [];
+  const params: Array<string | number> = [];
   if (status) {
     queryText += ' WHERE ccr.status = $1 ORDER BY ccr.created_at DESC';
     params.push(status);
@@ -290,12 +314,18 @@ export const getUserAdminAuditLogs = async ({
   operatorId = null,
   limit = 200,
   offset = 0,
+}: {
+  action?: string | null;
+  targetUserId?: number | null;
+  operatorId?: number | null;
+  limit?: number;
+  offset?: number;
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
   const safeOffset = Math.max(0, Number(offset) || 0);
 
   const conditions = [];
-  const params = [];
+  const params: Array<string | number> = [];
 
   if (action) {
     params.push(action);
@@ -339,14 +369,14 @@ export const getUserAdminAuditLogs = async ({
 };
 
 // 获取用户列表
-export const getUsers = async (role = null, isActive = null) => {
+export const getUsers = async (role: string | null = null, isActive: boolean | null = null) => {
   let queryText = `
     SELECT id, email, callsign, role, is_active, last_login, created_at, updated_at
     FROM users
     WHERE 1=1
   `;
 
-  const params = [];
+  const params: Array<string | number | boolean> = [];
   if (isActive === true || isActive === false) {
     params.push(isActive);
     queryText += ` AND is_active = $${params.length}`;
@@ -362,7 +392,12 @@ export const getUsers = async (role = null, isActive = null) => {
 };
 
 // 修改用户角色（必须系统管理员；必须 reason；不能改自己；目标用户必须 is_active=true）
-export const updateUserRole = async (operatorId, targetUserId, newRole, reason) => {
+export const updateUserRole = async (
+  operatorId: number,
+  targetUserId: number,
+  newRole: string,
+  reason: string
+) => {
   if (operatorId === targetUserId) {
     throw new Error('不能修改自己的角色');
   }
@@ -415,7 +450,11 @@ export const updateUserRole = async (operatorId, targetUserId, newRole, reason) 
 };
 
 // 封禁/解封（is_active）
-export const updateUserActive = async (operatorId, targetUserId, isActive) => {
+export const updateUserActive = async (
+  operatorId: number,
+  targetUserId: number,
+  isActive: boolean
+) => {
   if (operatorId === targetUserId) {
     throw new Error('不能修改自己的启用状态');
   }
@@ -478,7 +517,7 @@ export const updateUserActive = async (operatorId, targetUserId, isActive) => {
 };
 
 // 删除用户（软删除）
-export const deleteUser = async (operatorId, targetUserId) => {
+export const deleteUser = async (operatorId: number, targetUserId: number) => {
   const canDelete = await checkUserPermission(operatorId, 'delete_user');
   if (!canDelete) {
     throw new Error('没有权限删除用户');
@@ -505,7 +544,12 @@ export const deleteUser = async (operatorId, targetUserId) => {
 };
 
 // 更新用户密码
-export const updateUserPassword = async (userId, oldPassword, newPassword, reason) => {
+export const updateUserPassword = async (
+  userId: number,
+  oldPassword: string,
+  newPassword: string,
+  reason: string
+) => {
   // 验证新密码
   if (!newPassword || newPassword.length < 6) {
     throw new Error('密码长度至少为6位');

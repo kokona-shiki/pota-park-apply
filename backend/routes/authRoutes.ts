@@ -12,13 +12,14 @@ import {
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendHttpError, sendOk } from '../utils/response.js';
+import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/auth.js';
 
 const router = express.Router();
 
 const REFRESH_COOKIE_NAME = 'pota_refresh_token';
 const REFRESH_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
-const getCookie = (req, name) => {
+const getCookie = (req: express.Request, name: string) => {
   const cookieHeader = req?.headers?.cookie;
   if (!cookieHeader) return null;
 
@@ -36,8 +37,8 @@ const getCookie = (req, name) => {
   return null;
 };
 
-const setRefreshCookie = (req, res, refreshToken) => {
-  // secure: 依赖 req.secure（已在 app.js 设置 trust proxy）
+const setRefreshCookie = (req: express.Request, res: express.Response, refreshToken: string) => {
+  // secure: 依赖 req.secure（已在 app.ts 设置 trust proxy）
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     sameSite: 'lax',
@@ -47,11 +48,11 @@ const setRefreshCookie = (req, res, refreshToken) => {
   });
 };
 
-const clearRefreshCookie = (req, res) => {
+const clearRefreshCookie = (res: express.Response) => {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: Boolean(req.secure),
+    secure: Boolean(res.req?.secure),
     path: '/api',
   });
 };
@@ -68,11 +69,11 @@ const authLimiter = rateLimit({
 // 用户注册（注册成功后需要重新登录，不自动签发 token）
 router.post('/api/register', authLimiter, async (req, res) => {
   try {
-    const { email, callsign, password } = req.body;
-
-    if (!email || !callsign || !password) {
+    const parsed = RegisterRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
       return sendBizError(res, 'VALIDATION_ERROR', '邮箱、呼号和密码不能为空', null);
     }
+    const { email, callsign, password } = parsed.data;
 
     const user = await userService.registerUser({ email, callsign, password });
 
@@ -86,11 +87,11 @@ router.post('/api/register', authLimiter, async (req, res) => {
 // 用户登录
 router.post('/api/login', authLimiter, async (req, res) => {
   try {
-    const { identifier, password } = req.body;
-
-    if (!identifier || !password) {
+    const parsed = LoginRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
       return sendBizError(res, 'VALIDATION_ERROR', '用户名/邮箱和密码不能为空', null);
     }
+    const { identifier, password } = parsed.data;
 
     const user = await userService.loginUser(identifier, password);
 
@@ -116,11 +117,11 @@ router.post('/api/login', authLimiter, async (req, res) => {
     };
 
     return sendOk(res, { accessToken, user: userWithPermissions }, '登录成功');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('登录失败:', error);
 
     // 仅 is_active=false 给明确提示
-    if (error?.message === '用户已被禁用') {
+    if ((error as Error)?.message === '用户已被禁用') {
       return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
     }
 
@@ -149,21 +150,21 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     });
 
     if (result.status === 'invalid' || result.status === 'expired') {
-      clearRefreshCookie(req, res);
+      clearRefreshCookie(res);
       return sendHttpError(res, 401, 'UNAUTHORIZED', '无效或过期的刷新令牌', null);
     }
 
     if (result.status === 'user_disabled') {
       // 被封禁：吊销其所有 refresh token（强制登出只能做到“无法续期”，accessToken 仍会自然过期）
       await revokeAllRefreshTokensForUser(result.userId);
-      clearRefreshCookie(req, res);
+      clearRefreshCookie(res);
       return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
     }
 
     if (result.status === 'replay') {
       // 重放检测：吊销该用户所有 refresh token
       await revokeAllRefreshTokensForUser(result.userId);
-      clearRefreshCookie(req, res);
+      clearRefreshCookie(res);
 
       // 记录审计日志（不强依赖；失败不影响主流程）
       try {
@@ -175,7 +176,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
           metadata: { familyId: result.familyId },
         });
       } catch (e) {
-        console.warn('写入 refresh token 重放审计失败:', e?.message);
+        console.warn('写入 refresh token 重放审计失败:', (e as Error)?.message);
       }
 
       return sendHttpError(res, 403, 'SESSION_INVALID', '检测到异常登录状态，请重新登录', null);
@@ -213,16 +214,16 @@ router.post('/api/logout', async (req, res) => {
       try {
         await revokeRefreshToken(refreshToken);
       } catch (e) {
-        console.warn('吊销 refresh token 失败（忽略）:', e?.message);
+        console.warn('吊销 refresh token 失败（忽略）:', (e as Error)?.message);
       }
     }
 
-    clearRefreshCookie(req, res);
+    clearRefreshCookie(res);
     return sendOk(res, null, 'ok');
   } catch (error) {
     console.error('退出登录失败:', error);
     // 即便失败，也清 cookie，避免前端卡住
-    clearRefreshCookie(req, res);
+    clearRefreshCookie(res);
     return sendOk(res, null, 'ok');
   }
 });
@@ -230,13 +231,13 @@ router.post('/api/logout', async (req, res) => {
 // 获取当前用户信息
 router.get('/api/user-info', authenticateToken, async (req, res) => {
   try {
-    const user = await findUserById(req.user.id);
+    const user = await findUserById(req.user?.id);
     if (!user) {
       return sendBizError(res, 'NOT_FOUND', '用户不存在', null);
     }
 
     // 获取用户权限
-    const permissions = await getUserPermissions(req.user.id);
+    const permissions = await getUserPermissions(user.id);
     const userWithPermissions = {
       ...user,
       permissions: permissions.map((p) => p.permission_code),
@@ -252,7 +253,7 @@ router.get('/api/user-info', authenticateToken, async (req, res) => {
 // 获取用户权限
 router.get('/api/user-permissions', authenticateToken, async (req, res) => {
   try {
-    const permissions = await getUserPermissions(req.user.id);
+    const permissions = await getUserPermissions(req.user?.id);
     return sendOk(res, { permissions }, 'ok');
   } catch (error) {
     console.error('获取用户权限失败:', error);
@@ -264,8 +265,8 @@ router.get('/api/user-permissions', authenticateToken, async (req, res) => {
 router.get('/api/check-permission/:permissionCode', authenticateToken, async (req, res) => {
   try {
     const permissionCode = req.params.permissionCode;
-    const permissions = await getUserPermissions(req.user.id);
-    const hasPermission = permissions.some(p => p.permission_code === permissionCode);
+    const permissions = await getUserPermissions(req.user?.id);
+    const hasPermission = permissions.some((p) => p.permission_code === permissionCode);
     return res.json({ hasPermission });
   } catch (error) {
     console.error('权限检查失败:', error);

@@ -304,14 +304,14 @@ backend/
 │   └── auth.js             # 认证工具
 ├── scripts/
 │   └── initDatabase.js     # 数据库初始化脚本
-├── index.js                # 主服务器文件
+├── index.ts                # 主服务器文件
 ├── package.json
 └── README.md
 ```
 
 ### 添加新功能
 1. 在相应的 `services/` 文件中添加业务逻辑
-2. 在 `index.js` 中添加 API 路由
+2. 在 `index.ts` 中添加 API 路由
 3. 根据需要添加权限检查
 
 ### 数据库迁移

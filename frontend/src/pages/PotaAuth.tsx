@@ -20,16 +20,14 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
-import axios from 'axios';
+import { z } from 'zod';
+import { PotaAuthInitDataSchema, PotaAuthResultDataSchema, PotaStatusSchema } from '../../../shared/schemas/pota';
+import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
 
-type PotaStatus = {
-  connected: boolean;
-  expiresAt: string | null;
-  willExpireSoon?: boolean;
-};
+type PotaStatus = z.infer<typeof PotaStatusSchema>;
 
 function PotaAuth() {
   const { user } = useAuth(); // 保留user用于权限检查
@@ -50,8 +48,8 @@ function PotaAuth() {
   const loadStatus = async () => {
     try {
       setError(null);
-      const res = await axios.get<{ status: PotaStatus }>('/api/pota/status');
-      setStatus(res.data.status);
+      const statusPayload = await requestWithSchema(apiClient.get('/api/pota/status'), PotaStatusSchema);
+      setStatus(statusPayload);
     } catch (e: unknown) {
       const errMsg = getApiErrorMessage(e, '获取 POTA 连接状态失败');
       setError(errMsg);
@@ -77,8 +75,10 @@ function PotaAuth() {
       setAuthDialogOpen(true);
 
       // 1. 获取授权 URL
-      const initRes = await axios.post<{ authUrl: string; state: string }>('/api/pota/init-auth');
-      const { authUrl, state } = initRes.data;
+      const { authUrl, state } = await requestWithSchema(
+        apiClient.post('/api/pota/init-auth'),
+        PotaAuthInitDataSchema
+      );
 
       // 2. 创建隐藏 iframe
       const iframe = document.createElement('iframe');
@@ -116,8 +116,11 @@ function PotaAuth() {
               iframeRef.current = null;
 
               // 4. 发送授权码到后端
-              axios
-                .post('/api/pota/callback', { code, state })
+              const callbackPayload = requestWithSchema(
+                apiClient.post('/api/pota/callback', { code, state }),
+                PotaAuthResultDataSchema
+              );
+              callbackPayload
                 .then(() => {
                   setAuthDialogOpen(false);
                   setAuthLoading(false);
@@ -160,7 +163,7 @@ function PotaAuth() {
     try {
       setLoading(true);
       setError(null);
-      await axios.delete('/api/pota/token');
+      await requestWithSchema(apiClient.delete('/api/pota/token'), z.null());
       await loadStatus();
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, '断开连接失败'));
