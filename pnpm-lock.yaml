@@ -11,6 +11,9 @@ importers:
       '@mui/x-data-grid':
         specifier: ^7.0.0
         version: 7.29.12(@mui/material@7.3.6)(@mui/system@7.3.7)(@types/react@19.2.7)(react-dom@19.2.3)(react@19.2.3)
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@testing-library/jest-dom':
         specifier: ^6.9.1
