@@ -338,8 +338,19 @@ export const transformPotaParkToInternal = async (potaPark) => {
   // 识别公园类型
   const parkType = await identifyParkType(potaPark);
 
+  // 提取公园名称的中文部分（第一个空格之前的部分）
+  let parkName = potaPark.name || potaPark.reference || 'Unknown Park';
+  if (potaPark.name) {
+    const spaceIndex = potaPark.name.indexOf(' ');
+    if (spaceIndex !== -1) {
+      // 如果包含空格，只取第一个空格之前的中文部分
+      parkName = potaPark.name.substring(0, spaceIndex);
+    }
+    // 如果不包含空格，使用完整名称
+  }
+
   return {
-    park_name: potaPark.name || potaPark.reference || 'Unknown Park',
+    park_name: parkName,
     park_type: parkType, // 根据名称识别出的公园类型
     provinces: provinces,
     latitude: potaPark.latitude,
