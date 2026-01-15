@@ -8,9 +8,11 @@ import {
   processUnprocessedPark,
   bulkProcessUnprocessedParks,
   manualTriggerPotaImport,
+  getLatestImportTaskForUser,
+  markImportTaskRead,
 } from '../services/potaImportService.js';
 import { getOne } from '../config/database.js';
-import { sendOk, sendError, sendBizError } from '../utils/response.js';
+import { sendOk, sendError, sendBizError, sendHttpError } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -23,7 +25,7 @@ const requirePotaImportPermission = async (req, res, next) => {
     const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
 
     if (!hasImportPermission && !hasSyncPermission) {
-      return sendBizError(res, 'FORBIDDEN', '没有权限执行此操作', null);
+      return sendHttpError(res, 403, 'FORBIDDEN', '没有权限执行此操作', null);
     }
 
     next();
@@ -36,7 +38,7 @@ const requirePotaImportPermission = async (req, res, next) => {
 /**
  * 获取导入权限状态
  */
-router.get('/api/pota/import-status', authenticateToken, async (req, res) => {
+router.get('/api/pota/import-status', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     const hasImportPermission = await checkUserPermission(req.user.id, 'pota_import');
     const hasSyncPermission = await checkUserPermission(req.user.id, 'sync_to_pota');
@@ -219,15 +221,56 @@ router.post(
 
       const result = await manualTriggerPotaImport(userId);
 
-      // 如果导入结果中有需要手动确认的公园，更新缓存
-      if (result.needs_manual_confirmation && result.needs_manual_confirmation.length > 0) {
-        await setUnprocessedParks(result.needs_manual_confirmation);
+      if (result.rejected) {
+        return sendBizError(res, 'IMPORT_TASK_REJECTED', result.message, {
+          reason: result.reason,
+        });
       }
 
-      return sendOk(res, result, '手动触发POTA导入成功');
+      return sendOk(res, result, '已提交 POTA 导入任务');
     } catch (error) {
       console.error('手动触发POTA导入失败:', error);
       return sendError(res, error, { bizMessage: '手动触发POTA导入失败' });
+    }
+  }
+);
+
+/**
+ * 获取当前用户最新的POTA导入任务
+ */
+router.get(
+  '/api/pota/import-task/latest',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const task = await getLatestImportTaskForUser(req.user.id);
+      return sendOk(res, task, '获取导入任务成功');
+    } catch (error) {
+      console.error('获取导入任务失败:', error);
+      return sendError(res, error, { bizMessage: '获取导入任务失败' });
+    }
+  }
+);
+
+/**
+ * 标记导入任务已读
+ */
+router.post(
+  '/api/pota/import-task/:taskId/read',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const task = await markImportTaskRead(req.user.id, taskId);
+      if (!task) {
+        return sendBizError(res, 'TASK_NOT_FOUND', '未找到可标记的导入任务', null);
+      }
+      return sendOk(res, task, '任务已标记为已读');
+    } catch (error) {
+      console.error('标记导入任务已读失败:', error);
+      return sendError(res, error, { bizMessage: '标记导入任务已读失败' });
     }
   }
 );

@@ -14,43 +14,43 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import parkTypeMapping from '../../../shared/park_type_mapping.json';
 import regionMapping from '../../../shared/region.json';
 import { useAuth } from '../auth/useAuth';
-import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
+import { getApiErrorMessage } from '../utils/error';
 
 interface UnprocessedPark {
   reference: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   locationDesc: string;
   grid: string;
   attempts: number;
   activations: number;
   qsos: number;
-  message: string;
+  message?: string;
+  failureReason?: string;
   suggestedType?: string | null;
   manualType?: string | null;
 }
 
 const PotaUnprocessedParks: React.FC = () => {
   const { user, accessToken } = useAuth();
-  const { hasPermission: hasPotaPermission, loading: permissionLoading } =
-    usePermission('pota_import');
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [checkingPermission, setCheckingPermission] = useState<boolean>(true); // 新增状态用于跟踪权限检查
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<boolean>(false);
   const [selectedType, setSelectedType] = useState<{ [key: string]: string }>({});
   const [openConfirmDialog, setOpenConfirmDialog] = useState<boolean>(false);
   const [parkToProcess, setParkToProcess] = useState<UnprocessedPark | null>(null);
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
 
   // 用于确保API只调用一次
   const hasFetchedRef = useRef(false);
@@ -164,74 +164,23 @@ const PotaUnprocessedParks: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!hasFetchedRef.current && hasPotaPermission !== null) {
+    if (!hasFetchedRef.current && user) {
       hasFetchedRef.current = true;
-      checkPermissionAndFetchData();
+      fetchUnprocessedParks();
     }
-  }, [hasPotaPermission]);
-
-  const checkPermissionAndFetchData = async () => {
-    setCheckingPermission(true); // 开始检查权限
-
-    // 只有当 hasPotaPermission 为 false 时才认为没有权限
-    // 如果 hasPotaPermission 为 null，表示还在加载中
-    if (!user || hasPotaPermission === false) {
-      setHasPermission(false);
-      setCheckingPermission(false);
-      setLoading(false);
-      return;
-    }
-
-    // 如果 hasPotaPermission 仍在加载中，等待加载完成
-    if (hasPotaPermission === null) {
-      setCheckingPermission(false);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // 通过尝试访问受保护的API来检查权限
-      const response = await axios.get('/api/pota/unprocessed-parks', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      // 如果API调用成功（返回200），则用户有权限
-      setHasPermission(true);
-      // 更新本地的未处理公园列表
-      setUnprocessedParks(response.data);
-
-      // 初始化选中的类型
-      const initialSelected: { [key: string]: string } = {};
-      response.data.forEach((park: UnprocessedPark) => {
-        initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
-      });
-      setSelectedType(initialSelected);
-    } catch (err: unknown) {
-      const error = err as { response?: { status: number } };
-      // 如果API调用失败（返回403或其他错误），则用户没有权限
-      if (error.response?.status === 403) {
-        // 明确的权限不足错误
-      }
-      // 其他错误，可能是网络问题等，但我们仍假设用户没有权限
-      setHasPermission(false);
-      console.error('检查权限失败:', err);
-    } finally {
-      // 无论成功还是失败，都要停止权限检查状态和loading状态
-      setCheckingPermission(false);
-      setLoading(false);
-    }
-  };
+  }, [user]);
 
   const fetchUnprocessedParks = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await axios.get('/api/pota/unprocessed-parks', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
       setUnprocessedParks(response.data);
+      setHasPermission(true);
 
       // 初始化选中的类型
       const initialSelected: { [key: string]: string } = {};
@@ -240,8 +189,14 @@ const PotaUnprocessedParks: React.FC = () => {
       });
       setSelectedType(initialSelected);
     } catch (err) {
-      setError('获取未处理公园列表失败');
-      console.error(err);
+      const error = err as { response?: { status: number } };
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        setHasPermission(false);
+      } else {
+        setError(getApiErrorMessage(err, '获取未处理公园列表失败'));
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -254,7 +209,7 @@ const PotaUnprocessedParks: React.FC = () => {
 
   const handleProcessSingle = async (park: UnprocessedPark) => {
     if (!selectedType[park.reference]) {
-      alert('请选择公园类型');
+      setSnackbar({ message: '请选择公园类型', severity: 'info' });
       return;
     }
 
@@ -281,9 +236,9 @@ const PotaUnprocessedParks: React.FC = () => {
 
       // 成功后刷新列表
       await fetchUnprocessedParks();
-      alert('处理成功');
+      setSnackbar({ message: '处理成功', severity: 'success' });
     } catch (err) {
-      alert('处理失败');
+      setSnackbar({ message: getApiErrorMessage(err, '处理失败'), severity: 'error' });
       console.error(err);
     } finally {
       setProcessing(false);
@@ -302,7 +257,7 @@ const PotaUnprocessedParks: React.FC = () => {
       });
 
     if (parksToProcess.length === 0) {
-      alert('请至少选择一个公园并为其指定类型');
+      setSnackbar({ message: '请至少选择一个公园并为其指定类型', severity: 'info' });
       return;
     }
 
@@ -323,9 +278,12 @@ const PotaUnprocessedParks: React.FC = () => {
 
       // 成功后刷新列表
       await fetchUnprocessedParks();
-      alert(`批量处理完成，成功处理 ${parksToProcess.length} 个公园`);
+      setSnackbar({
+        message: `批量处理完成，成功处理 ${parksToProcess.length} 个公园`,
+        severity: 'success',
+      });
     } catch (err) {
-      alert('批量处理失败');
+      setSnackbar({ message: getApiErrorMessage(err, '批量处理失败'), severity: 'error' });
       console.error(err);
     } finally {
       setProcessing(false);
@@ -373,16 +331,32 @@ const PotaUnprocessedParks: React.FC = () => {
       ),
     },
     {
+      field: 'failureReason',
+      headerName: '失败原因',
+      flex: 1,
+      minWidth: 220,
+      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
+        const reason = params.value ?? params.row.message ?? '';
+        return (
+          <Tooltip title={reason}>
+            <span>{reason || '-'}</span>
+          </Tooltip>
+        );
+      },
+    },
+    {
       field: 'latitude',
       headerName: '纬度',
       width: 100,
-      valueFormatter: (params: { value: number }) => params.value?.toFixed(4),
+      valueFormatter: (params: { value: number }) =>
+        typeof params.value === 'number' ? params.value.toFixed(4) : '-',
     },
     {
       field: 'longitude',
       headerName: '经度',
       width: 100,
-      valueFormatter: (params: { value: number }) => params.value?.toFixed(4),
+      valueFormatter: (params: { value: number }) =>
+        typeof params.value === 'number' ? params.value.toFixed(4) : '-',
     },
     {
       field: 'grid',
@@ -475,7 +449,7 @@ const PotaUnprocessedParks: React.FC = () => {
     },
   ];
 
-  if (checkingPermission || permissionLoading) {
+  if (loading || hasPermission === null) {
     return (
       <Container maxWidth="lg">
         <Typography variant="h4" component="h1" gutterBottom>
@@ -488,7 +462,7 @@ const PotaUnprocessedParks: React.FC = () => {
     );
   }
 
-  if (!hasPermission) {
+  if (hasPermission === false) {
     return (
       <Container maxWidth="lg">
         <Typography variant="h4" component="h1" gutterBottom>
@@ -525,9 +499,7 @@ const PotaUnprocessedParks: React.FC = () => {
           <Button
             variant="outlined"
             onClick={async () => {
-              setLoading(true);
               await fetchUnprocessedParks();
-              setLoading(false);
             }}
             disabled={processing}
           >
@@ -585,6 +557,19 @@ const PotaUnprocessedParks: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={Boolean(snackbar)}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {snackbar ? (
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)}>
+            {snackbar.message}
+          </Alert>
+        ) : null}
+      </Snackbar>
     </Container>
   );
 };

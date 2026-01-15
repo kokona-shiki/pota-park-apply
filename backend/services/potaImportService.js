@@ -10,6 +10,70 @@ import { logPotaSync } from './potaSyncLogService.js';
 
 // POTA API 基础 URL
 const POTA_API_BASE_URL = 'https://api.pota.app';
+const QUERY_PARK_MAX_RETRIES = 3;
+const QUERY_PARK_MIN_DELAY_MS = 1000;
+const QUERY_PARK_MAX_DELAY_MS = 3000;
+const IMPORT_TASK_QUEUE_MAX = 5;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getRandomDelayMs = () =>
+  Math.floor(Math.random() * (QUERY_PARK_MAX_DELAY_MS - QUERY_PARK_MIN_DELAY_MS + 1)) +
+  QUERY_PARK_MIN_DELAY_MS;
+
+const applyQueryParkDelay = async () => {
+  const delay = getRandomDelayMs();
+  await sleep(delay);
+};
+
+const normalizeCsvList = (value) => {
+  if (typeof value !== 'string') {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const formatQueryParkError = (error) => {
+  if (!error) {
+    return '未知错误';
+  }
+  if (error.response) {
+    const status = error.response.status;
+    const data = error.response.data;
+    let detail = '';
+    if (typeof data === 'string') {
+      detail = data;
+    } else if (data) {
+      detail = JSON.stringify(data);
+    } else if (error.message) {
+      detail = error.message;
+    }
+    const suffix = detail ? ` - ${detail}` : '';
+    return `HTTP ${status}${suffix}`;
+  }
+  return error.message || '未知错误';
+};
+
+const buildQueryParkFailureReason = (attempts, error) =>
+  `查询 POTA 公园 失败（${attempts}/${QUERY_PARK_MAX_RETRIES}次）：${formatQueryParkError(error)}`;
+
+const extractChineseName = (name) => {
+  if (typeof name !== 'string') {
+    return '';
+  }
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const spaceIndex = trimmed.indexOf(' ');
+  if (spaceIndex === -1) {
+    return trimmed;
+  }
+  return trimmed.substring(0, spaceIndex);
+};
 
 /**
  * 从 POTA API 获取所有中国公园数据
@@ -56,13 +120,6 @@ export const fetchAllChineseParks = async () => {
 
     // 如果所有重试都失败，抛出最后一个错误
     throw lastError;
-
-    if (!Array.isArray(response.data)) {
-      throw new Error('POTA API 返回的数据格式不正确，期望数组格式');
-    }
-
-    console.log(`成功获取 ${response.data.length} 个中国公园数据`);
-    return response.data;
   } catch (error) {
     console.error('获取 POTA 公园数据失败:', error.message);
 
@@ -75,6 +132,45 @@ export const fetchAllChineseParks = async () => {
     return [];
   }
 };
+
+/**
+ * 查询 POTA 公园详情
+ */
+export const fetchPotaParkDetail = async (reference) => {
+  let lastError;
+
+  for (let attempt = 1; attempt <= QUERY_PARK_MAX_RETRIES; attempt++) {
+    try {
+      await applyQueryParkDelay();
+      const response = await axios.get(`${POTA_API_BASE_URL}/park/${reference}`, {
+        timeout: 30000,
+        httpAgent: http.Agent({ keepAlive: true }),
+        httpsAgent: https.Agent({ keepAlive: true }),
+        headers: {
+          'User-Agent': 'POTA-Park-Importer/1.0',
+          Accept: 'application/json',
+          Referer: 'https://pota.app/',
+        },
+      });
+
+      if (response && response.data) {
+        return { data: response.data, attempts: attempt };
+      }
+    } catch (error) {
+      lastError = error;
+      console.log(
+        `查询 POTA 公园失败 (第 ${attempt} 次尝试, ${reference}): ${formatQueryParkError(error)}`
+      );
+    }
+  }
+
+  const error = new Error(buildQueryParkFailureReason(QUERY_PARK_MAX_RETRIES, lastError));
+  error.cause = lastError;
+  throw error;
+};
+
+const getPotaReference = (park) =>
+  park?.reference || park?.potaId || park?.pota_ref || park?.potaRef || '';
 
 /**
  * 根据 POTA ID 检查公园是否已存在于系统中
@@ -198,20 +294,23 @@ export const resolveParkTypeId = async (value) => {
 export const identifyParkType = async (potaPark) => {
   const mappings = await loadParkTypeMappings();
 
-  if (!potaPark.name) {
+  const rawName = typeof potaPark?.name === 'string' ? potaPark.name.trim() : '';
+  const rawTypeDesc =
+    typeof potaPark?.parkTypeDesc === 'string' ? potaPark.parkTypeDesc.trim() : '';
+
+  if (!rawName && !rawTypeDesc) {
     return null;
   }
 
-  const parkName = potaPark.name;
+  let chinesePart = rawName;
+  let englishPart = rawTypeDesc;
 
-  // 分离中文和英文部分：遇到第一个空格前的部分视为中文部分，之后的部分视为英文部分
-  const spaceIndex = parkName.indexOf(' ');
-  let chinesePart = parkName;
-  let englishPart = '';
-
-  if (spaceIndex !== -1) {
-    chinesePart = parkName.substring(0, spaceIndex);
-    englishPart = parkName.substring(spaceIndex + 1);
+  if (!englishPart && rawName.includes(' ')) {
+    const spaceIndex = rawName.indexOf(' ');
+    if (spaceIndex !== -1) {
+      chinesePart = rawName.substring(0, spaceIndex);
+      englishPart = rawName.substring(spaceIndex + 1);
+    }
   }
 
   // 从中文部分识别：查找包含中文公园类型关键词的名称
@@ -240,7 +339,7 @@ export const identifyParkType = async (potaPark) => {
   let possibleTypes = [];
 
   // 检查标准英文类型
-  for (const mapping of mappings.english_to_chinese) {
+  for (const mapping of mappings.english_to_chinese || []) {
     // 检查英文类型名称是否在英文部分中
     const englishWords = mapping.englishName.toLowerCase().split(/\s+/);
     const lowerEnglishPart = englishPart.toLowerCase();
@@ -306,48 +405,29 @@ export const identifyParkType = async (potaPark) => {
       return longestMatches[0].typeId || null;
     }
   } else {
-    console.log(`英文部分无法匹配任何类型: ${englishPart}`);
+    if (englishPart) {
+      console.log(`英文部分无法匹配任何类型: ${englishPart}`);
+    }
   }
 
   // 如果没有匹配的类型，返回 null
-  console.log(`无法识别公园类型，英文部分: ${englishPart}`);
+  console.log(`无法识别公园类型，英文部分: ${englishPart || 'N/A'}`);
   return null;
 };
 
 /**
  * 将 POTA 公园数据转换为系统内部格式
  */
-export const transformPotaParkToInternal = async (potaPark) => {
-  // 根据新的 POTA API 返回的数据结构进行转换
-  // POTA API 返回的数据结构类似于：
-  // {
-  //   "reference": "CN-0002",
-  //   "name": "中国长城国家公园 World Heritage Site",
-  //   "latitude": 40.3456,
-  //   "longitude": 115.987,
-  //   "grid": "ON70xi",
-  //   "locationDesc": "CN-BJ,CN-GS,CN-HA,CN-HE,CN-HL,CN-JL,CN-LN,CN-NM,CN-NX,CN-QH,CN-SD,CN-SN,CN-SX,CN-TJ,CN-XJ",
-  //   "attempts": 5,
-  //   "activations": 5,
-  //   "qsos": 86
-  // }
-
+export const transformPotaParkToInternal = async (potaPark, resolvedType = null) => {
   // 解析 locationDesc 字段，它包含了多个省份代码，用逗号分隔
-  const provinces = potaPark.locationDesc ? potaPark.locationDesc.split(',') : ['CN'];
+  const provinces = potaPark.locationDesc
+    ? potaPark.locationDesc.split(',').map((item) => item.trim()).filter(Boolean)
+    : [];
 
   // 识别公园类型
-  const parkType = await identifyParkType(potaPark);
+  const parkType = resolvedType ?? (await identifyParkType(potaPark));
 
-  // 提取公园名称的中文部分（第一个空格之前的部分）
-  let parkName = potaPark.name || potaPark.reference || 'Unknown Park';
-  if (potaPark.name) {
-    const spaceIndex = potaPark.name.indexOf(' ');
-    if (spaceIndex !== -1) {
-      // 如果包含空格，只取第一个空格之前的中文部分
-      parkName = potaPark.name.substring(0, spaceIndex);
-    }
-    // 如果不包含空格，使用完整名称
-  }
+  const parkName = potaPark.name || potaPark.reference || 'Unknown Park';
 
   return {
     park_name: parkName,
@@ -355,10 +435,10 @@ export const transformPotaParkToInternal = async (potaPark) => {
     provinces: provinces,
     latitude: potaPark.latitude,
     longitude: potaPark.longitude,
-    website: null, // POTA API 当前返回的数据中没有网站信息
-    description: `${potaPark.name} (${potaPark.reference}), Grid: ${potaPark.grid}, Activations: ${potaPark.activations}, QSOs: ${potaPark.qsos}`,
-    access_methods: [], // POTA API 当前返回的数据中没有访问方式信息
-    activation_methods: [], // POTA API 当前返回的数据中没有激活方式信息
+    website: potaPark.website || null,
+    description: potaPark.parkComments || '',
+    access_methods: normalizeCsvList(potaPark.accessMethods),
+    activation_methods: normalizeCsvList(potaPark.activationMethods),
     confirmed_authenticity: true, // POTA 导入的公园默认真实
     pota_ref: potaPark.reference, // 保存原始 POTA 参考 ID
   };
@@ -438,7 +518,13 @@ export const createParkWithAudit = async (parkData, operatorId, operatorRole, im
 /**
  * 导入单个 POTA 公园
  */
-export const importSinglePotaPark = async (potaPark, operatorId, operatorRole, importTime) => {
+export const importSinglePotaPark = async (
+  potaPark,
+  operatorId,
+  operatorRole,
+  importTime,
+  resolvedType = null
+) => {
   const potaId = potaPark.reference;
 
   if (!potaId) {
@@ -455,7 +541,7 @@ export const importSinglePotaPark = async (potaPark, operatorId, operatorRole, i
     }
 
     // 转换数据格式
-    const internalPark = await transformPotaParkToInternal(potaPark);
+    const internalPark = await transformPotaParkToInternal(potaPark, resolvedType);
 
     // 创建公园并记录审核日志
     const createdPark = await createParkWithAudit(
@@ -496,14 +582,12 @@ export const importPotaParks = async (operatorId, operatorRole) => {
 
   try {
     // 获取所有中国公园数据
-    const parksData = await fetchAllChineseParks();
+    let parksData = await fetchAllChineseParks();
 
     if (!Array.isArray(parksData) && typeof parksData === 'object') {
-      // 如果返回的是对象而不是数组，尝试从中提取公园列表
       if (parksData.parks && Array.isArray(parksData.parks)) {
         parksData = parksData.parks;
       } else {
-        // 尝试其他可能的属性名
         const possibleArrayKeys = ['data', 'results', 'features'];
         for (const key of possibleArrayKeys) {
           if (parksData[key] && Array.isArray(parksData[key])) {
@@ -525,184 +609,129 @@ export const importPotaParks = async (operatorId, operatorRole) => {
       imported: 0,
       skipped: 0,
       errors: [],
-      needs_manual_confirmation: [], // 需要手动确认公园类型的公园
+      needs_manual_confirmation: [],
     };
 
-    // 存储需要手动确认的公园数据
     const unprocessedParks = [];
 
-    // 首先预处理所有公园，识别需要手动确认的公园
-    const mappings = await loadParkTypeMappings();
+    for (const listPark of parksData) {
+      const potaId = getPotaReference(listPark);
+      if (!potaId) {
+        results.errors.push({ error: '公园数据缺少POTA ID', park: listPark });
+        continue;
+      }
 
-    for (const park of parksData) {
-      const parkType = await identifyParkType(park);
-      if (parkType === null) {
-        // 如果无法自动识别公园类型，将其添加到需要手动确认的列表中
+      const existingPark = await checkParkExistsByPotaId(potaId);
+      if (existingPark) {
+        results.skipped++;
+        parksImported.push({
+          reference: potaId,
+          name: listPark.name,
+          status: 'skipped',
+          reason: 'Already exists',
+        });
+        continue;
+      }
+
+      let parkDetail = null;
+      try {
+        const detailResult = await fetchPotaParkDetail(potaId);
+        parkDetail = detailResult.data;
+      } catch (error) {
+        const failureReason = error.message || buildQueryParkFailureReason(QUERY_PARK_MAX_RETRIES, error);
+        const fallbackName = extractChineseName(listPark.name) || listPark.name || potaId;
         const unprocessedPark = {
-          reference: park.reference,
-          name: park.name,
-          latitude: park.latitude,
-          longitude: park.longitude,
-          locationDesc: park.locationDesc,
-          grid: park.grid,
-          attempts: park.attempts,
-          activations: park.activations,
-          qsos: park.qsos,
-          message: '无法自动识别公园类型，需要手动确认',
-          suggestedType: null,
-          manualType: null,
+          reference: potaId,
+          name: fallbackName,
+          activations: listPark.activations ?? null,
+          qsos: listPark.qsos ?? null,
+          failureReason,
         };
         results.needs_manual_confirmation.push(unprocessedPark);
         unprocessedParks.push(unprocessedPark);
+        results.errors.push({ potaId, error: failureReason, park: listPark });
+        parksImported.push({
+          reference: potaId,
+          name: fallbackName,
+          status: 'failed',
+          reason: failureReason,
+        });
+        continue;
       }
-    }
 
-    if (results.needs_manual_confirmation.length > 0) {
-      console.log(`发现 ${results.needs_manual_confirmation.length} 个公园需要手动确认类型`);
+      const enrichedPark = {
+        ...parkDetail,
+        activations: listPark.activations ?? parkDetail?.activations,
+        qsos: listPark.qsos ?? parkDetail?.qsos,
+      };
 
-      // 更新未处理公园缓存
-      await setUnprocessedParks(results.needs_manual_confirmation);
+      const parkType = await identifyParkType(enrichedPark);
+      if (!parkType) {
+        const unprocessedPark = {
+          reference: potaId,
+          name: enrichedPark.name || extractChineseName(listPark.name) || potaId,
+          latitude: enrichedPark.latitude ?? null,
+          longitude: enrichedPark.longitude ?? null,
+          locationDesc: enrichedPark.locationDesc || '',
+          grid: enrichedPark.grid6 || enrichedPark.grid4 || '',
+          activations: listPark.activations ?? null,
+          qsos: listPark.qsos ?? null,
+          parkTypeDesc: enrichedPark.parkTypeDesc || '',
+          accessMethods: enrichedPark.accessMethods || '',
+          activationMethods: enrichedPark.activationMethods || '',
+          website: enrichedPark.website || '',
+          parkComments: enrichedPark.parkComments || '',
+          failureReason: '无法自动识别公园类型，需要手动确认',
+        };
+        results.needs_manual_confirmation.push(unprocessedPark);
+        unprocessedParks.push(unprocessedPark);
+        parksImported.push({
+          reference: potaId,
+          name: unprocessedPark.name,
+          status: 'skipped',
+          reason: 'Requires manual confirmation',
+        });
+        continue;
+      }
 
-      // 如果是自动导入（系统执行），我们可以选择跳过这些需要手动确认的公园
-      // 或者将它们导入但类型为 null
-      if (operatorId === -1) {
-        // 系统自动导入
-        console.log('自动导入模式：将跳过需要手动确认类型的公园');
-        // 过滤掉需要手动确认的公园
-        const autoImportableParks = parksData.filter((park) =>
-          results.needs_manual_confirmation.every((manual) => manual.reference !== park.reference)
-        );
+      const result = await importSinglePotaPark(
+        enrichedPark,
+        operatorId,
+        operatorRole,
+        importTime,
+        parkType
+      );
 
-        // 导入可自动处理的公园
-        for (const park of autoImportableParks) {
-          const result = await importSinglePotaPark(park, operatorId, operatorRole, importTime);
-
-          if (result.success) {
-            if (result.skipped) {
-              results.skipped++;
-              // 记录跳过的公园
-              parksImported.push({
-                reference: park.reference,
-                name: park.name,
-                status: 'skipped',
-                reason: 'Already exists',
-              });
-            } else if (result.created) {
-              results.imported++;
-              // 记录导入成功的公园
-              parksImported.push({
-                reference: park.reference,
-                name: park.name,
-                status: 'success',
-              });
-            }
-          } else {
-            results.errors.push(result);
-            // 记录导入失败的公园
-            parksImported.push({
-              reference: result.potaId || (result.park && result.park.reference),
-              name: result.park && result.park.name,
-              status: 'failed',
-              reason: result.error,
-            });
-            console.error(`导入公园失败:`, result);
-          }
+      if (result.success) {
+        if (result.skipped) {
+          results.skipped++;
+          parksImported.push({
+            reference: potaId,
+            name: enrichedPark.name,
+            status: 'skipped',
+            reason: 'Already exists',
+          });
+        } else if (result.created) {
+          results.imported++;
+          parksImported.push({
+            reference: potaId,
+            name: enrichedPark.name,
+            status: 'success',
+          });
         }
       } else {
-        // 手动导入模式
-        // 在手动导入模式下，我们仍然导入所有可自动识别类型的公园
-        for (const park of parksData) {
-          // 检查是否是需要手动确认的公园
-          const isManualConfirmationNeeded = results.needs_manual_confirmation.some(
-            (manual) => manual.reference === park.reference
-          );
-
-          if (isManualConfirmationNeeded) {
-            console.log(`跳过需要手动确认类型的公园: ${park.reference}`);
-            // 记录跳过的公园
-            parksImported.push({
-              reference: park.reference,
-              name: park.name,
-              status: 'skipped',
-              reason: 'Requires manual confirmation',
-            });
-            continue; // 跳过需要手动确认的公园
-          }
-
-          const result = await importSinglePotaPark(park, operatorId, operatorRole, importTime);
-
-          if (result.success) {
-            if (result.skipped) {
-              results.skipped++;
-              // 记录跳过的公园
-              parksImported.push({
-                reference: park.reference,
-                name: park.name,
-                status: 'skipped',
-                reason: 'Already exists',
-              });
-            } else if (result.created) {
-              results.imported++;
-              // 记录导入成功的公园
-              parksImported.push({
-                reference: park.reference,
-                name: park.name,
-                status: 'success',
-              });
-            }
-          } else {
-            results.errors.push(result);
-            // 记录导入失败的公园
-            parksImported.push({
-              reference: result.potaId || (result.park && result.park.reference),
-              name: result.park && result.park.name,
-              status: 'failed',
-              reason: result.error,
-            });
-            console.error(`导入公园失败:`, result);
-          }
-        }
-      }
-    } else {
-      // 如果没有需要手动确认的公园，正常导入所有公园
-      // 清空未处理公园缓存
-      await clearUnprocessedParks();
-
-      for (const park of parksData) {
-        const result = await importSinglePotaPark(park, operatorId, operatorRole, importTime);
-
-        if (result.success) {
-          if (result.skipped) {
-            results.skipped++;
-            // 记录跳过的公园
-            parksImported.push({
-              reference: park.reference,
-              name: park.name,
-              status: 'skipped',
-              reason: 'Already exists',
-            });
-          } else if (result.created) {
-            results.imported++;
-            // 记录导入成功的公园
-            parksImported.push({
-              reference: park.reference,
-              name: park.name,
-              status: 'success',
-            });
-          }
-        } else {
-          results.errors.push(result);
-          // 记录导入失败的公园
-          parksImported.push({
-            reference: result.potaId || (result.park && result.park.reference),
-            name: result.park && result.park.name,
-            status: 'failed',
-            reason: result.error,
-          });
-          console.error(`导入公园失败:`, result);
-        }
+        results.errors.push(result);
+        parksImported.push({
+          reference: result.potaId || potaId,
+          name: enrichedPark.name,
+          status: 'failed',
+          reason: result.error,
+        });
+        console.error(`导入公园失败:`, result);
       }
     }
+
+    results.needs_manual_confirmation = unprocessedParks;
 
     // 确定操作人名称
     let operatorName = '系统自动';
@@ -746,6 +775,155 @@ export const importPotaParks = async (operatorId, operatorRole) => {
   }
 };
 
+const importTaskQueue = [];
+let importTaskRunning = false;
+let importTaskSequence = 1;
+
+const getActiveImportTasks = () =>
+  importTaskQueue.filter((task) => task.status === 'pending' || task.status === 'running');
+
+const isImportQueueFull = () => getActiveImportTasks().length >= IMPORT_TASK_QUEUE_MAX;
+
+const getPendingQueuePosition = (taskId) => {
+  const pending = importTaskQueue.filter((task) => task.status === 'pending');
+  const index = pending.findIndex((task) => task.id === taskId);
+  return index === -1 ? 0 : index + 1;
+};
+
+const deriveTaskStatusFromResult = (result) => {
+  if (!result) {
+    return 'failed';
+  }
+  if (result.errors && result.errors.length > 0) {
+    return result.imported > 0 ? 'partial_success' : 'failed';
+  }
+  return 'success';
+};
+
+const cleanupImportTasks = () => {
+  const maxKeep = 50;
+  if (importTaskQueue.length <= maxKeep) {
+    return;
+  }
+  const activeTasks = importTaskQueue.filter(
+    (task) => task.status === 'pending' || task.status === 'running'
+  );
+  const completedTasks = importTaskQueue.filter(
+    (task) => task.status !== 'pending' && task.status !== 'running'
+  );
+  const remainingSlots = Math.max(0, maxKeep - activeTasks.length);
+  const keepCompleted = completedTasks.slice(-remainingSlots);
+  importTaskQueue.splice(0, importTaskQueue.length, ...activeTasks, ...keepCompleted);
+};
+
+const formatTaskResultSummary = (result) => {
+  if (!result) {
+    return null;
+  }
+  return {
+    total: result.total ?? 0,
+    imported: result.imported ?? 0,
+    skipped: result.skipped ?? 0,
+    errors: result.errors?.length ?? 0,
+    needsManual: result.needs_manual_confirmation?.length ?? 0,
+  };
+};
+
+const buildTaskResponse = (task) => ({
+  id: task.id,
+  status: task.status,
+  operationType: task.operationType,
+  createdAt: task.createdAt,
+  startedAt: task.startedAt,
+  finishedAt: task.finishedAt,
+  queuePosition: task.status === 'pending' ? getPendingQueuePosition(task.id) : 0,
+  result: formatTaskResultSummary(task.result),
+  error: task.error,
+  readAt: task.readAt,
+});
+
+const startNextImportTask = async () => {
+  if (importTaskRunning) {
+    return;
+  }
+
+  const nextTask = importTaskQueue.find((task) => task.status === 'pending');
+  if (!nextTask) {
+    return;
+  }
+
+  importTaskRunning = true;
+  nextTask.status = 'running';
+  nextTask.startedAt = new Date().toISOString();
+
+  try {
+    const result = await importPotaParks(nextTask.operatorId, nextTask.operatorRole);
+    nextTask.result = result;
+    nextTask.status = deriveTaskStatusFromResult(result);
+    if (result.needs_manual_confirmation && result.needs_manual_confirmation.length > 0) {
+      await setUnprocessedParks(result.needs_manual_confirmation);
+    } else {
+      await clearUnprocessedParks();
+    }
+  } catch (error) {
+    nextTask.error = error.message || '导入任务失败';
+    nextTask.status = 'failed';
+  } finally {
+    nextTask.finishedAt = new Date().toISOString();
+    importTaskRunning = false;
+    cleanupImportTasks();
+    await startNextImportTask();
+  }
+};
+
+const enqueueImportTask = ({ operatorId, operatorRole, operationType }) => {
+  const task = {
+    id: `pota-import-${importTaskSequence++}`,
+    operatorId,
+    operatorRole,
+    operationType,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    result: null,
+    error: null,
+    readAt: null,
+  };
+
+  importTaskQueue.push(task);
+  startNextImportTask();
+  return task;
+};
+
+const getUserActiveTask = (userId) =>
+  importTaskQueue.find(
+    (task) =>
+      task.operatorId === userId && (task.status === 'pending' || task.status === 'running')
+  );
+
+export const getLatestImportTaskForUser = async (userId) => {
+  const userTasks = importTaskQueue.filter(
+    (task) => task.operatorId === userId && task.operationType === 'manual'
+  );
+  if (userTasks.length === 0) {
+    return null;
+  }
+  const latestTask = userTasks[userTasks.length - 1];
+  return buildTaskResponse(latestTask);
+};
+
+export const markImportTaskRead = async (userId, taskId) => {
+  const task = importTaskQueue.find(
+    (item) => item.id === taskId && item.operatorId === userId && item.operationType === 'manual'
+  );
+  if (!task) {
+    return null;
+  }
+  task.readAt = new Date().toISOString();
+  return buildTaskResponse(task);
+};
+
 /**
  * 手动触发 POTA 公园导入（供 API 调用）
  */
@@ -765,17 +943,35 @@ export const manualTriggerPotaImport = async (userId) => {
     throw new Error('用户不存在');
   }
 
-  // 执行导入
-  const results = await importPotaParks(userInfo.id, userInfo.role);
-
-  // 如果导入结果中有需要手动确认的公园，更新缓存
-  if (results.needs_manual_confirmation && results.needs_manual_confirmation.length > 0) {
-    await setUnprocessedParks(results.needs_manual_confirmation);
-  } else {
-    await clearUnprocessedParks();
+  const activeTask = getUserActiveTask(userId);
+  if (activeTask) {
+    return {
+      rejected: true,
+      reason: activeTask.status,
+      message:
+        activeTask.status === 'running'
+          ? '您的 POTA 导入任务正在执行，请稍后再试'
+          : '您的 POTA 导入任务正在等待执行，请稍后再试',
+    };
   }
 
-  return results;
+  if (isImportQueueFull()) {
+    return {
+      rejected: true,
+      reason: 'queue_full',
+      message: 'POTA 导入任务队列已满，请稍后再试',
+    };
+  }
+
+  const task = enqueueImportTask({
+    operatorId: userInfo.id,
+    operatorRole: userInfo.role,
+    operationType: 'manual',
+  });
+
+  return {
+    task: buildTaskResponse(task),
+  };
 };
 
 /**
@@ -792,17 +988,25 @@ export const autoTriggerPotaImport = async () => {
     const systemOperatorId = -1; // 表示系统自动操作
     const systemOperatorRole = 'system'; // 表示系统自动操作
 
-    const results = await importPotaParks(systemOperatorId, systemOperatorRole);
-
-    // 如果导入结果中有需要手动确认的公园，更新缓存
-    if (results.needs_manual_confirmation && results.needs_manual_confirmation.length > 0) {
-      await setUnprocessedParks(results.needs_manual_confirmation);
-    } else {
-      await clearUnprocessedParks();
+    if (isImportQueueFull()) {
+      console.log('自动 POTA 导入任务队列已满，本次自动导入跳过');
+      return {
+        skipped: true,
+        reason: 'queue_full',
+      };
     }
 
-    console.log('自动 POTA 公园导入完成:', results);
-    return results;
+    const task = enqueueImportTask({
+      operatorId: systemOperatorId,
+      operatorRole: systemOperatorRole,
+      operationType: 'auto',
+    });
+
+    console.log('自动 POTA 公园导入任务已入队:', task.id);
+    return {
+      queued: true,
+      task: buildTaskResponse(task),
+    };
   } catch (error) {
     console.error('自动 POTA 公园导入失败:', error);
     // 记录错误但不抛出，避免定时任务中断
@@ -895,26 +1099,33 @@ export const processUnprocessedPark = async (parkData, operatorId, operatorRole)
   try {
     console.log(`处理未处理公园: ${parkData.reference}, 指定类型: ${parkData.manualType}`);
 
-    // 构造公园数据对象
-    const potaPark = {
-      reference: parkData.reference,
-      name: parkData.name,
-      latitude: parkData.latitude,
-      longitude: parkData.longitude,
-      grid: parkData.grid,
-      locationDesc: parkData.locationDesc,
-      attempts: parkData.attempts,
-      activations: parkData.activations,
-      qsos: parkData.qsos,
-    };
-
     const manualTypeId = await resolveParkTypeId(parkData.manualType);
     if (!manualTypeId) {
       throw new Error(`无法识别公园类型: ${parkData.manualType}`);
     }
 
+    let parkDetail = null;
+    try {
+      const detailResult = await fetchPotaParkDetail(parkData.reference);
+      parkDetail = detailResult.data;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || `查询 POTA 公园失败: ${parkData.reference}`,
+        reference: parkData.reference,
+      };
+    }
+
+    const enrichedPark = {
+      ...parkDetail,
+      reference: parkData.reference,
+      name: parkDetail?.name || parkData.name || parkData.reference,
+      activations: parkData.activations ?? parkDetail?.activations,
+      qsos: parkData.qsos ?? parkDetail?.qsos,
+    };
+
     // 使用指定的类型创建公园数据
-    const internalPark = await transformPotaParkToInternal(potaPark);
+    const internalPark = await transformPotaParkToInternal(enrichedPark, manualTypeId);
     internalPark.park_type = manualTypeId; // 使用手动指定的类型ID
 
     // 创建公园并记录审核日志

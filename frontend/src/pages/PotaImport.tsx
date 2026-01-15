@@ -1,5 +1,5 @@
 // src/pages/PotaImport.tsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -8,44 +8,69 @@ import {
   LinearProgress,
   Paper,
   Stack,
-  Chip,
   Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
-import { usePermission } from '../hooks/usePermission';
 import axios from 'axios';
 import { getApiErrorMessage } from '../utils/error';
 import { useNavigate } from 'react-router-dom';
 
-interface ManualConfirmationPark {
-  reference: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  locationDesc: string;
-  message: string;
-}
-
-interface ImportResult {
+interface ImportTaskResultSummary {
   total: number;
   imported: number;
   skipped: number;
-  errors: Array<Record<string, unknown>>;
-  needs_manual_confirmation?: ManualConfirmationPark[];
+  errors: number;
+  needsManual: number;
+}
+
+interface ImportTask {
+  id: string;
+  status: 'pending' | 'running' | 'success' | 'partial_success' | 'failed';
+  operationType: 'manual' | 'auto';
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  queuePosition: number;
+  result: ImportTaskResultSummary | null;
+  error: string | null;
+  readAt: string | null;
 }
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
-  const { hasPermission } = usePermission('pota_import');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [canImport, setCanImport] = useState<boolean | null>(null);
+  const [task, setTask] = useState<ImportTask | null>(null);
+  const [openCompleteDialog, setOpenCompleteDialog] = useState(false);
 
   const [statusLoading, setStatusLoading] = useState(false);
 
-  // 检查用户权限
-  const canImport = hasPermission === true;
+  const statusLabel = useMemo(() => {
+    if (!task) return '';
+    const map: Record<ImportTask['status'], string> = {
+      pending: '等待执行',
+      running: '执行中',
+      success: '已完成',
+      partial_success: '部分完成',
+      failed: '失败',
+    };
+    return map[task.status];
+  }, [task]);
+
+  const taskAlertSeverity = useMemo(() => {
+    if (!task) return 'info';
+    if (task.status === 'failed') return 'error';
+    if (task.status === 'partial_success') return 'warning';
+    if (task.status === 'success') return 'success';
+    return 'info';
+  }, [task]);
 
   // 获取导入权限状态
   const loadStatus = useCallback(async () => {
@@ -54,13 +79,62 @@ function PotaImport() {
     try {
       setStatusLoading(true);
       setError(null);
-      await axios.get('/api/pota/import-status');
+      const res = await axios.get('/api/pota/import-status');
+      setCanImport(Boolean(res.data?.data?.canImport));
     } catch (e: unknown) {
+      const error = e as { response?: { status: number } };
+      setCanImport(false);
+      if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
+        return;
+      }
       setError(getApiErrorMessage(e, '获取导入权限状态失败'));
     } finally {
       setStatusLoading(false);
     }
   }, [user]);
+
+  const loadLatestTask = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const res = await axios.get('/api/pota/import-task/latest');
+      const latestTask = res.data?.data ?? null;
+      setTask(latestTask);
+      if (
+        latestTask &&
+        ['success', 'partial_success', 'failed'].includes(latestTask.status) &&
+        !latestTask.readAt
+      ) {
+        setOpenCompleteDialog(true);
+      }
+    } catch (e: unknown) {
+      const error = e as { response?: { status: number } };
+      if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
+        return;
+      }
+      const message = getApiErrorMessage(e, '');
+      if (message) {
+        setError(message);
+      }
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadStatus();
+    loadLatestTask();
+  }, [user, loadStatus, loadLatestTask]);
+
+  useEffect(() => {
+    if (!user || !canImport) return;
+    if (!task || (task.status !== 'pending' && task.status !== 'running')) return;
+
+    const timer = setInterval(() => {
+      loadLatestTask();
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [user, canImport, task, loadLatestTask]);
 
   // 触发POTA导入
   const handleImport = useCallback(async () => {
@@ -69,16 +143,29 @@ function PotaImport() {
     try {
       setLoading(true);
       setError(null);
-      setResult(null);
+      setInfo(null);
 
       const res = await axios.post('/api/pota/import');
-      setResult(res.data.results);
+      setTask(res.data?.data?.task ?? null);
+      setInfo(res.data?.message || '已提交 POTA 导入任务');
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, 'POTA公园导入失败'));
     } finally {
       setLoading(false);
     }
   }, [user]);
+
+  const handleCloseCompleteDialog = useCallback(async () => {
+    if (task?.id) {
+      try {
+        await axios.post(`/api/pota/import-task/${task.id}/read`);
+      } catch (e) {
+        console.warn('标记导入任务已读失败', e);
+      }
+    }
+    setOpenCompleteDialog(false);
+    loadLatestTask();
+  }, [task, loadLatestTask]);
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4, mb: 4 }}>
@@ -91,37 +178,45 @@ function PotaImport() {
           此功能用于从 POTA 系统导入中国地区的公园数据。系统会自动检查重复项，仅导入新公园。
         </Typography>
 
-        <Stack spacing={2} sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body1">当前用户角色:</Typography>
-            <Chip
-              label={canImport ? 'POTA代表' : '普通用户'}
-              color={canImport ? 'primary' : 'default'}
-              size="small"
-            />
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body1">导入权限:</Typography>
-            <Chip
-              label={canImport ? '有权限' : '无权限'}
-              color={canImport ? 'success' : 'error'}
-              size="small"
-            />
-          </Box>
-        </Stack>
-
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
+        {info && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {info}
+          </Alert>
+        )}
+
         {statusLoading && <LinearProgress />}
 
-        {!isAuthLoading && user && !canImport && (
+        {!isAuthLoading && user && canImport === false && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            您没有权限执行 POTA 公园导入操作。只有 POTA 地图代表角色可以使用此功能。
+            您没有权限执行 POTA 公园导入操作。
+          </Alert>
+        )}
+
+        {task && (
+          <Alert severity={taskAlertSeverity} sx={{ mb: 2 }}>
+            <Typography sx={{ fontWeight: 600 }}>
+              导入任务状态：{statusLabel || task.status}
+            </Typography>
+            {task.status === 'pending' && task.queuePosition > 0 && (
+              <Typography variant="body2">当前排队位置：{task.queuePosition}</Typography>
+            )}
+            {task.result && (
+              <Typography variant="body2">
+                总计: {task.result.total}，导入: {task.result.imported}，跳过: {task.result.skipped}
+                ，错误: {task.result.errors}，待处理: {task.result.needsManual}
+              </Typography>
+            )}
+            {task.error && (
+              <Typography variant="body2" color="error.main">
+                {task.error}
+              </Typography>
+            )}
           </Alert>
         )}
 
@@ -154,58 +249,51 @@ function PotaImport() {
           </Box>
         )}
 
-        {result && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              导入完成!
-            </Typography>
-            <Typography>总计处理: {result.total} 个公园</Typography>
-            <Typography>成功导入: {result.imported} 个</Typography>
-            <Typography>跳过已存在: {result.skipped} 个</Typography>
-            <Typography>导入错误: {result.errors?.length || 0} 个</Typography>
-            {result.needs_manual_confirmation && result.needs_manual_confirmation.length > 0 && (
-              <>
-                <Typography>
-                  需要手动确认类型: {result.needs_manual_confirmation.length} 个
-                </Typography>
-                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  以下公园无法自动识别类型，需要您手动确认：
-                </Typography>
-                <Typography variant="body2" color="info.main" sx={{ mt: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+          <strong>注意:</strong> 自动导入任务会在每天凌晨 4 点（UTC+8）自动执行，无需手动操作。
+        </Typography>
+
+        <Dialog open={openCompleteDialog} onClose={handleCloseCompleteDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>导入任务完成</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              <Typography>
+                状态：{statusLabel || task?.status || '未知'}
+              </Typography>
+              {task?.result && (
+                <>
+                  <Typography>总计处理: {task.result.total} 个公园</Typography>
+                  <Typography>成功导入: {task.result.imported} 个</Typography>
+                  <Typography>跳过已存在: {task.result.skipped} 个</Typography>
+                  <Typography>导入错误: {task.result.errors} 个</Typography>
+                  <Typography>待处理公园: {task.result.needsManual} 个</Typography>
+                </>
+              )}
+              {task?.result?.needsManual > 0 && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
                   <Link
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
                       navigate('/pota-unprocessed');
+                      handleCloseCompleteDialog();
                     }}
                   >
-                    点击此处前往未处理公园页面进行手动确认
+                    前往未处理公园页面进行手动确认
                   </Link>
                 </Typography>
-                <Box
-                  sx={{
-                    mt: 1,
-                    maxHeight: 200,
-                    overflow: 'auto',
-                    bgcolor: 'background.paper',
-                    p: 1,
-                    borderRadius: 1,
-                  }}
-                >
-                  {result.needs_manual_confirmation.map((park, index) => (
-                    <Typography key={index} variant="body2" sx={{ fontSize: '0.8rem' }}>
-                      - {park.reference}: {park.name}
-                    </Typography>
-                  ))}
-                </Box>
-              </>
-            )}
-          </Alert>
-        )}
-
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-          <strong>注意:</strong> 自动导入任务会在每天凌晨 4 点（UTC+8）自动执行，无需手动操作。
-        </Typography>
+              )}
+              {task?.error && (
+                <Typography color="error.main" variant="body2">
+                  {task.error}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseCompleteDialog}>我知道了</Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </Box>
   );

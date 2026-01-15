@@ -1,6 +1,5 @@
 import cron from 'node-cron';
 import { autoTriggerPotaImport } from '../services/potaImportService.js';
-import { getOne } from '../config/database.js';
 
 // 定义定时任务
 class Scheduler {
@@ -26,13 +25,12 @@ class Scheduler {
 
           if (results.error) {
             console.error('❌ POTA公园自动导入任务执行失败:', results.error);
+          } else if (results.skipped && results.reason === 'queue_full') {
+            console.log('⏸️ POTA公园自动导入任务队列已满，本次跳过');
+          } else if (results.queued) {
+            console.log('✅ POTA公园自动导入任务已入队:', results.task?.id);
           } else {
-            console.log('✅ POTA公园自动导入任务执行完成:', {
-              total: results.total,
-              imported: results.imported,
-              skipped: results.skipped,
-              errors: results.errors?.length || 0,
-            });
+            console.log('✅ POTA公园自动导入任务执行完成:', results);
           }
         } catch (error) {
           console.error('🚨 POTA公园自动导入任务发生异常:', error);
@@ -95,13 +93,12 @@ class Scheduler {
 
       if (results.error) {
         console.error('❌ POTA公园手动导入任务执行失败:', results.error);
+      } else if (results.skipped && results.reason === 'queue_full') {
+        console.log('⏸️ POTA公园导入任务队列已满，本次跳过');
+      } else if (results.queued) {
+        console.log('✅ POTA公园导入任务已入队:', results.task?.id);
       } else {
-        console.log('✅ POTA公园手动导入任务执行完成:', {
-          total: results.total,
-          imported: results.imported,
-          skipped: results.skipped,
-          errors: results.errors?.length || 0,
-        });
+        console.log('✅ POTA公园手动导入任务执行完成:', results);
       }
 
       return results;
