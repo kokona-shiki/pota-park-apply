@@ -572,7 +572,7 @@ export const importSinglePotaPark = async (
       importTime
     );
 
-    console.log(`成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parkTypeDesc}`);
+    console.log(`成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parktypeDesc}`);
     return {
       success: true,
       created: true,
