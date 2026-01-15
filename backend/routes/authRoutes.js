@@ -108,7 +108,14 @@ router.post('/api/login', authLimiter, async (req, res) => {
 
     setRefreshCookie(req, res, refreshToken);
 
-    return sendOk(res, { accessToken, user }, '登录成功');
+    // 获取用户权限
+    const permissions = await getUserPermissions(user.id);
+    const userWithPermissions = {
+      ...user,
+      permissions: permissions.map((p) => p.permission_code),
+    };
+
+    return sendOk(res, { accessToken, user: userWithPermissions }, '登录成功');
   } catch (error) {
     console.error('登录失败:', error);
 
@@ -184,7 +191,14 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
     // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
     setRefreshCookie(req, res, result.refreshToken);
 
-    return sendOk(res, { accessToken, user }, 'ok');
+    // 获取用户权限
+    const permissions = await getUserPermissions(user.id);
+    const userWithPermissions = {
+      ...user,
+      permissions: permissions.map((p) => p.permission_code),
+    };
+
+    return sendOk(res, { accessToken, user: userWithPermissions }, 'ok');
   } catch (error) {
     console.error('刷新 token 失败:', error);
     return sendError(res, error, { httpMessage: '刷新 token 失败' });
@@ -221,7 +235,14 @@ router.get('/api/user-info', authenticateToken, async (req, res) => {
       return sendBizError(res, 'NOT_FOUND', '用户不存在', null);
     }
 
-    return sendOk(res, { user }, 'ok');
+    // 获取用户权限
+    const permissions = await getUserPermissions(req.user.id);
+    const userWithPermissions = {
+      ...user,
+      permissions: permissions.map((p) => p.permission_code),
+    };
+
+    return sendOk(res, { user: userWithPermissions }, 'ok');
   } catch (error) {
     console.error('获取用户信息失败:', error);
     return sendError(res, error, { httpMessage: '获取用户信息失败' });
@@ -243,7 +264,8 @@ router.get('/api/user-permissions', authenticateToken, async (req, res) => {
 router.get('/api/check-permission/:permissionCode', authenticateToken, async (req, res) => {
   try {
     const permissionCode = req.params.permissionCode;
-    const hasPermission = await checkUserPermission(req.user.id, permissionCode);
+    const permissions = await getUserPermissions(req.user.id);
+    const hasPermission = permissions.some(p => p.permission_code === permissionCode);
     return res.json({ hasPermission });
   } catch (error) {
     console.error('权限检查失败:', error);

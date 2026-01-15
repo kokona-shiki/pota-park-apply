@@ -38,7 +38,7 @@ interface UnprocessedPark {
 }
 
 const PotaUnprocessedParks: React.FC = () => {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { hasPermission: hasPotaPermission, loading: permissionLoading } =
     usePermission('pota_import');
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
@@ -72,8 +72,17 @@ const PotaUnprocessedParks: React.FC = () => {
   const checkPermissionAndFetchData = async () => {
     setCheckingPermission(true); // 开始检查权限
 
-    if (!user || hasPotaPermission !== true) {
+    // 只有当 hasPotaPermission 为 false 时才认为没有权限
+    // 如果 hasPotaPermission 为 null，表示还在加载中
+    if (!user || hasPotaPermission === false) {
       setHasPermission(false);
+      setCheckingPermission(false);
+      setLoading(false);
+      return;
+    }
+
+    // 如果 hasPotaPermission 仍在加载中，等待加载完成
+    if (hasPotaPermission === null) {
       setCheckingPermission(false);
       setLoading(false);
       return;
@@ -83,7 +92,7 @@ const PotaUnprocessedParks: React.FC = () => {
       // 通过尝试访问受保护的API来检查权限
       const response = await axios.get('/api/pota/unprocessed-parks', {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -120,7 +129,7 @@ const PotaUnprocessedParks: React.FC = () => {
     try {
       const response = await axios.get('/api/pota/unprocessed-parks', {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
       setUnprocessedParks(response.data);
@@ -165,7 +174,7 @@ const PotaUnprocessedParks: React.FC = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
@@ -204,7 +213,7 @@ const PotaUnprocessedParks: React.FC = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );

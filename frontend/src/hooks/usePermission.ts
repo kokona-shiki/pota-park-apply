@@ -3,7 +3,7 @@ import { useAuth } from '../auth/useAuth';
 import axios from 'axios';
 
 export const usePermission = (permissionCode: string) => {
-  const { user, isAuthLoading } = useAuth();
+  const { user, isAuthLoading, accessToken } = useAuth();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -19,7 +19,7 @@ export const usePermission = (permissionCode: string) => {
         setLoading(true);
         const response = await axios.get(`/api/check-permission/${permissionCode}`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         });
         setHasPermission(response.data.hasPermission);
@@ -32,7 +32,7 @@ export const usePermission = (permissionCode: string) => {
     };
 
     checkPermission();
-  }, [permissionCode, user, isAuthLoading]);
+  }, [permissionCode, user, isAuthLoading, accessToken]);
 
   return { hasPermission, loading };
 };

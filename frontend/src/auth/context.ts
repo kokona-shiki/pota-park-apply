@@ -5,6 +5,7 @@ export type AuthUser = {
   email?: string | null;
   callsign?: string | null;
   role?: string | null;
+  permissions?: string[];
   is_active?: boolean;
 };
 
