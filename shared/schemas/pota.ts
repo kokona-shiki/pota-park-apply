@@ -10,7 +10,7 @@ export const PotaStatusSchema = z.object({
 export const PotaStatusDataSchema = PotaStatusSchema;
 
 export const PotaAuthInitDataSchema = z.object({
-  authUrl: z.string().url(),
+  authUrl: z.url(),
   state: z.string(),
 });
 
@@ -80,7 +80,7 @@ export const PotaUnprocessedParkProcessResultSchema = z.object({
   message: z.string().optional(),
   error: z.string().optional(),
   reference: z.string().optional(),
-  park: z.record(z.unknown()).optional(),
+  park: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const PotaUnprocessedParkBulkProcessResultSchema = z.object({

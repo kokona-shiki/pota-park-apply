@@ -3,7 +3,7 @@ import { createApiResponseSchema } from './common';
 
 export const AuthUserSchema = z.object({
   id: z.number(),
-  email: z.string().email().nullable().optional(),
+  email: z.email().nullable().optional(),
   callsign: z.string().nullable().optional(),
   role: z.string().nullable().optional(),
   permissions: z.array(z.string()).optional(),
@@ -18,7 +18,7 @@ export const LoginRequestSchema = z.object({
 });
 
 export const RegisterRequestSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   callsign: z.string().min(1),
   password: z.string().min(1),
 });

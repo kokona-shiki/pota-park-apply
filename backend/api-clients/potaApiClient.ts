@@ -1,7 +1,7 @@
 import axios from 'axios';
 import http from 'node:http';
 import https from 'node:https';
-import type { PotaPark } from './types.js';
+import type { PotaPark } from '../services/pota-import/types.js';
 
 // POTA API 基础 URL
 export const POTA_API_BASE_URL = 'https://api.pota.app';

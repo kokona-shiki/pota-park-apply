@@ -1,17 +1,24 @@
 import { getOne } from '../../config/database.js';
 import { checkUserPermission } from '../../utils/auth.js';
 import { logPotaSync } from '../potaSyncLogService.js';
-import { fetchAllChineseParks, fetchPotaParkDetail, getPotaReference, buildQueryParkFailureReason } from './potaApiClient.js';
+import {
+  fetchAllChineseParks,
+  fetchPotaParkDetail,
+  getPotaReference,
+  buildQueryParkFailureReason,
+} from '../../api-clients/potaApiClient.js';
 import { checkParkExistsByPotaId, createParkWithAudit } from './parkRepository.js';
 import { identifyParkType } from './parkTypeResolver.js';
-import { transformPotaParkToInternal, normalizeParksData, extractChineseName } from './parkTransformer.js';
+import {
+  transformPotaParkToInternal,
+  normalizeParksData,
+  extractChineseName,
+} from './parkTransformer.js';
 import {
   enqueueImportTask,
   isImportQueueFull,
   getUserActiveTask,
   buildTaskResponse,
-  getLatestImportTaskForUser,
-  markImportTaskRead,
   importTaskQueue,
   importTaskRunning,
   setImportTaskRunning,
@@ -88,8 +95,7 @@ const handleParkDetailError = (
   unprocessedParks: UnprocessedPark[],
   parksImported: Array<{ reference: string; name: string; status: string; reason?: string }>
 ) => {
-  const failureReason =
-    (error as Error)?.message || buildQueryParkFailureReason(3, error);
+  const failureReason = (error as Error)?.message || buildQueryParkFailureReason(3, error);
   const fallbackName = extractChineseName(listPark.name) || listPark.name || potaId;
   const unprocessedPark: UnprocessedPark = {
     reference: potaId,
@@ -355,7 +361,6 @@ export const importPotaParks = async (operatorId: number, operatorRole: string) 
   }
 };
 
-
 /**
  * 启动下一个导入任务
  */
@@ -419,7 +424,11 @@ export const autoTriggerPotaImport = async () => {
       operatorId: systemOperatorId,
       operatorRole: systemOperatorRole,
       operationType: 'auto',
-      startTaskCallback: startNextImportTask,
+      startTaskCallback: () => {
+        startNextImportTask().catch((error) => {
+          console.error('启动导入任务失败:', error);
+        });
+      },
     });
 
     console.log('自动 POTA 公园导入任务已入队:', task.id);
@@ -480,7 +489,11 @@ export const manualTriggerPotaImport = async (userId: number) => {
     operatorId: userInfo.id,
     operatorRole: userInfo.role,
     operationType: 'manual',
-    startTaskCallback: startNextImportTask,
+    startTaskCallback: () => {
+      startNextImportTask().catch((error) => {
+        console.error('启动导入任务失败:', error);
+      });
+    },
   });
 
   return {
@@ -489,7 +502,7 @@ export const manualTriggerPotaImport = async (userId: number) => {
 };
 
 // 重新导出任务队列相关函数
-export { getLatestImportTaskForUser, markImportTaskRead };
+export { getLatestImportTaskForUser, markImportTaskRead } from './potaImportTaskQueue.js';
 
 // 重新导出未处理公园相关函数
 export {

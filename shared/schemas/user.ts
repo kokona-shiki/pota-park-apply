@@ -3,7 +3,7 @@ import { createApiResponseSchema } from './common';
 
 export const UserSchema = z.object({
   id: z.number(),
-  email: z.string().email().nullable().optional(),
+  email: z.email().nullable().optional(),
   callsign: z.string().nullable().optional(),
   role: z.string().nullable().optional(),
   is_active: z.boolean().optional(),
@@ -27,7 +27,7 @@ export const UserAdminAuditLogSchema = z.object({
   old_is_active: z.boolean().nullable(),
   new_is_active: z.boolean().nullable(),
   reason: z.string().nullable(),
-  metadata: z.record(z.unknown()).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
   created_at: z.string(),
   operator_callsign: z.string().nullable().optional(),
   operator_email: z.string().nullable().optional(),

@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import type {
   PotaPark,
   ParkTypeMappings,
-  ParkTypeMappingItem,
   ParkTypeIndex,
   ParkTypeIndexItem,
 } from './types.js';

@@ -1,11 +1,9 @@
 import { getMany, query, transaction } from '../../config/database.js';
-import type { UnprocessedPark } from './types.js';
-import { fetchPotaParkDetail } from './potaApiClient.js';
+import type { UnprocessedPark, PotaPark } from './types.js';
+import { fetchPotaParkDetail } from '../../api-clients/potaApiClient.js';
 import { transformPotaParkToInternal } from './parkTransformer.js';
 import { resolveParkTypeId } from './parkTypeResolver.js';
 import { createParkWithAudit } from './parkRepository.js';
-import { extractChineseName } from './parkTransformer.js';
-import type { PotaPark } from './types.js';
 
 export const normalizeUnprocessedParks = (parks: UnprocessedPark[] = []) => {
   const uniqueParks = new Map<string, UnprocessedPark>();
