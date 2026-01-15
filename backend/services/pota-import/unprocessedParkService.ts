@@ -53,7 +53,7 @@ export const setUnprocessedParks = async (parks: UnprocessedPark[]) => {
     const placeholders = normalizedParks
       .map((park, index) => {
         const baseIndex = index * 2;
-        values.push(park.reference, JSON.stringify(park));
+        values.push(park.reference, park);
         return `($${baseIndex + 1}, $${baseIndex + 2}::jsonb)`;
       })
       .join(', ');

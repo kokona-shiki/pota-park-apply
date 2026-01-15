@@ -35,7 +35,7 @@ export const logPotaSync = async (
         operator, operation_type, parks_imported, status, details
       ) VALUES ($1, $2, $3, $4, $5)
       `,
-      [operator, operationType, JSON.stringify(parksImported), status, details]
+      [operator, operationType, parksImported, status, details]
     );
 
     console.log(

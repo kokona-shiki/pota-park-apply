@@ -58,14 +58,14 @@ export const createParkWithAudit = async (
     const newApplication = await client.query(insertQuery, [
       parkData.park_name,
       parkData.park_type,
-      JSON.stringify(parkData.provinces),
+      parkData.provinces,
       locationWKT,
       parkData.latitude,
       parkData.longitude,
       parkData.website,
       parkData.description,
-      JSON.stringify(parkData.access_methods),
-      JSON.stringify(parkData.activation_methods),
+      parkData.access_methods,
+      parkData.activation_methods,
       // 使用系统用户ID作为申请人（对于导入的公园）
       // 或者使用执行导入的用户ID
       operatorId, // 导入操作员作为申请人

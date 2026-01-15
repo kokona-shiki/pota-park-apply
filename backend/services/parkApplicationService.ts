@@ -84,13 +84,13 @@ export const submitParkApplication = async (
       [
         park_name,
         parkTypeId,
-        Array.isArray(provinces) ? JSON.stringify(provinces) : provinces,
+        provinces,
         latitude,
         longitude,
         website,
         description,
-        JSON.stringify(access_methods),
-        JSON.stringify(activation_methods),
+        access_methods,
+        activation_methods,
         userId,
         confirmed_authenticity,
       ]
