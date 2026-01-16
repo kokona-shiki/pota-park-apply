@@ -1,11 +1,12 @@
 import express from 'express';
+import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import { getPotaSyncLogs, getPotaSyncLogById } from '../services/potaSyncLogService.js';
 
 const router = express.Router();
 
 // 获取POTA同步日志列表（需要pota_import权限）
-router.get('/pota/sync-logs', requirePermission('pota_import'), async (req, res) => {
+router.get('/api/pota/sync-logs', authenticateToken, requirePermission('pota_import'), async (req, res) => {
   try {
     const { page, pageSize, startDate, endDate, operationType, search } = req.query;
 
@@ -38,7 +39,7 @@ router.get('/pota/sync-logs', requirePermission('pota_import'), async (req, res)
 });
 
 // 获取单个POTA同步日志详情（需要pota_import权限）
-router.get('/pota/sync-logs/:id', requirePermission('pota_import'), async (req, res) => {
+router.get('/api/pota/sync-logs/:id', authenticateToken, requirePermission('pota_import'), async (req, res) => {
   try {
     const { id } = req.params;
 

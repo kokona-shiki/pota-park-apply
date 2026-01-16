@@ -11,6 +11,7 @@ type PotaSyncLogFilters = {
   startDate?: string;
   endDate?: string;
   operationType?: string;
+  search?: string;
 };
 
 type PotaSyncLogPagination = {
@@ -62,6 +63,7 @@ export const getPotaSyncLogs = async (
       startDate,
       endDate,
       operationType,
+      search,
     } = { ...pagination, ...filters };
 
     let whereClause = '';
@@ -69,26 +71,38 @@ export const getPotaSyncLogs = async (
     let paramIndex = 1;
 
     // 构建过滤条件
-    if (startDate || endDate) {
+    if (startDate || endDate || operationType || search) {
+      whereClause = 'WHERE ';
+      
+      // 日期范围过滤
       if (startDate) {
-        whereClause += `WHERE sync_date >= $${paramIndex}`;
+        whereClause += `sync_date >= $${paramIndex} `;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        const endCondition = startDate ? ' AND sync_date <= $' : 'WHERE sync_date <= $';
-        whereClause += `${endCondition}${paramIndex}`;
+        if (startDate) whereClause += 'AND ';
+        whereClause += `sync_date <= $${paramIndex} `;
         params.push(endDate);
         paramIndex++;
       }
-    }
 
-    if (operationType) {
-      const condition = whereClause ? ' AND operation_type = $' : 'WHERE operation_type = $';
-      whereClause += `${condition}${paramIndex}`;
-      params.push(operationType);
-      paramIndex++;
+      // 操作类型过滤
+      if (operationType) {
+        if (startDate || endDate) whereClause += 'AND ';
+        whereClause += `operation_type = $${paramIndex} `;
+        params.push(operationType);
+        paramIndex++;
+      }
+
+      // 搜索过滤
+      if (search) {
+        if (startDate || endDate || operationType) whereClause += 'AND ';
+        whereClause += `(operator ILIKE $${paramIndex} OR details ILIKE $${paramIndex}) `;
+        params.push(`%${search}%`);
+        paramIndex++;
+      }
     }
 
     // 获取总数用于分页
