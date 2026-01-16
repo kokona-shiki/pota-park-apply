@@ -565,7 +565,7 @@ export const migrateSchemaToLatest = async () => {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
     const v = schemaVersion?.value;
 
-    if (!v || v === '3') {
+    if (!v || v === '8') {
       return;
     }
 
@@ -586,16 +586,46 @@ export const migrateSchemaToLatest = async () => {
       return;
     }
 
+    if (v === '3') {
+      console.log('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
+      await query(`
+        CREATE TABLE IF NOT EXISTS pota_pkce (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          code_verifier TEXT NOT NULL,
+          state TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await query(`
+        CREATE TABLE IF NOT EXISTS pota_tokens (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          id_token_encrypted TEXT NOT NULL,
+          access_token_encrypted TEXT,
+          refresh_token_encrypted TEXT NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '4')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+      console.log('✅ schema 迁移完成（schema_version=4）');
+      return;
+    }
+
     if (v === '4') {
       console.log('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
 
-      // 为 users 表添加 pota_encryption_salt 列（如果尚不存在）
       await query(`
         ALTER TABLE users 
         ADD COLUMN IF NOT EXISTS pota_encryption_salt TEXT
       `);
 
-      // 为现有用户生成默认的加密盐值
       await query(`
         UPDATE users 
         SET pota_encryption_salt = gen_random_bytes(32)::TEXT 
@@ -611,6 +641,83 @@ export const migrateSchemaToLatest = async () => {
       `);
 
       console.log('✅ schema 迁移完成（schema_version=5）');
+      return;
+    }
+
+    if (v === '5') {
+      console.log('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
+
+      await query(`
+        INSERT INTO permissions (permission_code, description)
+        VALUES ('pota_import', 'POTA 公园数据导入权限')
+        ON CONFLICT (permission_code) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO role_permissions (role, permission_id)
+        SELECT 'pota_representative', p.id
+        FROM permissions p
+        WHERE p.permission_code = 'pota_import'
+        ON CONFLICT (role, permission_id) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '6')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=6）');
+      return;
+    }
+
+    if (v === '6') {
+      console.log('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
+          reference TEXT PRIMARY KEY,
+          payload JSONB NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at
+        ON pota_unprocessed_parks (created_at DESC)
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '7')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=7）');
+      return;
+    }
+
+    if (v === '7') {
+      console.log('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
+
+      await query(`
+        ALTER TABLE park_applications 
+        ADD COLUMN IF NOT EXISTS pota_park_type VARCHAR(255)
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '8')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=8）');
       return;
     }
 
