@@ -1,5 +1,6 @@
 // src/components/PotaAuthDialog.tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Box,
   Button,
@@ -46,7 +47,6 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const hasLoadedRef = useRef(false); // 防止 React Strict Mode 重复调用
   const { hasPermission } = usePermission('pota_import');
 
   // 检查用户权限而非角色
@@ -79,30 +79,16 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
     }
   };
 
-  // 修复 React Strict Mode 导致的重复调用
-  useEffect(() => {
-    if (!open || !isPotaRepresentative) {
-      return;
+  // 使用 useOnceOnMount 修复 React Strict Mode 导致的重复调用
+  useOnceOnMount(() => {
+    if (open && isPotaRepresentative) {
+      loadStatus();
     }
-
-    // 如果已经加载过且弹窗仍然打开，不重复加载
-    if (hasLoadedRef.current) {
-      return;
-    }
-
-    hasLoadedRef.current = true;
-    loadStatus();
-
-    // 清理函数：当弹窗关闭时重置标志
-    return () => {
-      hasLoadedRef.current = false;
-    };
   }, [open, isPotaRepresentative]);
 
   // 当弹窗关闭时重置状态
   useEffect(() => {
     if (!open) {
-      hasLoadedRef.current = false;
       setError(null);
       setAuthError(null);
       setAuthLoading(false);

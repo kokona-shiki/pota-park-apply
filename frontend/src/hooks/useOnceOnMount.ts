@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
  * 在组件挂载时只执行一次回调函数，兼容 React StrictMode
  * 当依赖项变化时会重置执行状态，允许再次执行
  *
- * @param callback - 要执行的回调函数，可以返回清理函数
+ * @param callback - 要执行的回调函数，可以是同步或异步，可以返回清理函数
  * @param deps - 依赖项数组，当依赖变化时会重置执行状态
  *
  * @example
@@ -14,9 +14,17 @@ import { useEffect, useRef } from 'react';
  *   loadData();
  * }, [isAuthLoading, user]);
  * ```
+ *
+ * @example
+ * ```tsx
+ * useOnceOnMount(async () => {
+ *   if (isAuthLoading || !user) return;
+ *   await loadData();
+ * }, [isAuthLoading, user]);
+ * ```
  */
 export function useOnceOnMount(
-  callback: () => void | (() => void),
+  callback: () => void | (() => void) | Promise<void> | Promise<(() => void)>,
   deps: React.DependencyList = []
 ): void {
   const hasExecutedRef = useRef(false);
@@ -47,7 +55,19 @@ export function useOnceOnMount(
     hasExecutedRef.current = true;
 
     // 执行回调并保存清理函数
-    cleanupRef.current = callback();
+    const result = callback();
+
+    // 处理异步回调
+    if (result instanceof Promise) {
+      result.then((cleanup) => {
+        cleanupRef.current = cleanup;
+      }).catch((error) => {
+        console.error('useOnceOnMount callback error:', error);
+      });
+    } else {
+      // 处理同步回调
+      cleanupRef.current = result;
+    }
 
     // 返回清理函数
     return () => {
@@ -56,7 +76,7 @@ export function useOnceOnMount(
         cleanupRef.current = undefined;
       }
     };
-  }, deps);
+  }, [deps]); // 移除 callback 依赖，因为 callback 每次渲染都会变化
 }
 
 /**
@@ -126,5 +146,5 @@ export function useOnceOnMountWithAbort(
         abortControllerRef.current = null;
       }
     };
-  }, deps);
+  }, [deps]); // 移除 callback 依赖，因为 callback 每次渲染都会变化
 }

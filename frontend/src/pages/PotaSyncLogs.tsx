@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Container,
   Typography,
@@ -67,7 +68,7 @@ const PotaSyncLogs: React.FC = () => {
   const [selectedParkDetail, setSelectedParkDetail] = useState<ParkApplicationDetail | null>(null);
 
   // 获取日志列表
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string | number | null> = {
@@ -102,11 +103,12 @@ const PotaSyncLogs: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchLogs();
   }, [page, pageSize, startDate, endDate, operationType, searchTerm]);
+
+  // 使用 useOnceOnMount 替换 useEffect，防止在 StrictMode 下重复执行
+  useOnceOnMount(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   // 处理分页改变
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {

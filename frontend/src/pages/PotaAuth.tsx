@@ -1,5 +1,6 @@
 // src/pages/PotaAuth.tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Box,
   Button,
@@ -61,7 +62,7 @@ function PotaAuth() {
     }
   };
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     if (isPotaRepresentative) {
       loadStatus();
     }
