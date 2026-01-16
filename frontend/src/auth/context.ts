@@ -1,6 +1,8 @@
 import { createContext } from 'react';
 import type { AuthUser } from '../../../shared/schemas/auth';
 
+export type { AuthUser };
+
 export type AuthContextValue = {
   user: AuthUser | null;
   setUser: (u: AuthUser | null) => void;

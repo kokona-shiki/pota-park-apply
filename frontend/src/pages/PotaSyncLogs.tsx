@@ -111,7 +111,7 @@ const PotaSyncLogs: React.FC = () => {
   }, [fetchLogs]);
 
   // 处理分页改变
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
   };
 

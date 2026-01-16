@@ -9,5 +9,5 @@ export const OsmGeocodeItemSchema = z.object({
 
 export const OsmReverseSchema = z.object({
   display_name: z.string(),
-  address: z.record(z.string()).optional(),
+  address: z.record(z.string(), z.string()).optional(),
 });

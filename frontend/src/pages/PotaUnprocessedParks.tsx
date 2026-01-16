@@ -551,18 +551,18 @@ const PotaUnprocessedParks: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {snackbar ? (
+      {snackbar && (
+        <Snackbar
+          open={Boolean(snackbar)}
+          autoHideDuration={3000}
+          onClose={() => setSnackbar(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
           <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)}>
             {snackbar.message}
           </Alert>
-        ) : null}
-      </Snackbar>
+        </Snackbar>
+      )}
     </Container>
   );
 };

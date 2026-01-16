@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { z } from 'zod';
 import { PotaLookupItemSchema, PotaParkInfoSchema } from '../../../../shared/schemas/potaExternal';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
-import type { PotaLookupItem, PotaParkInfo, MapPOI } from './types';
+import type { PotaParkInfo, MapPOI } from './types';
 import {
   mapLocationToProvince,
   parseOSMDisplayName,

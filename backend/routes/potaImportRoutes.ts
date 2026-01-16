@@ -294,7 +294,7 @@ router.post(
   async (req, res) => {
     try {
       const { taskId } = req.params;
-      const task = await markImportTaskRead(req.user?.id, taskId);
+      const task = await markImportTaskRead(req.user?.id, taskId as string);
       if (!task) {
         return sendBizError(res, 'TASK_NOT_FOUND', '未找到可标记的导入任务', null);
       }

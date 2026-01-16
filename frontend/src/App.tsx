@@ -405,7 +405,7 @@ function App() {
       // 优先使用浏览器原生跨文档互斥锁（同源 tab/iframe 共享），可稳定避免并发双刷。
       const navAny = navigator as Navigator & { locks?: LockManager };
       if (navAny?.locks?.request) {
-        refreshPromiseRef.current = navAny.locks
+        const lockPromise = navAny.locks
           .request('pota_refresh_token_v1', { mode: 'exclusive' }, async () => {
             const latest = getCurrentAccessToken();
 
@@ -420,10 +420,11 @@ function App() {
             }
 
             return await performRefreshAsLeader();
-          })
-          .finally(() => {
-            refreshPromiseRef.current = null;
           });
+
+        refreshPromiseRef.current = lockPromise.finally(() => {
+          refreshPromiseRef.current = null;
+        }) as unknown as Promise<string | null>;
 
         return refreshPromiseRef.current;
       }

@@ -78,7 +78,7 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
       req.user?.id,
       parseInt(userId, 10),
       field,
-      value,
+      String(value),
       reason,
       oldPassword
     );
@@ -155,11 +155,11 @@ router.get(
       const { action, targetUserId, operatorId, limit, offset } = req.query;
 
       const logs = await userService.getUserAdminAuditLogs({
-        action: (action as string) || null,
-        targetUserId: (targetUserId as string) || null,
-        operatorId: (operatorId as string) || null,
-        limit: (limit as string) || 200,
-        offset: (offset as string) || 0,
+        action: typeof action === 'string' ? action : null,
+        targetUserId: typeof targetUserId === 'string' ? parseInt(targetUserId, 10) : null,
+        operatorId: typeof operatorId === 'string' ? parseInt(operatorId, 10) : null,
+        limit: typeof limit === 'string' ? parseInt(limit, 10) : 200,
+        offset: typeof offset === 'string' ? parseInt(offset, 10) : 0,
       });
 
       return sendOk(res, { logs }, 'ok');

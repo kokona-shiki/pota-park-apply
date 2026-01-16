@@ -73,11 +73,13 @@ router.post('/api/park-applications', authenticateToken, async (req, res) => {
 router.get('/api/my-applications', authenticateToken, async (req, res) => {
   try {
     const { status, province } = req.query;
+    const statusStr = typeof status === 'string' ? status : undefined;
+    const provinceStr = typeof province === 'string' ? province : undefined;
 
     const applications = await parkApplicationService.getMyApplications(
       req.user?.id,
-      status,
-      province
+      statusStr as any,
+      provinceStr
     );
 
     return sendOk(res, { applications }, 'ok');
@@ -94,11 +96,13 @@ router.get('/api/my-applications', authenticateToken, async (req, res) => {
 router.get('/api/park-applications', authenticateToken, async (req, res) => {
   try {
     const { status, province, applicantId } = req.query;
+    const statusStr = typeof status === 'string' ? status : undefined;
+    const provinceStr = typeof province === 'string' ? province : undefined;
 
     const applications = await parkApplicationService.getApplications(
       req.user?.id,
-      status,
-      province,
+      statusStr as any,
+      provinceStr,
       applicantId ? parseInt(applicantId as string, 10) : null
     );
 

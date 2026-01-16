@@ -80,7 +80,10 @@ function AdminPanel() {
         apiClient.get('/api/user-admin-audit-logs', { params: { limit: 200 } }),
         UserAdminAuditLogsDataSchema
       );
-      setLogs(payload.logs || []);
+      setLogs((payload.logs || []).map(log => ({
+        ...log,
+        metadata: log.metadata || {} // 确保 metadata 字段存在且为对象
+      })));
     } catch (e: any) {
       setLogsError(getApiErrorMessage(e, '获取操作日志失败'));
     } finally {

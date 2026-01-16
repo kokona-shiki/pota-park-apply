@@ -38,6 +38,7 @@ describe('useSubmit Hook', () => {
       parkName: 'Test Park',
       parkType: 'National Park',
       province: 'CN-BJ',
+      provinces: ['CN-BJ'],
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'not-a-valid-url', // Invalid URL
@@ -69,6 +70,7 @@ describe('useSubmit Hook', () => {
       parkName: 'Test Park',
       parkType: 'National Park',
       province: 'CN-BJ',
+      provinces: ['CN-BJ'],
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'https://example.com',
@@ -101,6 +103,7 @@ describe('useSubmit Hook', () => {
       parkName: 'Test Park',
       parkType: 'National Park',
       province: 'CN-BJ',
+      provinces: ['CN-BJ'],
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'example.com', // Valid URL without protocol
@@ -133,6 +136,7 @@ describe('useSubmit Hook', () => {
       parkName: 'Test Park',
       parkType: 'National Park',
       province: 'CN-BJ',
+      provinces: ['CN-BJ'],
       latitude: '39.9042',
       longitude: '116.4074',
       website: '', // Empty website is valid
@@ -165,6 +169,7 @@ describe('useSubmit Hook', () => {
       parkName: 'Test Park',
       parkType: 'National Park',
       province: 'CN-BJ',
+      provinces: ['CN-BJ'],
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'javascript:alert("xss")', // Dangerous URL

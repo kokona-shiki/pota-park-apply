@@ -186,7 +186,7 @@ const ParkTypeAlignment: React.FC = () => {
       await fetchMismatches();
       setSelectedRows([]);
       setSnackbar({
-        message: `批量更新完成，成功: ${result.successCount}，失败: ${result.failCount}`,
+        message: `批量更新完成，成功: ${result.data.successCount}，失败: ${result.data.failCount}`,
         severity: 'success',
       });
     } catch (err) {
@@ -374,18 +374,18 @@ const ParkTypeAlignment: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {snackbar ? (
+      {snackbar && (
+        <Snackbar
+          open={Boolean(snackbar)}
+          autoHideDuration={3000}
+          onClose={() => setSnackbar(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
           <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)}>
             {snackbar.message}
           </Alert>
-        ) : null}
-      </Snackbar>
+        </Snackbar>
+      )}
     </Container>
   );
 };

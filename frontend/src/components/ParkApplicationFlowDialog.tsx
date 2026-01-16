@@ -400,10 +400,10 @@ export function ParkApplicationFlowDialog({
                         </TableCell>
                         <TableCell>
                           {log.old_status
-                            ? `${STATUS_LABELS[log.old_status] || log.old_status} → ${
-                                STATUS_LABELS[log.new_status] || log.new_status
+                            ? `${STATUS_LABELS[log.old_status as string] || log.old_status} → ${
+                                STATUS_LABELS[log.new_status as string] || log.new_status
                               }`
-                            : STATUS_LABELS[log.new_status] || log.new_status}
+                            : STATUS_LABELS[log.new_status as string] || log.new_status}
                         </TableCell>
                         <TableCell>{log.notes || '-'}</TableCell>
                       </TableRow>

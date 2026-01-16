@@ -18,7 +18,6 @@ import {
 import { useAuth } from '../auth/useAuth';
 import { z } from 'zod';
 import {
-  ImportTaskResultSummarySchema,
   ImportTaskSchema,
   PotaImportLatestTaskDataSchema,
   PotaImportMarkReadDataSchema,
@@ -268,10 +267,10 @@ function PotaImport() {
                   <Typography>成功导入: {task.result.imported} 个</Typography>
                   <Typography>跳过已存在: {task.result.skipped} 个</Typography>
                   <Typography>导入错误: {task.result.errors} 个</Typography>
-                  <Typography>待处理公园: {task.result.needsManual} 个</Typography>
+                  <Typography>待处理公园: {task.result.needsManual || 0} 个</Typography>
                 </>
               )}
-              {task?.result?.needsManual > 0 && (
+              {(task?.result?.needsManual || 0) > 0 && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   <Link
                     href="#"

@@ -118,7 +118,7 @@ class PotaAuthService {
   async encryptForUser(userId: number, passwordHash: string, text: string) {
     const userKey = await this.generateUserDerivedKey(userId, passwordHash);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(this.algorithm, userKey, iv);
+    const cipher = crypto.createCipheriv(this.algorithm, userKey, iv) as crypto.CipherGCM;
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const authTag = cipher.getAuthTag();
@@ -133,7 +133,7 @@ class PotaAuthService {
     const [ivHex, authTagHex, encryptedText] = encrypted.split(':');
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    const decipher = crypto.createDecipheriv(this.algorithm, userKey, iv);
+    const decipher = crypto.createDecipheriv(this.algorithm, userKey, iv) as crypto.DecipherGCM;
     decipher.setAuthTag(authTag);
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
@@ -604,7 +604,7 @@ class PotaAuthService {
       if (!csrfToken) {
         csrfToken = await page.evaluate(() => {
           // 尝试从隐藏的 input 获取
-          const csrfInput = document.querySelector('input[name="_csrf"]');
+          const csrfInput = document.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
           return csrfInput ? csrfInput.value : null;
         });
       }
@@ -644,9 +644,9 @@ class PotaAuthService {
           }
 
           // 检查是否已有 _csrf 字段
-          let csrfInput = form.querySelector('input[name="_csrf"]');
+          let csrfInput = form.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
           if (!csrfInput) {
-            csrfInput = document.createElement('input');
+            csrfInput = document.createElement('input') as HTMLInputElement;
             csrfInput.type = 'hidden';
             csrfInput.name = '_csrf';
             form.appendChild(csrfInput);
@@ -654,9 +654,9 @@ class PotaAuthService {
           csrfInput.value = csrf;
 
           // 检查是否已有 cognitoAsfData 字段
-          let asfInput = form.querySelector('input[name="cognitoAsfData"]');
+          let asfInput = form.querySelector('input[name="cognitoAsfData"]') as HTMLInputElement | null;
           if (!asfInput) {
-            asfInput = document.createElement('input');
+            asfInput = document.createElement('input') as HTMLInputElement;
             asfInput.type = 'hidden';
             asfInput.name = 'cognitoAsfData';
             form.appendChild(asfInput);

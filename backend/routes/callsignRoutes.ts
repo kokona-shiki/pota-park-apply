@@ -32,7 +32,7 @@ router.get(
   requirePermission('approve_callsign_change'),
   async (req, res) => {
     try {
-      const { status } = req.query;
+      const status = typeof req.query.status === 'string' ? req.query.status : undefined;
       const requests = await userService.getCallsignChangeRequests(status);
 
       return sendOk(res, { requests }, 'ok');
