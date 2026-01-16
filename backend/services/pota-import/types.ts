@@ -58,6 +58,7 @@ export type InternalPark = {
   activation_methods: string[];
   confirmed_authenticity: boolean;
   pota_ref?: string;
+  pota_park_type?: string | null;
 };
 
 export type UnprocessedPark = {

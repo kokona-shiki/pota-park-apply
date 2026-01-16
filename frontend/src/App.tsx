@@ -19,6 +19,7 @@ import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import PotaSyncLogs from './pages/PotaSyncLogs';
+import ParkTypeAlignment from './pages/ParkTypeAlignment';
 import { z } from 'zod';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from './services/apiClient';
@@ -851,6 +852,14 @@ function App() {
                 element={
                   <RequirePotaPermission>
                     <PotaSyncLogs />
+                  </RequirePotaPermission>
+                }
+              />
+              <Route
+                path="/park-type-alignment"
+                element={
+                  <RequirePotaPermission>
+                    <ParkTypeAlignment />
                   </RequirePotaPermission>
                 }
               />

@@ -18,7 +18,12 @@ import {
   PotaUnprocessedParkProcessRequestSchema,
   PotaUnprocessedParkBulkProcessRequestSchema,
   PotaUnprocessedParkSchema,
+  BulkUpdateParkTypeRequestSchema,
 } from '../../shared/schemas/pota.js';
+import {
+  getParkTypeMismatches,
+  bulkUpdateParkTypes,
+} from '../services/pota-import/parkTypeAlignmentService.js';
 
 const router = express.Router();
 
@@ -297,6 +302,71 @@ router.post(
     } catch (error) {
       console.error('标记导入任务已读失败:', error);
       return sendError(res, error, { bizMessage: '标记导入任务已读失败' });
+    }
+  }
+);
+
+/**
+ * 获取公园类型不一致的列表
+ */
+router.get(
+  '/api/pota/park-type-mismatches',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const mismatches = await getParkTypeMismatches();
+      return sendOk(res, mismatches, '获取公园类型不一致列表成功');
+    } catch (error) {
+      console.error('获取公园类型不一致列表失败:', error);
+      return sendError(res, error, { bizMessage: '获取公园类型不一致列表失败' });
+    }
+  }
+);
+
+/**
+ * 批量更新公园类型
+ */
+router.put(
+  '/api/pota/bulk-update-park-types',
+  authenticateToken,
+  requirePotaImportPermission,
+  async (req, res) => {
+    try {
+      const parsed = BulkUpdateParkTypeRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendBizError(res, 'MISSING_PARAMS', '更新列表不能为空', null);
+      }
+      const { updates } = parsed.data;
+
+      if (!updates || !Array.isArray(updates) || updates.length === 0) {
+        return sendBizError(res, 'MISSING_PARAMS', '更新列表不能为空', null);
+      }
+
+      // 获取用户信息
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
+      if (!userInfo) {
+        return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
+      }
+
+      const results = await bulkUpdateParkTypes(updates, userInfo.id, userInfo.role);
+
+      // 计算成功和失败的数量
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+
+      return sendOk(
+        res,
+        {
+          results,
+          successCount,
+          failCount,
+        },
+        `批量更新完成，成功: ${successCount}，失败: ${failCount}`
+      );
+    } catch (error) {
+      console.error('批量更新公园类型失败:', error);
+      return sendError(res, error, { bizMessage: '批量更新公园类型失败' });
     }
   }
 );

@@ -22,6 +22,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
 
@@ -159,6 +160,15 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                       <HistoryIcon />
                     </ListItemIcon>
                     <ListItemText primary="同步日志" />
+                  </ListItemButton>
+                  <ListItemButton
+                    sx={{ pl: 4 }}
+                    onClick={() => navigate('/park-type-alignment')}
+                  >
+                    <ListItemIcon>
+                      <CompareArrowsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="公园类型对齐" />
                   </ListItemButton>
                 </List>
               </Collapse>

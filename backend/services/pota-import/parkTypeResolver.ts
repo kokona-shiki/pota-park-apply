@@ -71,7 +71,7 @@ const buildParkTypeIndex = (mappings: ParkTypeMappings): ParkTypeIndex => {
   };
 };
 
-const getParkTypeIndex = async () => {
+export const getParkTypeIndex = async () => {
   if (parkTypeIndex) {
     return parkTypeIndex;
   }

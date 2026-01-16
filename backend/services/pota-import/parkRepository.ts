@@ -43,12 +43,12 @@ export const createParkWithAudit = async (
         park_name, park_type, provinces, location, latitude, longitude,
         website, description, access_methods, activation_methods,
         applicant_id, status, pota_synced_at, pota_synced_by, pota_notes,
-        confirmed_authenticity
+        confirmed_authenticity, pota_park_type
       ) VALUES (
         $1, $2, $3, ST_GeomFromText($4, 4326), $5, $6,
         $7, $8, $9, $10,
         $11, $12, $13, $14, $15,
-        $16
+        $16, $17
       )
       RETURNING *
     `;
@@ -76,6 +76,7 @@ export const createParkWithAudit = async (
         operatorId === -1 ? '自动导入' : '手动导入'
       }`, // 审核备注
       parkData.confirmed_authenticity,
+      parkData.pota_park_type || null, // POTA 公园类型
     ]);
 
     // 记录审核日志

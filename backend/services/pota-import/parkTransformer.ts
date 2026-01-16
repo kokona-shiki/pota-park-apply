@@ -46,6 +46,9 @@ export const transformPotaParkToInternal = async (
 
   const parkName = potaPark.name || potaPark.reference || 'Unknown Park';
 
+  // 提取 POTA 公园类型描述
+  const potaParkType = potaPark.parktypeDesc || potaPark.parkTypeDesc || null;
+
   return {
     park_name: parkName,
     park_type: parkType, // 根据名称识别出的公园类型
@@ -58,6 +61,7 @@ export const transformPotaParkToInternal = async (
     activation_methods: normalizeCsvList(potaPark.activationMethods),
     confirmed_authenticity: true, // POTA 导入的公园默认真实
     pota_ref: potaPark.reference, // 保存原始 POTA 参考 ID
+    pota_park_type: potaParkType, // 保存 POTA 的公园类型描述
   };
 };
 

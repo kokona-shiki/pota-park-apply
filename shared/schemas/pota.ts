@@ -93,8 +93,47 @@ export const CheckPermissionResponseSchema = z.object({
   hasPermission: z.boolean(),
 });
 
+// 公园类型不一致相关 Schema
+export const ParkTypeMismatchSchema = z.object({
+  id: z.number(),
+  park_name: z.string(),
+  system_park_type_id: z.string(),
+  system_park_type_chinese: z.string(),
+  system_park_type_english: z.string(),
+  pota_park_type: z.string(),
+});
+
+export const ParkTypeMismatchesDataSchema = z.array(ParkTypeMismatchSchema);
+
+export const BulkUpdateParkTypeItemSchema = z.object({
+  parkId: z.number(),
+  newParkTypeId: z.string(),
+});
+
+export const BulkUpdateParkTypeRequestSchema = z.object({
+  updates: z.array(BulkUpdateParkTypeItemSchema),
+});
+
+export const BulkUpdateParkTypeResultItemSchema = z.object({
+  parkId: z.number(),
+  success: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const BulkUpdateParkTypeResultSchema = z.object({
+  results: z.array(BulkUpdateParkTypeResultItemSchema),
+  successCount: z.number(),
+  failCount: z.number(),
+});
+
 export const PotaStatusResponseSchema = createApiResponseSchema(PotaStatusDataSchema);
 export const PotaAuthInitResponseSchema = createApiResponseSchema(PotaAuthInitDataSchema);
 export const PotaUnprocessedParksResponseSchema = createApiResponseSchema(
   PotaUnprocessedParksDataSchema
+);
+export const ParkTypeMismatchesResponseSchema = createApiResponseSchema(
+  ParkTypeMismatchesDataSchema
+);
+export const BulkUpdateParkTypeResponseSchema = createApiResponseSchema(
+  BulkUpdateParkTypeResultSchema
 );
