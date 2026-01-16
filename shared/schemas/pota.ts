@@ -34,16 +34,17 @@ export const PotaSyncLogSchema = z.object({
   syncDate: z.string(),
   parksImported: z.array(PotaSyncLogParkSchema),
   status: z.union([z.literal('success'), z.literal('partial_success'), z.literal('failed')]),
-  details: z.string(),
+  details: z.string().nullable().optional(),
   createdAt: z.string(),
 });
 
-export const PotaSyncLogsPayloadSchema = z.object({
-  code: ApiCodeSchema,
-  message: z.string(),
-  data: z.array(PotaSyncLogSchema),
+export const PotaSyncLogsDataSchema = z.object({
+  logs: z.array(PotaSyncLogSchema),
   pagination: PaginationSchema,
 });
+
+export const PotaSyncLogsResponseSchema = createApiResponseSchema(PotaSyncLogsDataSchema);
+
 
 export const PotaUnprocessedParkSchema = z.object({
   reference: z.string(),

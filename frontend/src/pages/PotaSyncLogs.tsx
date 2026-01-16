@@ -27,7 +27,7 @@ import {
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { DataGrid } from '@mui/x-data-grid';
 import { z } from 'zod';
-import { PotaSyncLogSchema, PotaSyncLogsPayloadSchema } from '../../../shared/schemas/pota';
+import { PotaSyncLogSchema, PotaSyncLogsResponseSchema } from '../../../shared/schemas/pota';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
@@ -91,12 +91,12 @@ const PotaSyncLogs: React.FC = () => {
 
       const payload = await requestWithSchema(
         apiClient.get('/api/pota/sync-logs', { params }),
-        PotaSyncLogsPayloadSchema
+        PotaSyncLogsResponseSchema
       );
 
-      setLogs(payload.data);
-      setTotalLogs(payload.pagination.total);
-      setTotalPages(payload.pagination.totalPages);
+      setLogs(payload.data.logs);
+      setTotalLogs(payload.data.pagination.total);
+      setTotalPages(payload.data.pagination.totalPages);
     } catch (err) {
       setError('获取同步日志失败');
       console.error(err);

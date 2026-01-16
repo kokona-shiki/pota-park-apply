@@ -25,8 +25,10 @@ router.get('/api/pota/sync-logs', authenticateToken, requirePermission('pota_imp
     res.json({
       code: 0,
       message: '获取POTA同步日志成功',
-      data: result.logs,
-      pagination: result.pagination,
+      data: {
+        logs: result.logs,
+        pagination: result.pagination,
+      },
     });
   } catch (error) {
     const err = error as Error;
