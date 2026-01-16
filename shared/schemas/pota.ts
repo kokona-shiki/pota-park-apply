@@ -25,6 +25,8 @@ export const PotaSyncLogParkSchema = z.object({
   name: z.string(),
   status: z.union([z.literal('success'), z.literal('failed'), z.literal('skipped')]),
   reason: z.string().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 });
 
 export const PotaSyncLogSchema = z.object({

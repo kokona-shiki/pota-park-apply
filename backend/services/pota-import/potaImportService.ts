@@ -93,7 +93,7 @@ const handleParkDetailError = (
   error: unknown,
   results: ImportResult,
   unprocessedParks: UnprocessedPark[],
-  parksImported: Array<{ reference: string; name: string; status: string; reason?: string }>
+  parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }>
 ) => {
   const failureReason = (error as Error)?.message || buildQueryParkFailureReason(3, error);
   const fallbackName = extractChineseName(listPark.name) || listPark.name || potaId;
@@ -112,6 +112,8 @@ const handleParkDetailError = (
     name: fallbackName,
     status: 'failed',
     reason: failureReason,
+    latitude: null,
+    longitude: null,
   });
 };
 
@@ -124,7 +126,7 @@ const handleUnidentifiedParkType = (
   listPark: PotaPark,
   results: ImportResult,
   unprocessedParks: UnprocessedPark[],
-  parksImported: Array<{ reference: string; name: string; status: string; reason?: string }>
+  parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }>
 ) => {
   const unprocessedPark: UnprocessedPark = {
     reference: potaId,
@@ -149,6 +151,8 @@ const handleUnidentifiedParkType = (
     name: unprocessedPark.name || potaId,
     status: 'skipped',
     reason: 'Requires manual confirmation',
+    latitude: enrichedPark.latitude ?? null,
+    longitude: enrichedPark.longitude ?? null,
   });
 };
 
@@ -160,7 +164,7 @@ const handleParkImportResult = (
   enrichedPark: PotaPark,
   result: Awaited<ReturnType<typeof importSinglePotaPark>>,
   results: ImportResult,
-  parksImported: Array<{ reference: string; name: string; status: string; reason?: string }>
+  parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }>
 ) => {
   if (result.success) {
     if (result.skipped) {
@@ -170,6 +174,8 @@ const handleParkImportResult = (
         name: enrichedPark.name || potaId,
         status: 'skipped',
         reason: 'Already exists',
+        latitude: enrichedPark.latitude ?? null,
+        longitude: enrichedPark.longitude ?? null,
       });
     } else if (result.created) {
       results.imported++;
@@ -177,6 +183,8 @@ const handleParkImportResult = (
         reference: potaId,
         name: enrichedPark.name || potaId,
         status: 'success',
+        latitude: enrichedPark.latitude ?? null,
+        longitude: enrichedPark.longitude ?? null,
       });
     }
   } else {
@@ -186,6 +194,8 @@ const handleParkImportResult = (
       name: enrichedPark.name || potaId,
       status: 'failed',
       reason: result.error,
+      latitude: enrichedPark.latitude ?? null,
+      longitude: enrichedPark.longitude ?? null,
     });
     console.error(`导入公园失败:`, result);
   }
@@ -201,7 +211,7 @@ const processParkImport = async (
   importTime: string,
   results: ImportResult,
   unprocessedParks: UnprocessedPark[],
-  parksImported: Array<{ reference: string; name: string; status: string; reason?: string }>
+  parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }>
 ) => {
   const potaId = getPotaReference(listPark);
   if (!potaId) {
@@ -217,6 +227,8 @@ const processParkImport = async (
       name: listPark.name || potaId,
       status: 'skipped',
       reason: 'Already exists',
+      latitude: listPark.latitude ?? null,
+      longitude: listPark.longitude ?? null,
     });
     return;
   }
@@ -289,8 +301,7 @@ export const importPotaParks = async (operatorId: number, operatorRole: string) 
 
   const importTime = new Date().toISOString();
 
-  // 准备日志记录所需的数据
-  const parksImported: Array<{ reference: string; name: string; status: string; reason?: string }> =
+  const parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }> =
     [];
 
   try {

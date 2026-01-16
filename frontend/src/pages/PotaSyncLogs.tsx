@@ -138,17 +138,16 @@ const PotaSyncLogs: React.FC = () => {
 
   // 处理查看公园详情
   const handleViewParkDetail = (park: PotaSyncLog['parksImported'][number]) => {
-    // 创建一个模拟的公园数据结构用于详情显示
     const parkDetail: ParkApplicationDetail = {
-      id: parseInt(park.reference.replace(/[^0-9]/g, ''), 10) || 0, // 提取数字部分作为ID
+      id: parseInt(park.reference.replace(/[^0-9]/g, ''), 10) || 0,
       park_name: park.name,
-      park_type: null, // 这里可能需要从其他地方获取
-      province_name: 'CN', // 使用默认值
+      park_type: null,
+      province_name: 'CN',
       provinces: [],
-      status: 'pending', // 使用默认值
+      status: park.status === 'success' ? 'approved' : 'pending',
       created_at: selectedLog?.createdAt || '',
-      latitude: undefined,
-      longitude: undefined,
+      latitude: park.latitude ?? undefined,
+      longitude: park.longitude ?? undefined,
       website: undefined,
       description: park.reason || '无描述',
       rejection_reason: park.reason || null,
