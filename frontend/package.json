@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
+    "typecheck": "tsc -b",
     "clean": "rm -rf node_modules dist pnpm-lock.yaml",
     "reinstall": "pnpm clean && pnpm install"
   },

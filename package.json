@@ -9,6 +9,7 @@
     "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
     "build": "pnpm --filter ./frontend build",
     "lint": "pnpm --filter ./frontend lint",
+    "typecheck": "concurrently \"pnpm --filter ./frontend typecheck\" \"pnpm --filter ./backend typecheck\"",
     "clean": "pnpm -r clean",
     "reinstall": "pnpm -r clean && pnpm install"
   },

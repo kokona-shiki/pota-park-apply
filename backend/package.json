@@ -9,6 +9,7 @@
     "dev": "tsx index.ts",
     "start": "tsx index.ts",
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "init-db": "node scripts/initDatabase.js",
     "migrate:remove-admin-review-permissions": "node migrations/001-remove-system-admin-review-permissions.js",
     "test-api": "node test/test-api.js",
