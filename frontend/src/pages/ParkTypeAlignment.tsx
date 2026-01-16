@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Container,
   Typography,
@@ -77,7 +78,7 @@ const ParkTypeAlignment: React.FC = () => {
   }, []);
 
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     if (user) {
       fetchMismatches();
     }
@@ -194,11 +195,11 @@ const ParkTypeAlignment: React.FC = () => {
     } finally {
       setProcessing(false);
     }
-  }, [selectedRows, selectedParkTypes, accessToken]);
+  }, [selectedRows, selectedParkTypes, accessToken, fetchMismatches, setSnackbar, setSelectedRows]);
 
   const cancelBulkUpdate = useCallback(() => {
     setOpenConfirmDialog(false);
-  }, []);
+  }, [setOpenConfirmDialog]);
 
   // 定义列
   const columns: GridColDef<ParkTypeMismatch>[] = useMemo(

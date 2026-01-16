@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Container,
   Typography,
@@ -50,8 +51,7 @@ const PotaUnprocessedParks: React.FC = () => {
     severity: 'success' | 'error' | 'info';
   } | null>(null);
 
-  // 用于确保API只调用一次
-  const hasFetchedRef = useRef(false);
+
 
   // 获取所有可用的公园类型
   const allParkTypes = useMemo(() => {
@@ -162,9 +162,8 @@ const PotaUnprocessedParks: React.FC = () => {
     );
   }, []);
 
-  useEffect(() => {
-    if (!hasFetchedRef.current && user) {
-      hasFetchedRef.current = true;
+  useOnceOnMount(() => {
+    if (user) {
       fetchUnprocessedParks();
     }
   }, [user]);

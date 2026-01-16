@@ -1,5 +1,6 @@
 // src/pages/PotaImport.tsx
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Box,
   Button,
@@ -27,8 +28,6 @@ import {
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
 import { useNavigate } from 'react-router-dom';
-
-type ImportTaskResultSummary = z.infer<typeof ImportTaskResultSummarySchema>;
 
 type ImportTask = z.infer<typeof ImportTaskSchema>;
 
@@ -116,7 +115,7 @@ function PotaImport() {
     }
   }, [user]);
 
-  useEffect(() => {
+  useOnceOnMount(() => {
     if (!user) return;
     loadStatus();
     loadLatestTask();
