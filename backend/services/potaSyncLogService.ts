@@ -125,12 +125,12 @@ export const getPotaSyncLogs = async (
       SELECT 
         id,
         operator,
-        operation_type as operationType,
-        sync_date as syncDate,
-        parks_imported as parksImported,
+        operation_type as "operationType",
+        sync_date as "syncDate",
+        parks_imported as "parksImported",
         status,
         details,
-        created_at as createdAt
+        created_at as "createdAt"
       FROM pota_sync_logs
       ${whereClause}
       ${orderBy}
@@ -139,8 +139,16 @@ export const getPotaSyncLogs = async (
       params
     );
 
+    // 确保 parksImported 字段是数组类型
+    const parsedLogs = logs.map(log => ({
+      ...log,
+      parksImported: typeof log.parksImported === 'string' 
+        ? JSON.parse(log.parksImported) 
+        : log.parksImported || []
+    }));
+
     return {
-      logs,
+      logs: parsedLogs,
       pagination: {
         page: Number.parseInt(String(page), 10),
         pageSize: Number.parseInt(String(pageSize), 10),
@@ -159,24 +167,33 @@ export const getPotaSyncLogs = async (
  */
 export const getPotaSyncLogById = async (logId: number) => {
   try {
-    const log = await query(
+    const result = await query(
       `
       SELECT 
         id,
         operator,
-        operation_type as operationType,
-        sync_date as syncDate,
-        parks_imported as parksImported,
+        operation_type as "operationType",
+        sync_date as "syncDate",
+        parks_imported as "parksImported",
         status,
         details,
-        created_at as createdAt
+        created_at as "createdAt"
       FROM pota_sync_logs
       WHERE id = $1
       `,
       [logId]
     );
 
-    return log.rows[0] || null;
+    const log = result.rows[0] || null;
+    
+    // 确保 parksImported 字段是数组类型
+    if (log) {
+      log.parksImported = typeof log.parksImported === 'string' 
+        ? JSON.parse(log.parksImported) 
+        : log.parksImported || [];
+    }
+
+    return log;
   } catch (error) {
     console.error('获取POTA同步日志详情失败:', error.message);
     throw error;

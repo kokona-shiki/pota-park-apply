@@ -646,7 +646,7 @@ function App() {
         };
         if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
           if (payload.code === 0) {
-            if ('pagination' in payload) {
+            if (payload.data && typeof payload.data === 'object' && 'pagination' in payload.data) {
               return { ...res, data: payload };
             }
             return { ...res, data: payload.data };

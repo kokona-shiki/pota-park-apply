@@ -21,8 +21,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Pagination,
+  Stack,
   Chip,
+  Alert,
 } from '@mui/material';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { DataGrid } from '@mui/x-data-grid';
@@ -33,6 +34,7 @@ import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { ParkApplicationDetailDialog } from '../components/ParkApplicationDetailDialog';
 import type { ParkApplicationDetail } from '../types/parkApplication';
+import SearchIcon from '@mui/icons-material/Search';
 
 type PotaSyncLog = z.infer<typeof PotaSyncLogSchema>;
 
@@ -54,7 +56,7 @@ const PotaSyncLogs: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
-  const [totalPages, setTotalPages] = useState<number>(1);
+
   const [totalLogs, setTotalLogs] = useState<number>(0);
   const [openDetailsDialog, setOpenDetailsDialog] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<PotaSyncLog | null>(null);
@@ -96,7 +98,6 @@ const PotaSyncLogs: React.FC = () => {
 
       setLogs(payload.data.logs);
       setTotalLogs(payload.data.pagination.total);
-      setTotalPages(payload.data.pagination.totalPages);
     } catch (err) {
       setError('获取同步日志失败');
       console.error(err);
@@ -109,11 +110,6 @@ const PotaSyncLogs: React.FC = () => {
   useOnceOnMount(() => {
     fetchLogs();
   }, [fetchLogs]);
-
-  // 处理分页改变
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
-  };
 
   // 处理查看日志详情
   const handleViewDetails = (log: PotaSyncLog) => {
@@ -247,216 +243,200 @@ const PotaSyncLogs: React.FC = () => {
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" component="h1" gutterBottom>
-        POTA 同步日志
-      </Typography>
-
-      {error && (
-        <Typography color="error" variant="body1">
-          {error}
+      <Stack spacing={3}>
+        <Typography variant="h4" component="h1">
+          POTA 同步日志
         </Typography>
-      )}
 
-      <Box display="flex" gap={2} mb={3} alignItems="end">
-        <TextField
-          label="开始日期"
-          type="date"
-          size="small"
-          value={startDate || ''}
-          onChange={(e) => setStartDate(e.target.value || null)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 150 }}
-        />
-        <TextField
-          label="结束日期"
-          type="date"
-          size="small"
-          value={endDate || ''}
-          onChange={(e) => setEndDate(e.target.value || null)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 150 }}
-        />
+        {error && <Alert severity="error">{error}</Alert>}
 
-        <FormControl size="small" sx={{ width: 150 }}>
-          <InputLabel>操作类型</InputLabel>
-          <Select
-            value={operationType}
-            label="操作类型"
-            onChange={(e) => setOperationType(e.target.value)}
-          >
-            <MenuItem value="">全部</MenuItem>
-            <MenuItem value="auto">自动</MenuItem>
-            <MenuItem value="manual">手动</MenuItem>
-          </Select>
-        </FormControl>
+        <Paper sx={{ p: 3 }}>
+          <Stack direction="row" spacing={2} alignItems="center" useFlexGap flexWrap="wrap">
+          <TextField
+            label="开始日期"
+            type="date"
+            size="small"
+            value={startDate || ''}
+            onChange={(e) => setStartDate(e.target.value || null)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 150 }}
+          />
+          <TextField
+            label="结束日期"
+            type="date"
+            size="small"
+            value={endDate || ''}
+            onChange={(e) => setEndDate(e.target.value || null)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 150 }}
+          />
 
-        <TextField
-          label="搜索"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ width: 200 }}
-        />
-
-        <Button variant="contained" onClick={fetchLogs}>
-          搜索
-        </Button>
-      </Box>
-
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">总计: {totalLogs} 条记录</Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          <FormControl size="small">
-            <InputLabel>每页</InputLabel>
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>操作类型</InputLabel>
             <Select
-              value={pageSize.toString()}
-              label="每页"
-              onChange={(e) => {
-                setPageSize(parseInt(e.target.value, 10));
-                setPage(1);
-              }}
-              sx={{ width: 100 }}
+              value={operationType}
+              label="操作类型"
+              onChange={(e) => setOperationType(e.target.value)}
             >
-              <MenuItem value={10}>10</MenuItem>
-              <MenuItem value={25}>25</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
+              <MenuItem value="">全部</MenuItem>
+              <MenuItem value="auto">自动</MenuItem>
+              <MenuItem value="manual">手动</MenuItem>
             </Select>
           </FormControl>
-          <Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" />
-        </Box>
-      </Box>
 
-      <div style={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={logs}
-          columns={columns}
-          loading={loading}
-          pageSizeOptions={[10, 25, 50]}
-          initialState={{
-            pagination: {
-              paginationModel: { page: 0, pageSize: 10 },
-            },
-          }}
-          disableRowSelectionOnClick
-        />
-      </div>
+          <TextField
+            label="搜索"
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 200 }}
+          />
 
-      {/* 日志详情对话框 */}
-      <Dialog
-        open={openDetailsDialog}
-        onClose={() => setOpenDetailsDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>POTA 同步日志详情</DialogTitle>
-        <DialogContent dividers>
-          {selectedLog && (
-            <Box>
-              <Typography variant="body1">
-                <strong>ID:</strong> {selectedLog.id}
-              </Typography>
-              <Typography variant="body1">
-                <strong>操作人:</strong> {selectedLog.operator}
-              </Typography>
-              <Typography variant="body1">
-                <strong>操作类型:</strong> {selectedLog.operationType === 'auto' ? '自动' : '手动'}
-              </Typography>
-              <Typography variant="body1">
-                <strong>同步时间:</strong> {new Date(selectedLog.syncDate).toLocaleString('zh-CN')}
-              </Typography>
-              <Typography variant="body1">
-                <strong>状态:</strong>{' '}
-                {selectedLog.status === 'success'
-                  ? '成功'
-                  : selectedLog.status === 'partial_success'
-                  ? '部分成功'
-                  : '失败'}
-              </Typography>
-              <Typography variant="body1">
-                <strong>导入公园数:</strong> {selectedLog.parksImported.length}
-              </Typography>
-              <Typography variant="body1">
-                <strong>详情:</strong> {selectedLog.details}
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetailsDialog(false)}>关闭</Button>
-        </DialogActions>
-      </Dialog>
+          <Button variant="contained" startIcon={<SearchIcon />} onClick={fetchLogs}>
+            搜索
+          </Button>
+        </Stack>
+      </Paper>
 
-      {/* 公园列表对话框 */}
-      <Dialog
-        open={openParksDialog}
-        onClose={() => setOpenParksDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>导入的公园列表</DialogTitle>
-        <DialogContent dividers>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>POTA ID</TableCell>
-                  <TableCell>公园名称</TableCell>
-                  <TableCell>状态</TableCell>
-                  <TableCell>操作</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {selectedParks.map((park, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{park.reference}</TableCell>
-                    <TableCell>{park.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={
-                          park.status === 'success'
-                            ? '已导入'
-                            : park.status === 'failed'
-                            ? `未导入 (${park.reason || '未知原因'})`
-                            : `跳过 (${park.reason || '未知原因'})`
-                        }
-                        color={
-                          park.status === 'success'
-                            ? 'success'
-                            : park.status === 'failed'
-                            ? 'error'
-                            : 'warning'
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleViewParkDetail(park)}
-                      >
-                        详情
-                      </Button>
-                    </TableCell>
+      <Paper sx={{ p: 3 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">总计: {totalLogs} 条记录</Typography>
+          </Stack>
+
+          <div style={{ height: 600, width: '100%' }}>
+            <DataGrid
+              rows={logs}
+              columns={columns}
+              loading={loading}
+              disableRowSelectionOnClick
+              paginationMode="server"
+              rowCount={totalLogs}
+              paginationModel={{ page: page - 1, pageSize }}
+              onPaginationModelChange={(model) => {
+                setPage(model.page + 1);
+                setPageSize(model.pageSize);
+              }}
+            />
+          </div>
+        </Paper>
+
+        {/* 日志详情对话框 */}
+        <Dialog
+          open={openDetailsDialog}
+          onClose={() => setOpenDetailsDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>POTA 同步日志详情</DialogTitle>
+          <DialogContent dividers>
+            {selectedLog && (
+              <Box>
+                <Typography variant="body1">
+                  <strong>ID:</strong> {selectedLog.id}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>操作人:</strong> {selectedLog.operator}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>操作类型:</strong> {selectedLog.operationType === 'auto' ? '自动' : '手动'}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>同步时间:</strong> {new Date(selectedLog.syncDate).toLocaleString('zh-CN')}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>状态:</strong>{' '}
+                  {selectedLog.status === 'success'
+                    ? '成功'
+                    : selectedLog.status === 'partial_success'
+                    ? '部分成功'
+                    : '失败'}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>导入公园数:</strong> {selectedLog.parksImported.length}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>详情:</strong> {selectedLog.details}
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDetailsDialog(false)}>关闭</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 公园列表对话框 */}
+        <Dialog
+          open={openParksDialog}
+          onClose={() => setOpenParksDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>导入的公园列表</DialogTitle>
+          <DialogContent dividers>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>POTA ID</TableCell>
+                    <TableCell>公园名称</TableCell>
+                    <TableCell>状态</TableCell>
+                    <TableCell>操作</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenParksDialog(false)}>关闭</Button>
-        </DialogActions>
-      </Dialog>
+                </TableHead>
+                <TableBody>
+                  {selectedParks.map((park, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{park.reference}</TableCell>
+                      <TableCell>{park.name}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={
+                            park.status === 'success'
+                              ? '已导入'
+                              : park.status === 'failed'
+                              ? `未导入 (${park.reason || '未知原因'})`
+                              : `跳过 (${park.reason || '未知原因'})`
+                          }
+                          color={
+                            park.status === 'success'
+                              ? 'success'
+                              : park.status === 'failed'
+                              ? 'error'
+                              : 'warning'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleViewParkDetail(park)}
+                        >
+                          详情
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenParksDialog(false)}>关闭</Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* 公园详情对话框 */}
-      {selectedParkDetail && (
-        <ParkApplicationDetailDialog
-          open={openParkDetailDialog}
-          onClose={() => setOpenParkDetailDialog(false)}
-          application={selectedParkDetail}
-        />
-      )}
+        {/* 公园详情对话框 */}
+        {selectedParkDetail && (
+          <ParkApplicationDetailDialog
+            open={openParkDetailDialog}
+            onClose={() => setOpenParkDetailDialog(false)}
+            application={selectedParkDetail}
+          />
+        )}
+      </Stack>
     </Container>
   );
 };
