@@ -226,3 +226,6 @@ node_modules/
 .env.*.local
 .env.development
 .env.production
+
+# Trae IDE 配置目录
+.trae/
