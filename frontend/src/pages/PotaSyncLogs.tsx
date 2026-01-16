@@ -24,6 +24,7 @@ import {
   Stack,
   Chip,
   Alert,
+  TablePagination,
 } from '@mui/material';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { DataGrid } from '@mui/x-data-grid';
@@ -41,6 +42,15 @@ type PotaSyncLog = z.infer<typeof PotaSyncLogSchema>;
 const PotaSyncLogs: React.FC = () => {
   const { user } = useAuth(); // 检查用户权限
   const { hasPermission } = usePermission('pota_import');
+
+  const translateReason = (reason: string | undefined): string => {
+    if (!reason) return '未知原因';
+    const reasonMap: Record<string, string> = {
+      'Requires manual confirmation': '需要手动确认',
+      'queue_full': '队列已满',
+    };
+    return reasonMap[reason] || reason;
+  };
 
   // 检查用户是否有访问权限 - 只有有pota_import权限的用户可以访问
   useEffect(() => {
@@ -62,6 +72,8 @@ const PotaSyncLogs: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<PotaSyncLog | null>(null);
   const [openParksDialog, setOpenParksDialog] = useState<boolean>(false);
   const [selectedParks, setSelectedParks] = useState<PotaSyncLog['parksImported']>([]);
+  const [parksPage, setParksPage] = useState<number>(0);
+  const [parksRowsPerPage, setParksRowsPerPage] = useState<number>(10);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [operationType, setOperationType] = useState<string>('');
@@ -120,6 +132,7 @@ const PotaSyncLogs: React.FC = () => {
   // 处理查看公园列表
   const handleViewParks = (parks: PotaSyncLog['parksImported']) => {
     setSelectedParks(parks);
+    setParksPage(0);
     setOpenParksDialog(true);
   };
 
@@ -385,7 +398,9 @@ const PotaSyncLogs: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {selectedParks.map((park, index) => (
+                  {selectedParks
+                    .slice(parksPage * parksRowsPerPage, parksPage * parksRowsPerPage + parksRowsPerPage)
+                    .map((park, index) => (
                     <TableRow key={index}>
                       <TableCell>{park.reference}</TableCell>
                       <TableCell>{park.name}</TableCell>
@@ -395,8 +410,8 @@ const PotaSyncLogs: React.FC = () => {
                             park.status === 'success'
                               ? '已导入'
                               : park.status === 'failed'
-                              ? `未导入 (${park.reason || '未知原因'})`
-                              : `跳过 (${park.reason || '未知原因'})`
+                              ? `未导入 (${translateReason(park.reason)})`
+                              : `跳过 (${translateReason(park.reason)})`
                           }
                           color={
                             park.status === 'success'
@@ -422,6 +437,19 @@ const PotaSyncLogs: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={selectedParks.length}
+              page={parksPage}
+              onPageChange={(_, newPage) => setParksPage(newPage)}
+              rowsPerPage={parksRowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setParksRowsPerPage(parseInt(e.target.value, 10));
+                setParksPage(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50]}
+              labelRowsPerPage="每页行数"
+            />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenParksDialog(false)}>关闭</Button>
