@@ -49,6 +49,8 @@ const buildParkTypeIndex = (mappings: ParkTypeMappings): ParkTypeIndex => {
   const allTypes = [
     ...(mappings.chinese_to_english || []),
     ...(mappings.pota_only_types || []),
+    // 添加默认公园类型
+    ...(mappings.default_pota_type ? [mappings.default_pota_type] : []),
   ].filter((item) => item?.id);
 
   const byId = new Map<string, ParkTypeIndexItem>();
