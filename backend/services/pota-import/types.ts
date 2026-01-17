@@ -49,13 +49,13 @@ export type ParkTypeIndex = {
 export type InternalPark = {
   park_name: string;
   park_type: string | null;
-  provinces: string[];
+  provinces: string;
   latitude?: number;
   longitude?: number;
   website?: string | null;
   description?: string;
-  access_methods: string[];
-  activation_methods: string[];
+  access_methods: string;
+  activation_methods: string;
   confirmed_authenticity: boolean;
   pota_ref?: string;
   pota_park_type?: string | null;
