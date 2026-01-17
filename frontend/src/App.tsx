@@ -765,9 +765,7 @@ function App() {
               <Route
                 path="/"
                 element={
-                  <RequireAuth>
-                    <Home />
-                  </RequireAuth>
+                  <Home />
                 }
               />
               <Route

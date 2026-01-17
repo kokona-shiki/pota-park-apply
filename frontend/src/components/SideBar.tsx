@@ -9,6 +9,12 @@ import {
   Toolbar,
   Typography,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  DialogContentText,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import AddIcon from '@mui/icons-material/Add';
@@ -25,6 +31,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
+import { useAuth } from '../auth/useAuth';
 
 interface SideBarProps {
   isOpen: boolean;
@@ -37,6 +44,8 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
   const [potaMenuOpen, setPotaMenuOpen] = useState(false);
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
+  const { user } = useAuth();
 
   // 系统管理员只能进行用户管理，不显示其他功能入口
 
@@ -64,114 +73,129 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
             <ListItemText primary="首页" />
           </ListItemButton>
 
-          {/* 系统管理员只能看到用户管理，隐藏其他功能入口 */}
-          {!isSysAdmin && (
+          {/* 未登录用户只显示首页和申请录入公园 */}
+          {!user ? (
             <>
-              <ListItemButton onClick={() => navigate('/add-park')}>
+              <ListItemButton onClick={() => setLoginPromptOpen(true)}>
                 <ListItemIcon>
                   <AddIcon />
                 </ListItemIcon>
-                <ListItemText primary="申请添加公园" />
-              </ListItemButton>
-
-              <ListItemButton onClick={() => navigate('/applications')}>
-                <ListItemIcon>
-                  <ListIcon />
-                </ListItemIcon>
-                <ListItemText primary="申请列表" />
-              </ListItemButton>
-
-              <ListItemButton onClick={() => navigate('/my-uploads')}>
-                <ListItemIcon>
-                  <UploadIcon />
-                </ListItemIcon>
-                <ListItemText primary="我的上传" />
-              </ListItemButton>
-
-              <ListItemButton onClick={() => navigate('/export')}>
-                <ListItemIcon>
-                  <DownloadIcon />
-                </ListItemIcon>
-                <ListItemText primary="导出" />
+                <ListItemText primary="申请录入公园" />
               </ListItemButton>
             </>
-          )}
-
-          {isSysAdmin && (
+          ) : (
+            // 登录用户根据角色显示不同菜单
             <>
-              <ListItemButton onClick={() => navigate('/admin-panel')}>
-                <ListItemIcon>
-                  <AdminPanelSettingsIcon />
-                </ListItemIcon>
-                <ListItemText primary="用户管理" />
-              </ListItemButton>
-              <ListItemButton onClick={() => navigate('/callsign-change-requests')}>
-                <ListItemIcon>
-                  <ListIcon />
-                </ListItemIcon>
-                <ListItemText primary="呼号变更申请" />
-              </ListItemButton>
-            </>
-          )}
+              {/* 系统管理员只能看到用户管理，隐藏其他功能入口 */}
+              {!isSysAdmin && (
+                <>
+                  <ListItemButton onClick={() => navigate('/add-park')}>
+                    <ListItemIcon>
+                      <AddIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="申请添加公园" />
+                  </ListItemButton>
 
-          {isPotaRepresentative && (
-            <>
-              <ListItemButton onClick={() => setPotaMenuOpen(!potaMenuOpen)}>
-                <ListItemIcon>
-                  <SettingsIcon />
-                </ListItemIcon>
-                <ListItemText primary="POTA 管理" />
-                {potaMenuOpen ? <ExpandLess /> : <ExpandMore />}
-              </ListItemButton>
-              <Collapse in={potaMenuOpen} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  <ListItemButton
-                    sx={{ pl: 4 }}
-                    onClick={() => setPotaAuthDialogOpen(true)}
-                  >
-                    <ListItemIcon>
-                      <VpnKeyIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="POTA 认证" />
-                  </ListItemButton>
-                  <ListItemButton
-                    sx={{ pl: 4 }}
-                    onClick={() => navigate('/pota-import')}
-                  >
-                    <ListItemIcon>
-                      <UploadIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="公园导入" />
-                  </ListItemButton>
-                  <ListItemButton
-                    sx={{ pl: 4 }}
-                    onClick={() => navigate('/pota-unprocessed')}
-                  >
+                  <ListItemButton onClick={() => navigate('/applications')}>
                     <ListItemIcon>
                       <ListIcon />
                     </ListItemIcon>
-                    <ListItemText primary="未处理公园" />
+                    <ListItemText primary="申请列表" />
                   </ListItemButton>
-                  <ListItemButton
-                    sx={{ pl: 4 }}
-                    onClick={() => navigate('/pota-sync-logs')}
-                  >
+
+                  <ListItemButton onClick={() => navigate('/my-uploads')}>
                     <ListItemIcon>
-                      <HistoryIcon />
+                      <UploadIcon />
                     </ListItemIcon>
-                    <ListItemText primary="同步日志" />
+                    <ListItemText primary="我的上传" />
                   </ListItemButton>
-                  <ListItemButton
-                    sx={{ pl: 4 }}
-                    onClick={() => navigate('/park-type-alignment')}
-                  >
+
+                  <ListItemButton onClick={() => navigate('/export')}>
                     <ListItemIcon>
-                      <CompareArrowsIcon />
+                      <DownloadIcon />
                     </ListItemIcon>
-                    <ListItemText primary="公园类型对齐" />
+                    <ListItemText primary="导出" />
                   </ListItemButton>
-                </List>
-              </Collapse>
+                </>
+              )}
+
+              {isSysAdmin && (
+                <>
+                  <ListItemButton onClick={() => navigate('/admin-panel')}>
+                    <ListItemIcon>
+                      <AdminPanelSettingsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="用户管理" />
+                  </ListItemButton>
+                  <ListItemButton onClick={() => navigate('/callsign-change-requests')}>
+                    <ListItemIcon>
+                      <ListIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="呼号变更申请" />
+                  </ListItemButton>
+                </>
+              )}
+
+              {isPotaRepresentative && (
+                <>
+                  <ListItemButton onClick={() => setPotaMenuOpen(!potaMenuOpen)}>
+                    <ListItemIcon>
+                      <SettingsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="POTA 管理" />
+                    {potaMenuOpen ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                  <Collapse in={potaMenuOpen} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => setPotaAuthDialogOpen(true)}
+                      >
+                        <ListItemIcon>
+                          <VpnKeyIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="POTA 认证" />
+                      </ListItemButton>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/pota-import')}
+                      >
+                        <ListItemIcon>
+                          <UploadIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="公园导入" />
+                      </ListItemButton>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/pota-unprocessed')}
+                      >
+                        <ListItemIcon>
+                          <ListIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="未处理公园" />
+                      </ListItemButton>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/pota-sync-logs')}
+                      >
+                        <ListItemIcon>
+                          <HistoryIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="同步日志" />
+                      </ListItemButton>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/park-type-alignment')}
+                      >
+                        <ListItemIcon>
+                          <CompareArrowsIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="公园类型对齐" />
+                      </ListItemButton>
+                    </List>
+                  </Collapse>
+                </>
+              )}
             </>
           )}
 
@@ -183,6 +207,31 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
           </ListItemButton>
         </List>
       </Drawer>
+
+      {/* 登录提示弹框 */}
+      <Dialog
+        open={loginPromptOpen}
+        onClose={() => setLoginPromptOpen(false)}
+        aria-labelledby="login-prompt-dialog-title"
+      >
+        <DialogTitle id="login-prompt-dialog-title">需要登录</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            您需要登录才能使用此功能。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLoginPromptOpen(false)} color="inherit">
+            取消
+          </Button>
+          <Button onClick={() => { setLoginPromptOpen(false); navigate('/login'); }} color="primary">
+            去登录
+          </Button>
+          <Button onClick={() => { setLoginPromptOpen(false); navigate('/register'); }} color="primary">
+            去注册
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {isPotaRepresentative && (
         <PotaAuthDialog open={potaAuthDialogOpen} onClose={() => setPotaAuthDialogOpen(false)} />
