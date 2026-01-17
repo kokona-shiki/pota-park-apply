@@ -55,13 +55,12 @@ export class AMapService implements IMapService {
 
   async reverseGeocode(
     location: { latitude: number; longitude: number },
-    _options: GeocodingOptions = {}
+    _options?: GeocodingOptions
   ): Promise<ReverseGeocodingResult> {
     // 实现高德反向地理编码逻辑
     // API 文档: https://lbs.amap.com/api/webservice/guide/api/regeocode
     // 示例请求: /regeocode?key=您的Key&location=116.473195,39.993253
     // 预留实现
-    // _options 参数保留以符合接口定义，后续实现时会使用
     return { address: '', location };
   }
 }

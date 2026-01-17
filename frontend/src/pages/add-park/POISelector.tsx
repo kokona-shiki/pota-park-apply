@@ -88,7 +88,7 @@ const POISelector: React.FC<POISelectorProps> = ({
       setIsPotaPark(true);
     } else {
       // 地图 POI，解析省份和城市
-      const isoProvinceCode = getProvinceCodeFromNames(poi.province, poi.city);
+      const isoProvinceCode = getProvinceCodeFromNames(poi.province);
       // 将 ISO-3166 格式转换为省份代码格式（如 '11'）
       const provinceCode = mapLocationToProvince(isoProvinceCode);
       if (provinceCode) {

@@ -38,7 +38,7 @@ type UserAdminAuditLog = {
   old_is_active: boolean | null;
   new_is_active: boolean | null;
   reason: string | null;
-  metadata: any;
+  metadata: Record<string, unknown>;
   created_at: string;
 
   operator_callsign?: string | null;
@@ -65,7 +65,7 @@ function AdminPanel() {
     try {
       const payload = await requestWithSchema(apiClient.get('/api/users'), UsersDataSchema);
       setUsers(payload.users || []);
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert(getApiErrorMessage(e, '获取用户列表失败'));
     } finally {
       setLoading(false);
@@ -84,7 +84,7 @@ function AdminPanel() {
         ...log,
         metadata: log.metadata || {} // 确保 metadata 字段存在且为对象
       })));
-    } catch (e: any) {
+    } catch (e: unknown) {
       setLogsError(getApiErrorMessage(e, '获取操作日志失败'));
     } finally {
       setLogsLoading(false);
@@ -115,7 +115,7 @@ function AdminPanel() {
       );
       const updated = payload.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert(getApiErrorMessage(e, '修改角色失败'));
     } finally {
       roleChangeRequestRef.current[targetUser.id] = false;
@@ -133,7 +133,7 @@ function AdminPanel() {
       );
       const updated = payload.user;
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    } catch (e: any) {
+    } catch (e: unknown) {
       alert(getApiErrorMessage(e, '封禁/解封失败'));
     } finally {
       activeChangeRequestRef.current[targetUser.id] = false;

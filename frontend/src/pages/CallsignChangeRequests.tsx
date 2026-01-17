@@ -95,7 +95,7 @@ function CallsignChangeRequests() {
         reviewer_email: req.reviewer_email || undefined,
         reviewer_callsign: req.reviewer_callsign || undefined
       })));
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
     } finally {
       setLoading(false);
@@ -132,10 +132,10 @@ function CallsignChangeRequests() {
           reviewer_callsign: req.reviewer_callsign || undefined
         })));
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // 忽略被取消的请求错误
-      if (axios.isCancel(e) || e.name === 'CanceledError' || e.name === 'AbortError') {
-        console.debug('请求被取消:', e.message);
+      if (axios.isCancel(e) || (e instanceof Error && (e.name === 'CanceledError' || e.name === 'AbortError'))) {
+        console.debug('请求被取消:', (e as Error).message);
       } else {
         setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
       }
@@ -197,7 +197,7 @@ function CallsignChangeRequests() {
 
       setReviewDialogOpen(false);
       setReviewRequestId(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(
         getApiErrorMessage(e, `${reviewStatus === 'approved' ? '批准' : '拒绝'}呼号变更申请失败`)
       );

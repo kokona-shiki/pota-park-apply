@@ -1,7 +1,7 @@
 import express from 'express';
 import { getMany } from '../config/database.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
-import { sendHttpError, sendOk, sendError } from '../utils/response.js';
+import { sendOk, sendError } from '../utils/response.js';
 
 const router = express.Router();
 

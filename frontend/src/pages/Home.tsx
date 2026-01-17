@@ -1,6 +1,7 @@
 // src/pages/Home.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
+import { useOnceOnMountWithAbort } from '../hooks/useOnceOnMount';
 import {
   Table,
   TableBody,
@@ -88,7 +89,7 @@ function Home() {
   const [rowsPerPage, setRowsPerPage] = useState(30);
 
   // 防抖函数
-  function debounce<T extends (...args: any[]) => any>(
+  function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
     func: T,
     delay: number
   ): (...args: Parameters<T>) => void {
@@ -122,10 +123,12 @@ function Home() {
   }, [page, rowsPerPage]);
 
   // 初始加载和分页/每页数量变化时重新加载
-  useEffect(() => {
+  useOnceOnMountWithAbort(async (
+    _signal
+  ) => {
     // 不需要登录即可访问
-    loadParks();
-  }, [loadParks]);
+    await loadParks();
+  }, [page, rowsPerPage]);
 
   // 搜索功能
   const handleSearch = useCallback(

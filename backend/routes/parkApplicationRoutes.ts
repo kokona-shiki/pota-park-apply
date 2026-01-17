@@ -78,7 +78,7 @@ router.get('/api/my-applications', authenticateToken, async (req, res) => {
 
     const applications = await parkApplicationService.getMyApplications(
       req.user?.id,
-      statusStr as any,
+      statusStr as 'pending' | 'approved' | 'rejected' | 'pota_synced',
       provinceStr
     );
 
@@ -101,7 +101,7 @@ router.get('/api/park-applications', authenticateToken, async (req, res) => {
 
     const applications = await parkApplicationService.getApplications(
       req.user?.id,
-      statusStr as any,
+      statusStr as 'pending' | 'approved' | 'rejected' | 'pota_synced',
       provinceStr,
       applicantId ? parseInt(applicantId as string, 10) : null
     );

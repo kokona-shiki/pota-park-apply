@@ -80,14 +80,14 @@ export const normalizeParksData = (parksData: unknown): PotaPark[] => {
 
   if (parksData && typeof parksData === 'object') {
     // Check if parksData has a parks property that is an array
-    if (Object.hasOwn(parksData, 'parks') && Array.isArray((parksData as any)['parks'])) {
-      return (parksData as any)['parks'];
+    if (Object.hasOwn(parksData, 'parks') && Array.isArray((parksData as Record<string, unknown>)['parks'])) {
+      return (parksData as Record<string, unknown>)['parks'] as PotaPark[];
     }
 
     const possibleArrayKeys = ['data', 'results', 'features'];
     for (const key of possibleArrayKeys) {
-      if ((parksData as any)[key] && Array.isArray((parksData as any)[key])) {
-        return (parksData as any)[key];
+      if ((parksData as Record<string, unknown>)[key] && Array.isArray((parksData as Record<string, unknown>)[key])) {
+        return (parksData as Record<string, unknown>)[key] as PotaPark[];
       }
     }
   }

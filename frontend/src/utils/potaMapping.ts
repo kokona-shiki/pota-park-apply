@@ -147,7 +147,7 @@ export const parseOSMDisplayName = (displayName: string): { province: string; ci
 };
 
 // 根据省份和地市名称获取省份代码（ISO-3166 格式）
-export const getProvinceCodeFromNames = (provinceName: string, _cityName: string): string => {
+export const getProvinceCodeFromNames = (provinceName: string): string => {
   const normalized = normalizeProvinceName(provinceName);
   return ISO_BY_NAME.get(normalized) || '';
 };

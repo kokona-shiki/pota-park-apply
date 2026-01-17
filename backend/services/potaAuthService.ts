@@ -682,7 +682,7 @@ class PotaAuthService {
           timeout: maxWaitTime,
         });
         currentUrl = page.url();
-      } catch (error) {
+      } catch (_error) {
         // 如果导航超时，轮询检查 URL
         console.log('等待导航超时，开始轮询检查 URL...');
         let waited = 0;

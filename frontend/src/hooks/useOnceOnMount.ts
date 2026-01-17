@@ -76,7 +76,7 @@ export function useOnceOnMount(
         cleanupRef.current = undefined;
       }
     };
-  }, [deps]); // 移除 callback 依赖，因为 callback 每次渲染都会变化
+  }, [deps]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**
@@ -146,5 +146,5 @@ export function useOnceOnMountWithAbort(
         abortControllerRef.current = null;
       }
     };
-  }, [deps]); // 移除 callback 依赖，因为 callback 每次渲染都会变化
+  }, [deps]); // eslint-disable-line react-hooks/exhaustive-deps
 }

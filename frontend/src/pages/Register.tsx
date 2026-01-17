@@ -14,7 +14,7 @@ function Register() {
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
-  const location = useLocation() as any;
+  const location = useLocation();
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();

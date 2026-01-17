@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 import potaAuthService from '../services/potaAuthService.js';
-import { getOne, execute, getMany } from '../config/database.js';
+import { getOne, getMany } from '../config/database.js';
 
 const router = express.Router();
 
@@ -282,7 +282,7 @@ router.get('/api/pota/parks', async (req, res) => {
     
     // 构建搜索条件
     let searchConditions = 'WHERE status = $1';
-    const searchParams: any[] = ['pota_synced'];
+    const searchParams: (string | number)[] = ['pota_synced'];
     let paramIndex = 2;
     
     if (search) {

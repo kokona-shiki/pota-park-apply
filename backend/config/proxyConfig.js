@@ -147,7 +147,7 @@ const initProxies = (app) => {
     const proxyOptions = {
       target: target,
       ...options,
-      onProxyRes: (proxyRes, req, res) => {
+      onProxyRes: (proxyRes) => {
         // 添加 CORS 头
         proxyRes.headers['Access-Control-Allow-Origin'] = '*';
       },

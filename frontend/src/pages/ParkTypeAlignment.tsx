@@ -78,13 +78,7 @@ const ParkTypeAlignment: React.FC = () => {
   }, []);
 
 
-  useOnceOnMount(() => {
-    if (user) {
-      fetchMismatches();
-    }
-  }, [user]);
-
-  const fetchMismatches = async () => {
+  const fetchMismatches = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -115,7 +109,13 @@ const ParkTypeAlignment: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, setLoading, setError, setMismatches, setHasPermission, setSelectedParkTypes]);
+
+  useOnceOnMount(() => {
+    if (user) {
+      fetchMismatches();
+    }
+  }, [user, fetchMismatches]);
 
   const handleParkTypeChange = useCallback((parkId: number, typeId: string) => {
     setSelectedParkTypes((prev) => ({

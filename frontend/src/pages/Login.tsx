@@ -35,7 +35,7 @@ function Login() {
 
   const { setUser, setAccessToken } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation() as any;
+  const location = useLocation();
 
   const redirectTo = useMemo(() => {
     // 优先从 localStorage 读取保存的重定向路径

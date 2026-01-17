@@ -222,7 +222,7 @@ export const rotateRefreshToken = async (refreshTokenPlain, { userAgent = null, 
   const newExpiresAt = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
   const absoluteExpiresAt = new Date(tokenRow.absolute_expires_at);
 
-  const result = await transaction(async (client) => {
+  await transaction(async (client) => {
     // 1) 插入新 token
     const inserted = await client.query(
       `
