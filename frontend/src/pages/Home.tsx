@@ -1,6 +1,5 @@
 // src/pages/Home.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../auth/useAuth';
 import type { ChangeEvent } from 'react';
 import {
   Table,
@@ -14,21 +13,24 @@ import {
   TextField,
   Box,
   InputAdornment,
-  Search as SearchIcon,
+  Chip,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { z } from 'zod';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import PinyinMatch from 'pinyin-match';
+import parkTypeMappingData from '../../../shared/park_type_mapping.json';
+import regionData from '../../../shared/region.json';
 
 // 定义系统内 POTA 公园的数据结构
 const SystemPotaParkSchema = z.object({
   id: z.number(),
-  pota_id: z.string(),
+  pota_id: z.string().nullable(),
   park_name: z.string(),
   park_type: z.string().nullable(),
-  provinces: z.string(),
-  latitude: z.number().nullable(),
-  longitude: z.number().nullable(),
+  provinces: z.array(z.string()),
+  latitude: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val).nullable(),
+  longitude: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val).nullable(),
   website: z.string().nullable(),
   description: z.string().nullable(),
   pota_synced_at: z.string().nullable(),
@@ -45,32 +47,53 @@ const PotaParksResponseSchema = z.object({
   totalPages: z.number(),
 });
 
-type PotaParksResponse = z.infer<typeof PotaParksResponseSchema>;
+// 公园类型映射
+const PARK_TYPE_MAPPING = parkTypeMappingData as {
+  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
+  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
+  pota_only_types?: Array<{ id: string; chineseName: string; englishName: string }>;
+};
+
+const PARK_TYPE_BY_ID = new Map(
+  [
+    ...PARK_TYPE_MAPPING.chinese_to_english,
+    ...(PARK_TYPE_MAPPING.pota_only_types || []),
+  ].map((item) => [item.id, { zh: item.chineseName, en: item.englishName }])
+);
+
+/**
+ * 获取中英文对照的公园类型显示
+ */
+function getParkTypeWithEnglish(parkType: string | null | undefined): string {
+  if (!parkType) return '';
+
+  const typeById = PARK_TYPE_BY_ID.get(parkType);
+  if (typeById) {
+    return `${typeById.zh} (${typeById.en})`;
+  }
+
+  return parkType;
+}
 
 function Home() {
-  const { user, isAuthLoading } = useAuth();
-
   // 状态管理
   const [parks, setParks] = useState<SystemPotaPark[]>([]);
   const [filteredParks, setFilteredParks] = useState<SystemPotaPark[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(30);
-  const [search, setSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
   // 防抖函数
-  const debounce = (func: Function, delay: number) => {
-    let timer: NodeJS.Timeout;
-    return (...args: any[]) => {
+  function debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
+    let timer: ReturnType<typeof setTimeout>;
+    return (...args: Parameters<T>) => {
       clearTimeout(timer);
-      timer = setTimeout(() => func.apply(null, args), delay);
+      timer = setTimeout(() => func(...args), delay);
     };
-  };
+  }
 
   // 加载公园数据
   const loadParks = useCallback(async () => {
-    setIsLoading(true);
     try {
       const response = await requestWithSchema(
         apiClient.get('/api/pota/parks', {
@@ -88,8 +111,6 @@ function Home() {
       setTotal(response.total);
     } catch (err) {
       console.error('加载公园数据失败:', err);
-    } finally {
-      setIsLoading(false);
     }
   }, [page, rowsPerPage]);
 
@@ -101,9 +122,7 @@ function Home() {
 
   // 搜索功能
   const handleSearch = useCallback(
-    debounce((value: string) => {
-      setSearch(value);
-      
+    (value: string) => {
       if (!value) {
         setFilteredParks(parks);
         return;
@@ -111,7 +130,7 @@ function Home() {
       
       const filtered = parks.filter(park => {
         // POTA_ID 匹配
-        if (park.pota_id.toLowerCase().includes(value.toLowerCase())) {
+        if (park.pota_id && park.pota_id.toLowerCase().includes(value.toLowerCase())) {
           return true;
         }
         
@@ -122,20 +141,23 @@ function Home() {
         
         // 拼音匹配
         try {
-          if (PinyinMatch.match(park.park_name, value) !== false) {
-            return true;
-          }
-        } catch (e) {
-          // 拼音匹配失败时忽略
-        }
+      if (PinyinMatch.match(park.park_name, value) !== false) {
+        return true;
+      }
+    } catch {
+      // 拼音匹配失败时忽略
+    }
         
         return false;
       });
       
       setFilteredParks(filtered);
-    }, 300),
+    },
     [parks]
   );
+
+  // 创建防抖版本的搜索函数
+  const debouncedHandleSearch = debounce(handleSearch, 300);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -155,7 +177,7 @@ function Home() {
           variant="outlined"
           size="small"
           placeholder="例如: CN-0001 或 奥林匹克公园"
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => debouncedHandleSearch(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -172,21 +194,51 @@ function Home() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>编号</TableCell>
-              <TableCell>名称</TableCell>
-              <TableCell>类型</TableCell>
-              <TableCell>省份</TableCell>
-              <TableCell>经度</TableCell>
-              <TableCell>纬度</TableCell>
+              <TableCell sx={{ width: '120px' }}>编号</TableCell>
+              <TableCell sx={{ width: '200px' }}>名称</TableCell>
+              <TableCell sx={{ width: '180px' }}>类型</TableCell>
+              <TableCell sx={{ width: '180px' }}>省份</TableCell>
+              <TableCell sx={{ width: '120px' }}>经度</TableCell>
+              <TableCell sx={{ width: '120px' }}>纬度</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredParks.map((park) => (
               <TableRow key={park.id}>
-                <TableCell>{park.pota_id}</TableCell>
+                <TableCell>{park.pota_id || '-'}</TableCell>
                 <TableCell>{park.park_name}</TableCell>
-                <TableCell>{park.park_type || '-'}</TableCell>
-                <TableCell>{JSON.parse(park.provinces).join(', ')}</TableCell>
+                <TableCell>{getParkTypeWithEnglish(park.park_type) || '-'}</TableCell>
+                <TableCell sx={{ width: '180px', minWidth: '180px', maxWidth: '180px' }}>
+                  <Box 
+                    sx={{
+                      display: 'flex', 
+                      gap: 0.5, 
+                      overflowX: 'auto',
+                      width: '100%',
+                      py: 0.5,
+                      '&::-webkit-scrollbar': {
+                        display: 'none',
+                      },
+                      '-ms-overflow-style': 'none',
+                      scrollbarWidth: 'none',
+                    }}
+                  >
+                    {park.provinces.map((code: string) => {
+                      const province = regionData.find(
+                        (p: { code: string; name: string }) => p.code === code
+                      );
+                      return (
+                        <Chip
+                          key={code}
+                          label={province ? province.name : code}
+                          size="small"
+                          variant="outlined"
+                          sx={{ m: 0.25 }}
+                        />
+                      );
+                    })}
+                  </Box>
+                </TableCell>
                 <TableCell>{park.longitude?.toFixed(6) || '-'}</TableCell>
                 <TableCell>{park.latitude?.toFixed(6) || '-'}</TableCell>
               </TableRow>
