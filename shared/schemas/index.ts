@@ -6,3 +6,5 @@ export * from './callsign';
 export * from './pota';
 export * from './potaImport';
 export * from './potaExternal';
+export * from './parkType';
+export * from './region';

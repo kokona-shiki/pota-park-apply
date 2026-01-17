@@ -239,6 +239,7 @@ export const createTables = async () => {
         pota_synced_at TIMESTAMP WITH TIME ZONE,
         pota_synced_by INTEGER REFERENCES users(id),
         pota_notes TEXT,
+        pota_id VARCHAR(20) UNIQUE,
         
         -- 确认信息
         confirmed_authenticity BOOLEAN NOT NULL DEFAULT false,
@@ -385,6 +386,9 @@ export const createIndexes = async () => {
     );
     await query(
       'CREATE INDEX IF NOT EXISTS idx_audit_action ON application_audit_logs (action, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_park_pota_id ON park_applications(pota_id)'
     );
 
     // 呼号变更申请表索引
@@ -565,7 +569,7 @@ export const migrateSchemaToLatest = async () => {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
     const v = schemaVersion?.value;
 
-    if (!v || v === '8') {
+    if (!v || v === '9') {
       return;
     }
 
@@ -718,6 +722,31 @@ export const migrateSchemaToLatest = async () => {
       `);
 
       console.log('✅ schema 迁移完成（schema_version=8）');
+      return;
+    }
+
+    if (v === '8') {
+      console.log('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
+
+      await query(`
+        ALTER TABLE park_applications 
+        ADD COLUMN IF NOT EXISTS pota_id VARCHAR(20) UNIQUE
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_park_pota_id 
+        ON park_applications(pota_id)
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '9')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=9）');
       return;
     }
 

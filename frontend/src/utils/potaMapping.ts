@@ -1,7 +1,8 @@
 // POTA API 数据映射工具函数
 import regionMapping from '../../../shared/region.json';
+import type { Region } from '../../../shared/schemas';
 
-const REGION_LIST = regionMapping as Array<{ name: string; code: string }>;
+const REGION_LIST = regionMapping as Region[];
 const REGION_BY_ISO = new Map(REGION_LIST.map((item) => [item.code, item.name]));
 const ISO_BY_NAME = new Map(
   REGION_LIST.map((item) => [item.name, item.code])

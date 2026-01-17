@@ -21,6 +21,7 @@ import { apiClient, requestWithSchema } from '../services/apiClient';
 import PinyinMatch from 'pinyin-match';
 import parkTypeMappingData from '../../../shared/park_type_mapping.json';
 import regionData from '../../../shared/region.json';
+import type { ParkTypeMapping } from '../../../shared/schemas';
 
 // 定义系统内 POTA 公园的数据结构
 const SystemPotaParkSchema = z.object({
@@ -29,8 +30,14 @@ const SystemPotaParkSchema = z.object({
   park_name: z.string(),
   park_type: z.string().nullable(),
   provinces: z.array(z.string()),
-  latitude: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val).nullable(),
-  longitude: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseFloat(val) : val).nullable(),
+  latitude: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .nullable(),
+  longitude: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .nullable(),
   website: z.string().nullable(),
   description: z.string().nullable(),
   pota_synced_at: z.string().nullable(),
@@ -48,16 +55,13 @@ const PotaParksResponseSchema = z.object({
 });
 
 // 公园类型映射
-const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
-  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
-  pota_only_types?: Array<{ id: string; chineseName: string; englishName: string }>;
-};
+const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
 const PARK_TYPE_BY_ID = new Map(
   [
     ...PARK_TYPE_MAPPING.chinese_to_english,
     ...(PARK_TYPE_MAPPING.pota_only_types || []),
+    ...(PARK_TYPE_MAPPING.default_pota_type ? [PARK_TYPE_MAPPING.default_pota_type] : []),
   ].map((item) => [item.id, { zh: item.chineseName, en: item.englishName }])
 );
 
@@ -84,7 +88,10 @@ function Home() {
   const [rowsPerPage, setRowsPerPage] = useState(30);
 
   // 防抖函数
-  function debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    delay: number
+  ): (...args: Parameters<T>) => void {
     let timer: ReturnType<typeof setTimeout>;
     return (...args: Parameters<T>) => {
       clearTimeout(timer);
@@ -127,30 +134,30 @@ function Home() {
         setFilteredParks(parks);
         return;
       }
-      
-      const filtered = parks.filter(park => {
+
+      const filtered = parks.filter((park) => {
         // POTA_ID 匹配
         if (park.pota_id && park.pota_id.toLowerCase().includes(value.toLowerCase())) {
           return true;
         }
-        
+
         // 中文名称匹配
         if (park.park_name.includes(value)) {
           return true;
         }
-        
+
         // 拼音匹配
         try {
-      if (PinyinMatch.match(park.park_name, value) !== false) {
-        return true;
-      }
-    } catch {
-      // 拼音匹配失败时忽略
-    }
-        
+          if (PinyinMatch.match(park.park_name, value) !== false) {
+            return true;
+          }
+        } catch {
+          // 拼音匹配失败时忽略
+        }
+
         return false;
       });
-      
+
       setFilteredParks(filtered);
     },
     [parks]
@@ -209,10 +216,10 @@ function Home() {
                 <TableCell>{park.park_name}</TableCell>
                 <TableCell>{getParkTypeWithEnglish(park.park_type) || '-'}</TableCell>
                 <TableCell sx={{ width: '180px', minWidth: '180px', maxWidth: '180px' }}>
-                  <Box 
+                  <Box
                     sx={{
-                      display: 'flex', 
-                      gap: 0.5, 
+                      display: 'flex',
+                      gap: 0.5,
                       overflowX: 'auto',
                       width: '100%',
                       py: 0.5,

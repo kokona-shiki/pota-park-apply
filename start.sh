@@ -100,6 +100,14 @@ if [ "$READY" -ne 1 ]; then
   exit 1
 fi
 
+echo "🔍 运行类型检查..."
+pnpm -C frontend run typecheck
+
+echo "🔍 运行ESLint检查..."
+pnpm -C frontend run lint || true
+
+echo "📋 代码检查完成，继续启动服务..."
+
 echo "🗄️  初始化数据库（幂等，可重复执行）..."
 pnpm -C backend run init-db
 

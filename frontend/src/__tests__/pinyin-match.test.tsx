@@ -1,11 +1,9 @@
 import Pinyin from 'pinyin-match';
 import parkTypeMappingData from '../../../shared/park_type_mapping.json';
+import type { ParkTypeMapping } from '../../../shared/schemas';
 
 // 模拟与 AddPark 组件中相同的逻辑
-const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  chinese_to_english: Array<{ chineseName: string; englishName: string }>;
-  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
-};
+const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
 const PARK_TYPE_OPTIONS = PARK_TYPE_MAPPING.chinese_to_english.map(
   ({ chineseName: zh, englishName: en }, index) => ({

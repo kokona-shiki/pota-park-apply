@@ -1,5 +1,9 @@
 import { testConnection, getOne, closePool } from '../config/database.js';
-import { initializeDatabase, ensureInitialSystemAdmin, migrateSchemaToLatest } from '../config/initDatabase.js';
+import {
+  initializeDatabase,
+  ensureInitialSystemAdmin,
+  migrateSchemaToLatest,
+} from '../config/initDatabase.js';
 
 const init = async () => {
   console.log('🚀 开始初始化 POTA 公园申请系统数据库...');
@@ -23,7 +27,9 @@ const init = async () => {
     }
 
     // 2. 快速路径：如果检测到库已初始化，则跳过建表/建索引（这些即使幂等也会比较慢）
-    const forceInit = ['1', 'true', 'yes'].includes(String(process.env.FORCE_INIT_DB || '').toLowerCase());
+    const forceInit = ['1', 'true', 'yes'].includes(
+      String(process.env.FORCE_INIT_DB || '').toLowerCase()
+    );
     if (!forceInit) {
       try {
         const regs = await getOne(`
@@ -33,27 +39,50 @@ const init = async () => {
         `);
 
         if (regs?.app_meta && regs?.users) {
-          const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
+          const schemaVersion = await getOne(
+            `SELECT value FROM app_meta WHERE key = 'schema_version'`
+          );
+
+          if (schemaVersion?.value === '9') {
+            console.log('✅ 检测到数据库已初始化（schema_version=9），仅确保初始系统管理员存在...');
+            await ensureInitialSystemAdmin();
+            console.log('🎉 数据库检查完成！');
+            return;
+          }
 
           if (schemaVersion?.value === '8') {
-            console.log('✅ 检测到数据库已初始化（schema_version=8），跳过建表/建索引，仅确保初始系统管理员存在...');
+            console.log(
+              '✅ 检测到数据库已初始化（schema_version=8），执行迁移并确保初始系统管理员存在...'
+            );
+            await migrateSchemaToLatest();
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库检查完成！');
             return;
           }
 
           if (schemaVersion?.value === '3') {
-            console.log('🛠️ 检测到数据库版本 3，需要升级到版本 8（添加 POTA 认证表、权限、未处理公园表、pota_park_type 字段）...');
+            console.log(
+              '🛠️ 检测到数据库版本 3，需要升级到版本 9（添加 POTA 认证表、权限、未处理公园表、pota_park_type 字段、pota_id 字段）...'
+            );
             // 继续执行初始化，会创建新表并更新版本号
           }
 
           if (schemaVersion?.value === '2') {
-            console.log('🛠️ 检测到旧数据库（schema_version=2），执行迁移（移除 dx_entity）后跳过建表/建索引...');
+            console.log(
+              '🛠️ 检测到旧数据库（schema_version=2），执行迁移（移除 dx_entity）后跳过建表/建索引...'
+            );
             await migrateSchemaToLatest();
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库迁移完成！');
             return;
           }
+
+          // For any other version, run migrations
+          console.log(`🛠️ 检测到数据库版本 ${schemaVersion?.value}，执行迁移到最新版本...`);
+          await migrateSchemaToLatest();
+          await ensureInitialSystemAdmin();
+          console.log('🎉 数据库迁移完成！');
+          return;
         }
       } catch (e) {
         console.warn('⚠️ 初始化状态检测失败，将继续执行完整初始化：', e?.message || e);

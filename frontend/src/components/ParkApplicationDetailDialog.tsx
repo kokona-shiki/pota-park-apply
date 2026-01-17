@@ -26,6 +26,7 @@ import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
 import { UnifiedTileLayer } from './UnifiedTileLayer';
 import parkTypeMappingData from '../../../shared/park_type_mapping.json';
 import regionData from '../../../shared/region.json';
+import type { ParkTypeMapping } from '../../../shared/schemas';
 
 // 配置 Leaflet 图标
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -36,11 +37,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // 公园类型映射
-const PARK_TYPE_MAPPING = parkTypeMappingData as {
-  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
-  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
-  pota_only_types?: Array<{ id: string; chineseName: string; englishName: string }>;
-};
+const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
 const PARK_TYPE_BY_ID = new Map(
   [
