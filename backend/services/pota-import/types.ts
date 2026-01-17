@@ -59,6 +59,8 @@ export type InternalPark = {
   confirmed_authenticity: boolean;
   pota_ref?: string;
   pota_park_type?: string | null;
+  importStatus?: 'success' | 'failed' | 'skipped';
+  importReason?: string;
 };
 
 export type UnprocessedPark = {

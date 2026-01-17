@@ -5,22 +5,33 @@ import type { InternalPark } from './types.js';
  * 根据 POTA ID 检查公园是否已存在于系统中
  */
 export const checkParkExistsByPotaId = async (potaId: string) => {
-  // 为了能够根据 POTA ID 检查公园是否已存在，我们需要在 pota_notes 字段中存储 POTA ID
-  // 我们约定在 pota_notes 中以特定格式存储 POTA ID，例如 "POTA Ref: CN-XXXX"
-
-  const existingPark = await getOne(
-    'SELECT id, park_name, pota_notes FROM park_applications WHERE pota_notes LIKE $1',
-    [`%POTA ID: ${potaId}%`] // 在导入时我们会将 POTA ID 存储在此格式中
+  // 优先使用 pota_id 字段检查公园是否已存在
+  const existingParkByPotaId = await getOne(
+    'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE pota_id = $1',
+    [potaId]
   );
 
-  if (existingPark) {
-    console.log(`公园 ${potaId} 已存在于系统中，ID: ${existingPark.id}`);
-    return existingPark;
+  if (existingParkByPotaId) {
+    console.log(`公园 ${potaId} 已存在于系统中，ID: ${existingParkByPotaId.id}`);
+    return existingParkByPotaId;
+  }
+
+  // 作为 fallback，检查 pota_notes 字段中是否包含 POTA ID
+  const existingParkByNotes = await getOne(
+    'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE pota_notes LIKE $1',
+    [`%POTA ID: ${potaId}%`]
+  );
+
+  if (existingParkByNotes) {
+    console.log(
+      `公园 ${potaId} 已存在于系统中（通过 pota_notes 匹配），ID: ${existingParkByNotes.id}`
+    );
+    return existingParkByNotes;
   }
 
   // 也可以尝试通过 park_name 检查，以防之前的导入没有正确存储 POTA ID
   const nameMatch = await getOne(
-    'SELECT id, park_name, pota_notes FROM park_applications WHERE park_name = $1',
+    'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE park_name = $1',
     [potaId]
   );
 
@@ -43,17 +54,27 @@ export const createParkWithAudit = async (
         park_name, park_type, provinces, location, latitude, longitude,
         website, description, access_methods, activation_methods,
         applicant_id, status, pota_synced_at, pota_synced_by, pota_notes,
-        confirmed_authenticity, pota_park_type
+        confirmed_authenticity, pota_park_type, pota_id
       ) VALUES (
         $1, $2, $3, ST_GeomFromText($4, 4326), $5, $6,
         $7, $8, $9, $10,
         $11, $12, $13, $14, $15,
-        $16, $17
+        $16, $17, $18
       )
       RETURNING *
     `;
 
     const locationWKT = `POINT(${parkData.longitude} ${parkData.latitude})`;
+
+    // 确定 pota_notes 的值：只存储失败或跳过的原因
+    let potaNotes = null;
+
+    // 如果 parkData 中包含导入失败或跳过的原因，则存储
+    if (parkData.importStatus === 'failed' || parkData.importStatus === 'skipped') {
+      potaNotes = `${parkData.importStatus === 'failed' ? '失败' : '跳过'}原因: ${
+        parkData.importReason || '未知'
+      }`;
+    }
 
     const newApplication = await client.query(insertQuery, [
       parkData.park_name,
@@ -72,11 +93,10 @@ export const createParkWithAudit = async (
       'pota_synced', // 直接设置为已同步POTA状态
       importTime, // 导入时间即为POTA同步时间
       operatorId, // 操作员ID
-      `POTA导入于 ${importTime}, POTA ID: ${parkData.pota_ref || 'N/A'}, 来源: ${
-        operatorId === -1 ? '自动导入' : '手动导入'
-      }`, // 审核备注
+      potaNotes, // 只存储失败或跳过的原因
       parkData.confirmed_authenticity,
       parkData.pota_park_type || null, // POTA 公园类型
+      parkData.pota_ref || null, // 直接存储 POTA ID 到独立字段
     ]);
 
     // 记录审核日志

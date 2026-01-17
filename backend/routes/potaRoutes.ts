@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 import potaAuthService from '../services/potaAuthService.js';
-import { getOne } from '../config/database.js';
+import { getOne, execute, getMany } from '../config/database.js';
 
 const router = express.Router();
 
@@ -265,6 +265,86 @@ router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, a
   } catch (error) {
     console.error('获取 POTA 状态失败:', error);
     return sendError(res, error, { bizMessage: '获取 POTA 状态失败' });
+  }
+});
+
+/**
+ * 获取系统内已上传 POTA 的所有公园，支持搜索和分页
+ */
+router.get('/api/pota/parks', async (req, res) => {
+  try {
+    // 解析请求参数
+    const page = parseInt(req.query.page as string) || 0;
+    const pageSize = parseInt(req.query.pageSize as string) || 30;
+    const search = (req.query.search as string) || '';
+    const sortBy = (req.query.sortBy as string) || 'pota_id';
+    const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'asc';
+    
+    // 构建搜索条件
+    let searchConditions = 'WHERE status = $1';
+    const searchParams: any[] = ['pota_synced'];
+    let paramIndex = 2;
+    
+    if (search) {
+      // 支持 POTA_ID 和公园名称搜索
+      searchConditions += ` AND (pota_id ILIKE $${paramIndex} OR park_name ILIKE $${paramIndex})`;
+      searchParams.push(`%${search}%`);
+      paramIndex++;
+    }
+    
+    // 构建排序条件
+    const validSortFields = ['pota_id', 'park_name', 'created_at', 'pota_synced_at'];
+    const finalSortBy = validSortFields.includes(sortBy) ? sortBy : 'pota_id';
+    const finalSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
+    
+    // 计算偏移量
+    const offset = page * pageSize;
+    
+    // 查询总条数
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM park_applications
+      ${searchConditions}
+    `;
+    const countResult = await getOne(countQuery, searchParams);
+    const total = parseInt(countResult.total, 10);
+    
+    // 查询公园列表
+    const parksQuery = `
+      SELECT 
+        id, 
+        pota_id, 
+        park_name, 
+        park_type, 
+        provinces,
+        latitude,
+        longitude,
+        website,
+        description,
+        pota_synced_at
+      FROM park_applications
+      ${searchConditions}
+      ORDER BY ${finalSortBy} ${finalSortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    const parksParams = [...searchParams, pageSize, offset];
+    const parks = await getMany(parksQuery, parksParams);
+    
+    // 计算总页数
+    const totalPages = Math.ceil(total / pageSize);
+    
+    // 返回结果
+    return sendOk(res, {
+      parks,
+      total,
+      page,
+      pageSize,
+      totalPages
+    }, '获取 POTA 公园列表成功');
+  } catch (error) {
+    console.error('获取 POTA 公园列表失败:', error);
+    return sendError(res, error, { bizMessage: '获取 POTA 公园列表失败' });
   }
 });
 
