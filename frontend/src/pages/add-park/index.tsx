@@ -34,6 +34,7 @@ import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 
 import { getApiErrorMessage } from '../../utils/error';
+import AlertDialog from '../../components/AlertDialog';
 
 // 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -145,6 +146,15 @@ function AddPark() {
   const [mapPOIs, setMapPOIs] = useState<MapPOI[]>([]);
   const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
   const [potaParks, setPotaParks] = useState<Map<number, PotaParkInfo>>(new Map());
+  
+  // 弹框状态管理
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<'error' | 'warning'>('error');
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogMessage, setDialogMessage] = useState('');
+  const [dialogParkList, setDialogParkList] = useState<{ id: number; name: string }[]>([]);
+  const [dialogParkListTitle, setDialogParkListTitle] = useState('');
+  const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
 
   const provinces = useMemo(() => regionData as Province[], []);
 
@@ -242,6 +252,12 @@ function AddPark() {
     }
   };
 
+  // 处理弹框取消
+  const handleDialogCancel = () => {
+    setDialogOpen(false);
+    setDialogConfirmAction(null);
+  };
+
   // 处理提交
   const handleFormSubmit = async () => {
     setError(null);
@@ -266,10 +282,111 @@ function AddPark() {
         // 跳转到"我的上传"，让用户立刻看到已提交的申请
         navigate('/my-uploads');
       } else {
-        setError(result.error || '提交失败，请重试');
+        // 处理错误信息，检查是否为特定限制类型
+        const errorMessage = result.error || '提交失败，请重试';
+        
+        // 检查是否包含公园名称完全重复错误
+        if (errorMessage.includes('公园名称完全重复')) {
+          setDialogType('error');
+          setDialogTitle('错误');
+          setDialogMessage(errorMessage);
+          setDialogParkList([]);
+          setDialogParkListTitle('');
+          setDialogConfirmAction(null);
+          setDialogOpen(true);
+        } 
+        // 检查是否包含公园名称相似度高错误
+        else if (errorMessage.includes('公园名称相似度高')) {
+          // 尝试解析错误中的公园列表
+          let parkList: { id: number; name: string }[] = [];
+          try {
+            // 直接使用errorMessage中的数据，无需解析
+            // 后端返回的错误信息已经包含details字段
+            parkList = [];
+          } catch {
+            // 解析失败，使用空列表
+          }
+          
+          setDialogType('warning');
+          setDialogTitle('警告');
+          setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
+          setDialogParkList(parkList);
+          setDialogParkListTitle('相似公园列表');
+          setDialogConfirmAction(async () => {
+            // 用户确认后，带确认字段重新提交
+            const result = await handleSubmit({
+              parkName,
+              parkType: resolveParkTypeId(parkType),
+              province,
+              provinces: formState.provinces,
+              latitude,
+              longitude,
+              website,
+              accessMethods,
+              activationMethods,
+              confirmed,
+              confirmedNameSimilarity: true,
+            });
+            
+            if (result.success) {
+              clearFormState();
+              navigate('/my-uploads');
+            } else {
+              setError(result.error || '提交失败，请重试');
+            }
+          });
+          setDialogOpen(true);
+        }
+        // 检查是否包含公园距离过近错误
+        else if (errorMessage.includes('公园距离过近')) {
+          // 尝试解析错误中的公园列表
+          let parkList: { id: number; name: string }[] = [];
+          try {
+            // 直接使用errorMessage中的数据，无需解析
+            // 后端返回的错误信息已经包含details字段
+            parkList = [];
+          } catch {
+            // 解析失败，使用空列表
+          }
+          
+          setDialogType('warning');
+          setDialogTitle('警告');
+          setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
+          setDialogParkList(parkList);
+          setDialogParkListTitle('附近公园列表');
+          setDialogConfirmAction(async () => {
+            // 用户确认后，带确认字段重新提交
+            const result = await handleSubmit({
+              parkName,
+              parkType: resolveParkTypeId(parkType),
+              province,
+              provinces: formState.provinces,
+              latitude,
+              longitude,
+              website,
+              accessMethods,
+              activationMethods,
+              confirmed,
+              confirmedNearbyLocation: true,
+            });
+            
+            if (result.success) {
+              clearFormState();
+              navigate('/my-uploads');
+            } else {
+              setError(result.error || '提交失败，请重试');
+            }
+          });
+          setDialogOpen(true);
+        }
+        // 其他错误
+        else {
+          setError(errorMessage);
+        }
       }
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '提交失败，请检查网络后重试'));
+      const errorMessage = getApiErrorMessage(err, '提交失败，请检查网络后重试');
+      setError(errorMessage);
     }
   };
 
@@ -283,7 +400,8 @@ function AddPark() {
   }, [mapPOIs]);
 
   return (
-    <Box sx={{ display: { xs: 'block', md: 'flex' }, gap: 2 }}>
+    <>
+      <Box sx={{ display: { xs: 'block', md: 'flex' }, gap: 2 }}>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography variant="h5">申请添加公园</Typography>
 
@@ -581,6 +699,22 @@ function AddPark() {
         </Box>
       </Box>
     </Box>
+    
+    {/* 通用弹框组件 */}
+    <AlertDialog
+      open={dialogOpen}
+      type={dialogType}
+      title={dialogTitle}
+      message={dialogMessage}
+      parkList={dialogParkList}
+      parkListTitle={dialogParkListTitle}
+      onCancel={handleDialogCancel}
+      onConfirm={dialogConfirmAction || undefined}
+      confirmButtonText={dialogType === 'error' ? '确定' : '确认提交'}
+      cancelButtonText="取消"
+      showCancelButton={dialogType !== 'error'}
+    />
+    </>
   );
 }
 

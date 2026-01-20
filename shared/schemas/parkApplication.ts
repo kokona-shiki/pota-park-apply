@@ -41,6 +41,8 @@ export const ParkApplicationSubmitRequestSchema = z.object({
   access_methods: z.array(z.string()).min(1),
   activation_methods: z.array(z.string()).min(1),
   confirmed_authenticity: z.boolean(),
+  confirmedNameSimilarity: z.boolean().optional(),
+  confirmedNearbyLocation: z.boolean().optional(),
 });
 
 export const AuditLogSchema = z.object({

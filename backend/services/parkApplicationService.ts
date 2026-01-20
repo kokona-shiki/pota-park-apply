@@ -1,6 +1,8 @@
 import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { resolveParkTypeId } from './pota-import/parkTypeResolver.js';
+import { calculateSimilarity, isSimilar } from '../utils/similarity.js';
+import { isNearby } from '../utils/distance.js';
 
 type AppError = Error & { status?: number; code?: string };
 
@@ -17,6 +19,8 @@ type ParkApplicationSubmitInput = {
   access_methods: string[];
   activation_methods: string[];
   confirmed_authenticity: boolean;
+  confirmedNameSimilarity?: boolean;
+  confirmedNearbyLocation?: boolean;
 };
 
 // 提交公园申请
@@ -64,6 +68,92 @@ export const submitParkApplication = async (
   if (!parkTypeId) {
     const err: AppError = new Error('公园类型无效');
     err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+
+  // 业务逻辑验证：公园名称完全重复检查
+  const existingPark = await getOne(
+    `
+    SELECT id, park_name FROM park_applications 
+    WHERE park_name = $1
+    `,
+    [park_name]
+  );
+
+  if (existingPark) {
+    const err: AppError = new Error('公园名称完全重复');
+    err.code = 'DUPLICATE_NAME';
+    err.status = 400;
+    err.details = {
+      existingPark: {
+        id: existingPark.id,
+        name: existingPark.park_name
+      }
+    };
+    throw err;
+  }
+
+  // 业务逻辑验证：公园名称相似度检查
+  const similarParks = await getMany(
+    `
+    SELECT id, park_name FROM park_applications 
+    WHERE 
+      $1 = ANY(provinces)
+      AND status IN ('approved', 'pota_synced')
+    `,
+    [provinces[0]] // 使用第一个省份进行初步筛选
+  );
+
+  const filteredSimilarParks = similarParks
+    .map(park => ({
+      id: park.id,
+      name: park.park_name,
+      similarity: calculateSimilarity(park.park_name, park_name)
+    }))
+    .filter(park => park.similarity >= 0.7)
+    .sort((a, b) => b.similarity - a.similarity)
+    .map(park => ({
+      id: park.id,
+      name: park.name
+    }));
+
+  if (filteredSimilarParks.length > 0 && !confirmedNameSimilarity) {
+    const err: AppError = new Error('公园名称相似度高');
+    err.code = 'SIMILAR_NAME';
+    err.status = 400;
+    err.details = {
+      similarParks: filteredSimilarParks
+    };
+    throw err;
+  }
+
+  // 业务逻辑验证：公园地理位置距离检查
+  const nearbyParks = await getMany(
+    `
+    SELECT id, park_name, latitude, longitude FROM park_applications 
+    WHERE 
+      status IN ('approved', 'pota_synced')
+      AND ST_DWithin(
+        location::geography,
+        ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+        500
+      )
+    `,
+    [longitude, latitude] // PostGIS 使用 (lon, lat) 顺序
+  );
+
+  const filteredNearbyParks = nearbyParks.map(park => ({
+    id: park.id,
+    name: park.park_name
+  }));
+
+  if (filteredNearbyParks.length > 0 && !confirmedNearbyLocation) {
+    const err: AppError = new Error('公园距离过近');
+    err.code = 'NEARBY_LOCATION';
+    err.status = 400;
+    err.details = {
+      nearbyParks: filteredNearbyParks
+    };
     throw err;
   }
 

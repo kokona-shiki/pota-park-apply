@@ -48,6 +48,10 @@ export function sendError(
   const code = err?.code;
   const message = err?.message;
   const data = err?.data ?? null;
+  const details = err?.details ?? null;
+
+  // 构建响应数据，根据是否有details字段来决定格式
+  const responseData = details ? { details } : data;
 
   if (status === 401 || status === 403 || status === 429) {
     return sendHttpError(
@@ -55,7 +59,7 @@ export function sendError(
       status,
       code || httpCode || defaultHttpCode(status),
       message || httpMessage || defaultHttpMessage(status),
-      data
+      responseData
     );
   }
 
@@ -65,9 +69,9 @@ export function sendError(
       status,
       code || httpCode || defaultHttpCode(status),
       message || httpMessage || defaultHttpMessage(status),
-      data
+      responseData
     );
   }
 
-  return sendBizError(res, code || bizCode, message || bizMessage, data);
+  return sendBizError(res, code || bizCode, message || bizMessage, responseData);
 }

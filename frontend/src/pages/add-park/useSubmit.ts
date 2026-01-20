@@ -20,6 +20,8 @@ interface SubmitParams {
   accessMethods: string[];
   activationMethods: string[];
   confirmed: boolean;
+  confirmedNameSimilarity?: boolean; // 名称相似度确认
+  confirmedNearbyLocation?: boolean; // 地理位置确认
 }
 
 export const useSubmit = () => {
@@ -85,6 +87,8 @@ export const useSubmit = () => {
         access_methods: mapAccessMethodsWithBothLangs(access),
         activation_methods: mapActivationMethodsWithBothLangs(activation),
         confirmed_authenticity: params.confirmed,
+        confirmedNameSimilarity: params.confirmedNameSimilarity,
+        confirmedNearbyLocation: params.confirmedNearbyLocation,
       });
       await requestWithSchema(
         apiClient.post('/api/park-applications', requestBody, { timeout: 5000 }),
