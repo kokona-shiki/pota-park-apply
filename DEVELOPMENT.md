@@ -114,15 +114,22 @@ pnpm --filter frontend update package-name
 - 文件名使用 PascalCase (组件) 或 camelCase (工具)
 
 ### 提交规范
-建议使用 conventional commits:
+建议使用 conventional commits，要求如下：
+1. 类型前缀使用英文（feat/fix/docs/style/refactor/test/chore）
+2. description（主题行）、body（正文）、footer（页脚）必须全部使用中文
+3. 主题行简洁明了，不超过 50 字符
+4. 正文详细描述变更内容和原因
+5. 页脚可选择性添加关联的 issue 或 breaking changes
+
+示例：
 ```
-feat: 新功能
-fix: 修复bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 代码重构
-test: 测试相关
-chore: 构建过程或辅助工具的变动
+feat: 实现公园申请限制功能
+
+实现了公园申请的三种限制类型，包括名称重复、名称相似度高和距离过近的情况，分别对应不同的处理逻辑。
+
+fix: 修复表单提交错误
+
+解决了表单提交时的验证错误，优化了错误提示信息。
 ```
 
 ## 环境变量
