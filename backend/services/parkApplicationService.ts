@@ -84,7 +84,7 @@ export const submitParkApplication = async (
     const err: AppError = new Error('公园名称完全重复');
     err.code = 'DUPLICATE_NAME';
     err.status = 400;
-    err.details = {
+    (err as any).details = {
       existingPark: {
         id: existingPark.id,
         name: existingPark.park_name
@@ -98,10 +98,10 @@ export const submitParkApplication = async (
     `
     SELECT id, park_name FROM park_applications 
     WHERE 
-      $1 = ANY(provinces)
+      provinces @> $1::jsonb
       AND status IN ('approved', 'pota_synced')
     `,
-    [provinces[0]] // 使用第一个省份进行初步筛选
+    [JSON.stringify([provinces[0]])] // 使用第一个省份进行初步筛选，转换为JSON数组
   );
 
   const filteredSimilarParks = similarParks
@@ -117,11 +117,11 @@ export const submitParkApplication = async (
       name: park.name
     }));
 
-  if (filteredSimilarParks.length > 0 && !confirmedNameSimilarity) {
+  if (filteredSimilarParks.length > 0 && !applicationData.confirmedNameSimilarity) {
     const err: AppError = new Error('公园名称相似度高');
     err.code = 'SIMILAR_NAME';
     err.status = 400;
-    err.details = {
+    (err as any).details = {
       similarParks: filteredSimilarParks
     };
     throw err;
@@ -147,11 +147,11 @@ export const submitParkApplication = async (
     name: park.park_name
   }));
 
-  if (filteredNearbyParks.length > 0 && !confirmedNearbyLocation) {
+  if (filteredNearbyParks.length > 0 && !applicationData.confirmedNearbyLocation) {
     const err: AppError = new Error('公园距离过近');
     err.code = 'NEARBY_LOCATION';
     err.status = 400;
-    err.details = {
+    (err as any).details = {
       nearbyParks: filteredNearbyParks
     };
     throw err;
