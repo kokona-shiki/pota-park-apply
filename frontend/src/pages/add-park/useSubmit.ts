@@ -3,10 +3,7 @@ import { useState, useRef } from 'react';
 import { ApplicationDetailDataSchema, ParkApplicationSubmitRequestSchema } from '../../../../shared/schemas/parkApplication';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { getApiErrorMessage } from '../../utils/error';
-import {
-  mapAccessMethodsWithBothLangs,
-  mapActivationMethodsWithBothLangs,
-} from '../../utils/potaMapping';
+import { REVERSE_ACCESS_METHODS_MAP, REVERSE_ACTIVATION_METHODS_MAP } from '../../utils/potaMapping';
 import { isValidUrl } from '../../utils/urlValidation';
 
 interface SubmitParams {
@@ -84,8 +81,8 @@ export const useSubmit = () => {
         latitude: latNum,
         longitude: lonNum,
         website: params.website,
-        access_methods: mapAccessMethodsWithBothLangs(access),
-        activation_methods: mapActivationMethodsWithBothLangs(activation),
+        access_methods: access.map(method => REVERSE_ACCESS_METHODS_MAP[method] || method),
+        activation_methods: activation.map(method => REVERSE_ACTIVATION_METHODS_MAP[method] || method),
         confirmed_authenticity: params.confirmed,
         confirmedNameSimilarity: params.confirmedNameSimilarity,
         confirmedNearbyLocation: params.confirmedNearbyLocation,

@@ -35,8 +35,8 @@ const ACTIVATION_METHODS_MAP: { [key: string]: string } = {
 };
 
 // 创建反向映射
-const REVERSE_ACCESS_METHODS_MAP: { [key: string]: string } = {};
-const REVERSE_ACTIVATION_METHODS_MAP: { [key: string]: string } = {};
+export const REVERSE_ACCESS_METHODS_MAP: { [key: string]: string } = {};
+export const REVERSE_ACTIVATION_METHODS_MAP: { [key: string]: string } = {};
 
 Object.keys(ACCESS_METHODS_MAP).forEach(key => {
   REVERSE_ACCESS_METHODS_MAP[ACCESS_METHODS_MAP[key]] = key;
