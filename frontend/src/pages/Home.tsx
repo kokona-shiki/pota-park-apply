@@ -1,7 +1,7 @@
 // src/pages/Home.tsx
 import { useState, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
-import { useOnceOnMountWithAbort } from '../hooks/useOnceOnMount';
+import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Table,
   TableBody,
@@ -123,9 +123,7 @@ function Home() {
   }, [page, rowsPerPage]);
 
   // 初始加载和分页/每页数量变化时重新加载
-  useOnceOnMountWithAbort(async (
-    _signal
-  ) => {
+  useOnceOnMount(async () => {
     // 不需要登录即可访问
     await loadParks();
   }, [page, rowsPerPage]);

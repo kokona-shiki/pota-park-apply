@@ -1,8 +1,8 @@
 import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { resolveParkTypeId } from './pota-import/parkTypeResolver.js';
-import { calculateSimilarity, isSimilar } from '../utils/similarity.js';
-import { isNearby } from '../utils/distance.js';
+import { calculateSimilarity } from '../utils/similarity.js';
+import { } from '../utils/distance.js';
 
 type AppError = Error & { status?: number; code?: string };
 
@@ -81,10 +81,10 @@ export const submitParkApplication = async (
   );
 
   if (existingPark) {
-    const err: AppError = new Error('公园名称完全重复');
+    const err: AppError & { details?: { existingPark: { id: number; name: string } } } = new Error('公园名称完全重复');
     err.code = 'DUPLICATE_NAME';
     err.status = 400;
-    (err as any).details = {
+    err.details = {
       existingPark: {
         id: existingPark.id,
         name: existingPark.park_name
@@ -118,10 +118,10 @@ export const submitParkApplication = async (
     }));
 
   if (filteredSimilarParks.length > 0 && !applicationData.confirmedNameSimilarity) {
-    const err: AppError = new Error('公园名称相似度高');
+    const err: AppError & { details?: { similarParks: Array<{ id: number; name: string }> } } = new Error('公园名称相似度高');
     err.code = 'SIMILAR_NAME';
     err.status = 400;
-    (err as any).details = {
+    err.details = {
       similarParks: filteredSimilarParks
     };
     throw err;
@@ -148,10 +148,10 @@ export const submitParkApplication = async (
   }));
 
   if (filteredNearbyParks.length > 0 && !applicationData.confirmedNearbyLocation) {
-    const err: AppError = new Error('公园距离过近');
+    const err: AppError & { details?: { nearbyParks: Array<{ id: number; name: string }> } } = new Error('公园距离过近');
     err.code = 'NEARBY_LOCATION';
     err.status = 400;
-    (err as any).details = {
+    err.details = {
       nearbyParks: filteredNearbyParks
     };
     throw err;
@@ -166,21 +166,21 @@ export const submitParkApplication = async (
         location, latitude, longitude, website, description,
         access_methods, activation_methods, applicant_id, confirmed_authenticity
       ) VALUES (
-        $1, $2, $3,
+        $1, $2, $3::json,
         ST_SetSRID(ST_MakePoint($5, $4), 4326), $4, $5, $6, $7,
-        $8, $9, $10, $11
+        $8::json, $9::json, $10, $11
       ) RETURNING *
     `,
       [
         park_name,
         parkTypeId,
-        provinces,
+        JSON.stringify(provinces),
         latitude,
         longitude,
         website,
         description,
-        access_methods,
-        activation_methods,
+        JSON.stringify(access_methods),
+        JSON.stringify(activation_methods),
         userId,
         confirmed_authenticity,
       ]
@@ -202,7 +202,24 @@ export const submitParkApplication = async (
       [newApplication.id, userId]
     );
 
-    return newApplication;
+    // 重新查询完整的申请数据（包含 province_name 等关联字段）
+    const fullApplication = await client.query(
+      `
+      SELECT pa.*, 
+             u.email as applicant_email, u.callsign as applicant_callsign,
+             COALESCE(p.zh_name, '') as province_name, 
+             COALESCE(p.en_name, '') as province_en_name,
+             reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+      FROM park_applications pa
+      JOIN users u ON pa.applicant_id = u.id
+      LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+      LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+      WHERE pa.id = $1
+      `,
+      [newApplication.id]
+    );
+
+    return fullApplication.rows[0];
   });
 };
 
@@ -368,13 +385,12 @@ export const reviewApplication = async (
 
   return await transaction(async (client) => {
     // 更新申请状态
-    const updatedApplication = await client.query(
+    await client.query(
       `
       UPDATE park_applications 
       SET status = $1, rejection_reason = $2, updated_at = CURRENT_TIMESTAMP
       WHERE id = $3
-      RETURNING *
-    `,
+      `,
       [status, rejectionReason, applicationId]
     );
 
@@ -392,7 +408,24 @@ export const reviewApplication = async (
       [applicationId, action, reviewerId, operatorRole, oldStatus, status, reviewNotes]
     );
 
-    return updatedApplication.rows[0];
+    // 重新查询完整的申请数据（包含 province_name 等关联字段）
+    const fullApplication = await client.query(
+      `
+      SELECT pa.*, 
+             u.email as applicant_email, u.callsign as applicant_callsign,
+             COALESCE(p.zh_name, '') as province_name, 
+             COALESCE(p.en_name, '') as province_en_name,
+             reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+      FROM park_applications pa
+      JOIN users u ON pa.applicant_id = u.id
+      LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+      LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+      WHERE pa.id = $1
+      `,
+      [applicationId]
+    );
+
+    return fullApplication.rows[0];
   });
 };
 
@@ -441,13 +474,12 @@ export const reReviewApplication = async (
 
   return await transaction(async (client) => {
     // 更新申请状态
-    const updatedApplication = await client.query(
+    await client.query(
       `
       UPDATE park_applications 
       SET status = $1, rejection_reason = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
-      RETURNING *
-    `,
+      `,
       [newStatus, applicationId]
     );
 
@@ -464,7 +496,24 @@ export const reReviewApplication = async (
       [applicationId, action, operatorId, operatorRole, oldStatus, newStatus, reviewNotes]
     );
 
-    return updatedApplication.rows[0];
+    // 重新查询完整的申请数据（包含 province_name 等关联字段）
+    const fullApplication = await client.query(
+      `
+      SELECT pa.*, 
+             u.email as applicant_email, u.callsign as applicant_callsign,
+             COALESCE(p.zh_name, '') as province_name, 
+             COALESCE(p.en_name, '') as province_en_name,
+             reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+      FROM park_applications pa
+      JOIN users u ON pa.applicant_id = u.id
+      LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+      LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+      WHERE pa.id = $1
+      `,
+      [applicationId]
+    );
+
+    return fullApplication.rows[0];
   });
 };
 
@@ -504,7 +553,7 @@ export const syncToPOTA = async (operatorId: number, applicationId: number, pota
 
   return await transaction(async (client) => {
     // 更新申请状态为已录入POTA
-    const updatedApplication = await client.query(
+    await client.query(
       `
       UPDATE park_applications 
       SET status = 'pota_synced', 
@@ -513,8 +562,7 @@ export const syncToPOTA = async (operatorId: number, applicationId: number, pota
           pota_notes = $2,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $3
-      RETURNING *
-    `,
+      `,
       [operatorId, potaNotes, applicationId]
     );
 
@@ -531,7 +579,24 @@ export const syncToPOTA = async (operatorId: number, applicationId: number, pota
       [applicationId, 'pota_synced', operatorId, operatorRole, oldStatus, 'pota_synced', potaNotes]
     );
 
-    return updatedApplication.rows[0];
+    // 重新查询完整的申请数据（包含 province_name 等关联字段）
+    const fullApplication = await client.query(
+      `
+      SELECT pa.*, 
+             u.email as applicant_email, u.callsign as applicant_callsign,
+             COALESCE(p.zh_name, '') as province_name, 
+             COALESCE(p.en_name, '') as province_en_name,
+             reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+      FROM park_applications pa
+      JOIN users u ON pa.applicant_id = u.id
+      LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+      LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+      WHERE pa.id = $1
+      `,
+      [applicationId]
+    );
+
+    return fullApplication.rows[0];
   });
 };
 

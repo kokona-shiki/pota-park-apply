@@ -8,14 +8,10 @@ import {
   Button,
   Typography,
   Box,
-  List,
-  ListItem,
-  ListItemText,
-  Alert,
   Link,
 } from '@mui/material';
-import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
+import WarningIcon from '@mui/icons-material/Warning';
 
 interface ParkItem {
   id: number;
@@ -62,72 +58,87 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 2,
-          '& .MuiDialogTitle-root': {
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            bgcolor: isError ? 'error.main' : 'warning.main',
-            color: 'white',
-            fontWeight: 600,
-          },
+          borderRadius: 1,
         },
       }}
     >
-      <DialogTitle>
-        {isError ? <ErrorIcon /> : <WarningIcon />}
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        fontWeight: 500,
+        fontSize: '1.125rem',
+      }}>
+        {isError ? (
+          <ErrorIcon sx={{ color: 'error.main', fontSize: 20 }} />
+        ) : (
+          <WarningIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+        )}
         {title}
       </DialogTitle>
-      <DialogContent sx={{ pb: 2 }}>
-        <Typography variant="body1" gutterBottom sx={{ lineHeight: 1.6 }}>
+      <DialogContent sx={{ py: 2 }}>
+        <Typography variant="body1" sx={{
+          color: 'text.primary',
+          mb: parkList && parkList.length > 0 ? 2 : 0,
+        }}>
           {message}
         </Typography>
         
         {parkList && parkList.length > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+          <Box>
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontWeight: 500,
+                color: 'text.secondary',
+                mb: 1,
+              }}
+            >
               {parkListTitle || '相关公园列表'}
             </Typography>
-            <List sx={{ 
+            <Box sx={{ 
               maxHeight: 200, 
-              overflow: 'auto', 
-              bgcolor: 'background.paper', 
+              overflow: 'auto',
               borderRadius: 1,
-              border: 1,
+              border: '1px solid',
               borderColor: 'divider',
+              bgcolor: 'background.paper',
             }}>
-              {parkList.map((park) => (
-                <ListItem key={park.id} divider sx={{ '&:last-child': { borderBottom: 0 } }}>
-                  <ListItemText
-                    primary={
-                      <Link
-                        href={`/park/${park.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ textDecoration: 'none', color: 'primary.main' }}
-                      >
-                        {park.name}
-                      </Link>
-                    }
-                  />
-                </ListItem>
+              {parkList.map((park, index) => (
+                <Box key={park.id} sx={{
+                  p: 1.5,
+                  borderBottom: index < parkList.length - 1 ? '1px solid' : 'none',
+                  borderBottomColor: 'divider',
+                }}>
+                  <Link
+                    href={`/park/${park.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ 
+                      textDecoration: 'none',
+                      color: 'primary.main',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    {park.name}
+                  </Link>
+                </Box>
               ))}
-            </List>
+            </Box>
           </Box>
         )}
-        
-        {!isError && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            继续提交可能导致您的申请被拒绝。
-          </Alert>
-        )}
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3 }}>
+      <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
         {showCancelButton && (
           <Button
             onClick={onCancel}
             variant="outlined"
-            sx={{ mr: 1 }}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 0.5,
+            }}
           >
             {cancelButtonText}
           </Button>
@@ -138,6 +149,10 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
             variant="contained"
             color={isError ? 'error' : 'warning'}
             autoFocus
+            sx={{
+              textTransform: 'none',
+              borderRadius: 0.5,
+            }}
           >
             {confirmButtonText}
           </Button>
@@ -146,8 +161,12 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
           <Button
             onClick={onCancel}
             variant="contained"
-            color="error"
+            color="primary"
             autoFocus
+            sx={{
+              textTransform: 'none',
+              borderRadius: 0.5,
+            }}
           >
             {confirmButtonText}
           </Button>
