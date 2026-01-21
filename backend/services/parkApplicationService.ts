@@ -2,6 +2,7 @@ import { insert, getOne, getMany, transaction } from '../config/database.js';
 import { checkUserPermission } from '../utils/auth.js';
 import { resolveParkTypeId } from './pota-import/parkTypeResolver.js';
 import { calculateSimilarity } from '../utils/similarity.js';
+import { parseProvincesFromParkName } from '../utils/locationParser.js';
 import { } from '../utils/distance.js';
 
 type AppError = Error & { status?: number; code?: string };
@@ -139,10 +140,8 @@ export const submitParkApplication = async (
     `
     SELECT id, park_name FROM park_applications 
     WHERE 
-      provinces @> $1::jsonb
-      AND status IN ('approved', 'pota_synced')
-    `,
-    [JSON.stringify([provinces[0]])] // 使用第一个省份进行初步筛选，转换为JSON数组
+      status IN ('approved', 'pota_synced')
+    `
   );
 
   const filteredSimilarParks = similarParks
@@ -151,7 +150,23 @@ export const submitParkApplication = async (
       name: park.park_name,
       similarity: calculateSimilarity(park.park_name, park_name)
     }))
-    .filter(park => park.similarity >= 0.7)
+    .filter(park => {
+      if (park.similarity < 0.7) return false;
+      
+      // 从两个公园名称中解析省份
+      const newParkProvinces = parseProvincesFromParkName(park_name);
+      const existingParkProvinces = parseProvincesFromParkName(park.name);
+      
+      // 如果至少有一个公园名称解析出了省份，且解析结果不同，则放行
+      if (newParkProvinces.length > 0 && existingParkProvinces.length > 0) {
+        // 检查是否有任何省份重叠
+        const hasOverlap = newParkProvinces.some(prov => existingParkProvinces.includes(prov));
+        return hasOverlap; // 只有省份重叠时才视为相似
+      }
+      
+      // 如果都没有解析出省份，或者只有一个解析出，则视为相似
+      return true;
+    })
     .sort((a, b) => b.similarity - a.similarity)
     .map(park => ({
       id: park.id,

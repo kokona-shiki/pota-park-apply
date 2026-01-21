@@ -47,6 +47,24 @@ export const calculateSimilarity = (str1: string, str2: string): number => {
   if (str1 === str2) return 1;
   if (str1.length === 0 || str2.length === 0) return 0;
   
+  // 检查一个字符串是否是另一个的前缀，给予更高的相似度
+  const minLength = Math.min(str1.length, str2.length);
+  if (str1.substring(0, minLength) === str2.substring(0, minLength)) {
+    // 如果一个是另一个的前缀，相似度 = 1 - (长度差 / 较长字符串的长度)
+    const lengthDiff = Math.abs(str1.length - str2.length);
+    const maxLength = Math.max(str1.length, str2.length);
+    return 1 - (lengthDiff / (maxLength * 1.5)); // 降低长度差异的影响
+  }
+  
+  // 检查一个字符串是否包含另一个字符串，给予较高的相似度
+  if (str1.includes(str2) || str2.includes(str1)) {
+    const containedStr = str1.length < str2.length ? str1 : str2;
+    const containingStr = str1.length > str2.length ? str1 : str2;
+    // 相似度 = 1 - (长度差 / (较长字符串的长度 * 2))
+    const lengthDiff = containingStr.length - containedStr.length;
+    return 1 - (lengthDiff / (containingStr.length * 2));
+  }
+  
   const distance = levenshteinDistance(str1, str2);
   const maxLength = Math.max(str1.length, str2.length);
   
