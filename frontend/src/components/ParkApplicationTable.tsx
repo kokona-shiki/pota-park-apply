@@ -1,6 +1,7 @@
 // src/components/ParkApplicationTable.tsx
 import type { MouseEvent } from 'react';
 import {
+  Box,
   Button,
   Chip,
   Stack,
@@ -76,11 +77,19 @@ export function ParkApplicationTable({
 
   return (
     <>
-      <TableContainer>
-        <Table stickyHeader size="small" aria-label="申请列表">
+      <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}>
+        <Table stickyHeader size="small" aria-label="申请列表" sx={{ minWidth: 800 }}>
           <TableHead>
             <TableRow>
-              <TableCell variant="head" sx={{ whiteSpace: 'nowrap' }}>
+              <TableCell
+                variant="head"
+                sx={{
+                  whiteSpace: 'nowrap',
+                  width: 160,
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
+              >
                 {onRequestSort ? (
                   <TableSortLabel
                     active={orderBy === 'created_at'}
@@ -97,13 +106,27 @@ export function ParkApplicationTable({
               {columnConfig.showApplicantCallsign && (
                 <TableCell
                   variant="head"
-                  sx={{ whiteSpace: 'nowrap', display: { xs: 'none', sm: 'table-cell' } }}
+                  sx={{
+                    whiteSpace: 'nowrap',
+                    width: 140,
+                    display: { xs: 'none', sm: 'table-cell' },
+                    backgroundColor: 'background.paper',
+                    fontWeight: 600,
+                  }}
                 >
                   申请者呼号
                 </TableCell>
               )}
 
-              <TableCell variant="head" sx={{ whiteSpace: 'nowrap' }}>
+              <TableCell
+                variant="head"
+                sx={{
+                  whiteSpace: 'nowrap',
+                  width: 280,
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
+              >
                 {onRequestSort ? (
                   <TableSortLabel
                     active={orderBy === 'province_name'}
@@ -117,7 +140,14 @@ export function ParkApplicationTable({
                 )}
               </TableCell>
 
-              <TableCell variant="head">
+              <TableCell
+                variant="head"
+                sx={{
+                  minWidth: 350,
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
+              >
                 {onRequestSort ? (
                   <TableSortLabel
                     active={orderBy === 'park_name'}
@@ -131,7 +161,15 @@ export function ParkApplicationTable({
                 )}
               </TableCell>
 
-              <TableCell variant="head" sx={{ whiteSpace: 'nowrap' }}>
+              <TableCell
+                variant="head"
+                sx={{
+                  whiteSpace: 'nowrap',
+                  width: 100,
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
+              >
                 {onRequestSort ? (
                   <TableSortLabel
                     active={orderBy === 'status'}
@@ -147,15 +185,39 @@ export function ParkApplicationTable({
 
               <TableCell
                 variant="head"
-                sx={{ whiteSpace: 'nowrap', display: { xs: 'none', md: 'table-cell' } }}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  width: 100,
+                  display: { xs: 'none', md: 'table-cell' },
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
               >
                 同步到 POTA
               </TableCell>
 
-              <TableCell variant="head">备注</TableCell>
+              <TableCell
+                variant="head"
+                sx={{
+                  width: 200,
+                  backgroundColor: 'background.paper',
+                  fontWeight: 600,
+                }}
+              >
+                备注
+              </TableCell>
 
               {columnConfig.showActions && (
-                <TableCell variant="head" align="right" sx={{ whiteSpace: 'nowrap' }}>
+                <TableCell
+                  variant="head"
+                  align="right"
+                  sx={{
+                    whiteSpace: 'nowrap',
+                    width: 280,
+                    backgroundColor: 'background.paper',
+                    fontWeight: 600,
+                  }}
+                >
                   操作
                 </TableCell>
               )}
@@ -178,38 +240,76 @@ export function ParkApplicationTable({
               pagedApps.map((app) => {
                 const statusMeta = getStatusMeta(app.status);
                 const notes = app.rejection_reason || app.pota_notes || '';
-                const notesPreview = truncateText(notes, 48);
+                const notesPreview = truncateText(notes, 24);
                 const showNotesTooltip = !!notes && notesPreview !== notes;
 
                 return (
-                  <TableRow key={app.id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  <TableRow
+                    key={app.id}
+                    hover
+                    sx={{
+                      height: 'auto',
+                      '& td': {
+                        py: 1.5,
+                      },
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <TableCell sx={{ whiteSpace: 'nowrap', width: 160 }}>
                       {formatDateTime(app.created_at)}
                     </TableCell>
 
                     {columnConfig.showApplicantCallsign && (
                       <TableCell
-                        sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}
+                        sx={{
+                          display: { xs: 'none', sm: 'table-cell' },
+                          whiteSpace: 'nowrap',
+                          width: 140,
+                        }}
                       >
                         {app.applicant_callsign || '-'}
                       </TableCell>
                     )}
 
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {app.provinces && app.provinces.length > 0
-                        ? (app.provinces as string[])
-                            .map((code: string) => {
-                              // 查找对应的省份名称
-                              const province = regionData.find(
-                                (p: { code: string; name: string }) => p.code === code
-                              );
-                              return `${province ? province.name : ''} (${code})`;
-                            })
-                            .join(', ')
-                        : '-'}
+                    <TableCell sx={{ width: 280, maxWidth: 280, verticalAlign: 'top' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 0.5,
+                          maxWidth: 280,
+                          overflowX: 'auto',
+                          '&::-webkit-scrollbar': {
+                            display: 'none',
+                          },
+                          msOverflowStyle: 'none',
+                          scrollbarWidth: 'none',
+                        }}
+                      >
+                        {app.provinces && app.provinces.length > 0 ? (
+                          (app.provinces as string[]).map((code: string) => {
+                            const province = regionData.find(
+                              (p: { code: string; name: string }) => p.code === code
+                            );
+                            return (
+                              <Chip
+                                key={code}
+                                label={`${province ? province.name : ''} (${code})`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
+                            );
+                          })
+                        ) : (
+                          <Typography color="text.secondary">-</Typography>
+                        )}
+                      </Box>
                     </TableCell>
 
-                    <TableCell sx={{ maxWidth: 360 }}>
+                    <TableCell sx={{ minWidth: 350 }}>
                       <Tooltip title={app.park_name || ''} placement="top" arrow>
                         <Typography
                           sx={{
@@ -223,7 +323,7 @@ export function ParkApplicationTable({
                       </Tooltip>
                     </TableCell>
 
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <TableCell sx={{ whiteSpace: 'nowrap', width: 100 }}>
                       <Chip
                         size="small"
                         label={statusMeta.label}
@@ -233,12 +333,16 @@ export function ParkApplicationTable({
                     </TableCell>
 
                     <TableCell
-                      sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}
+                      sx={{
+                        display: { xs: 'none', md: 'table-cell' },
+                        whiteSpace: 'nowrap',
+                        width: 100,
+                      }}
                     >
                       {app.status === 'pota_synced' ? '是' : '否'}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={{ width: 200 }}>
                       {notes ? (
                         showNotesTooltip ? (
                           <Tooltip title={notes} placement="top" arrow>
@@ -249,7 +353,7 @@ export function ParkApplicationTable({
                               sx={{ minWidth: 0 }}
                             >
                               <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                              <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 320 }}>
+                              <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 160 }}>
                                 {notesPreview}
                               </Typography>
                             </Stack>
@@ -262,7 +366,7 @@ export function ParkApplicationTable({
                             sx={{ minWidth: 0 }}
                           >
                             <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                            <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 320 }}>
+                            <Typography noWrap sx={{ color: 'text.secondary', maxWidth: 160 }}>
                               {notesPreview}
                             </Typography>
                           </Stack>
@@ -273,7 +377,7 @@ export function ParkApplicationTable({
                     </TableCell>
 
                     {columnConfig.showActions && (
-                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: 280 }}>
                         <Stack
                           direction={{ xs: 'column', sm: 'row' }}
                           spacing={1}
