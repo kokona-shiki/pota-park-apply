@@ -33,7 +33,6 @@ import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 
-import { getApiErrorMessage } from '../../utils/error';
 import AlertDialog from '../../components/AlertDialog';
 
 // 修复 Leaflet 默认图标问题
@@ -146,7 +145,7 @@ function AddPark() {
   const [mapPOIs, setMapPOIs] = useState<MapPOI[]>([]);
   const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
   const [potaParks, setPotaParks] = useState<Map<number, PotaParkInfo>>(new Map());
-  
+
   // 弹框状态管理
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'error' | 'warning'>('error');
@@ -284,17 +283,85 @@ function AddPark() {
       } else {
         // 处理错误信息，检查是否为特定限制类型
         const errorMessage = result.error || '提交失败，请重试';
-        
-        // 检查是否包含公园名称完全重复错误
-        if (errorMessage.includes('公园名称完全重复')) {
-          setDialogType('error');
-          setDialogTitle('错误');
-          setDialogMessage(errorMessage);
-          setDialogParkList([]);
-          setDialogParkListTitle('');
-          setDialogConfirmAction(null);
-          setDialogOpen(true);
-        } 
+
+        // 检查是否包含公园名称相关错误
+        const errorCode = result.errorDetails?.code;
+        const isDuplicateNameError = errorCode?.startsWith('DUPLICATE_NAME');
+
+        if (isDuplicateNameError) {
+          // 获取错误详情
+          const details = result.errorDetails?.details;
+          if (details) {
+            // 提取 existingPark 和 allowRetry
+            const existingPark = details.existingPark;
+            const allowRetry = details.allowRetry;
+
+            // 设置对话框状态
+            setDialogType(allowRetry ? 'warning' : 'error');
+            setDialogTitle(allowRetry ? '警告' : '错误');
+            setDialogMessage(errorMessage);
+
+            // 根据错误代码决定是否显示链接
+            // 只有已通过(APPROVED)和已上传POTA(POTA_SYNCED)的公园才显示链接
+            const shouldShowLink =
+              errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
+            const parkList =
+              shouldShowLink && existingPark
+                ? [{ id: existingPark.id, name: existingPark.name }]
+                : [];
+            setDialogParkList(parkList);
+            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
+
+            // 如果允许重试（拒绝状态），设置确认动作
+            if (allowRetry) {
+              setDialogConfirmAction(async () => {
+                // 用户确认后，带确认字段重新提交
+                const result = await handleSubmit({
+                  parkName,
+                  parkType: resolveParkTypeId(parkType),
+                  province,
+                  provinces: formState.provinces,
+                  latitude,
+                  longitude,
+                  website,
+                  accessMethods,
+                  activationMethods,
+                  confirmed,
+                  confirmedRejectedPark: true,
+                });
+
+                if (result.success) {
+                  clearFormState();
+                  navigate('/my-uploads');
+                } else {
+                  setError(result.error || '提交失败，请重试');
+                }
+              });
+            } else {
+              setDialogConfirmAction(null);
+            }
+
+            setDialogOpen(true);
+          }
+          // 兼容旧格式：如果 details 是 existingPark 对象本身
+          else if (result.errorDetails?.existingPark) {
+            const existingPark = result.errorDetails?.existingPark;
+            setDialogType('error');
+            setDialogTitle('错误');
+            setDialogMessage(errorMessage);
+
+            // 兼容旧格式时，根据 status 决定是否显示链接
+            const shouldShowLink =
+              existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
+            const parkList = shouldShowLink
+              ? [{ id: existingPark.id, name: existingPark.name }]
+              : [];
+            setDialogParkList(parkList);
+            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
+            setDialogConfirmAction(null);
+            setDialogOpen(true);
+          }
+        }
         // 检查是否包含公园名称相似度高错误
         else if (errorMessage.includes('公园名称相似度高')) {
           // 尝试解析错误中的公园列表
@@ -302,11 +369,11 @@ function AddPark() {
           try {
             // 直接使用errorMessage中的数据，无需解析
             // 后端返回的错误信息已经包含details字段
-            parkList = [];
+            parkList = result.errorDetails?.details?.similarParks || [];
           } catch {
             // 解析失败，使用空列表
           }
-          
+
           setDialogType('warning');
           setDialogTitle('警告');
           setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
@@ -327,7 +394,7 @@ function AddPark() {
               confirmed,
               confirmedNameSimilarity: true,
             });
-            
+
             if (result.success) {
               clearFormState();
               navigate('/my-uploads');
@@ -348,7 +415,7 @@ function AddPark() {
           } catch {
             // 解析失败，使用空列表
           }
-          
+
           setDialogType('warning');
           setDialogTitle('警告');
           setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
@@ -369,7 +436,7 @@ function AddPark() {
               confirmed,
               confirmedNearbyLocation: true,
             });
-            
+
             if (result.success) {
               clearFormState();
               navigate('/my-uploads');
@@ -385,7 +452,7 @@ function AddPark() {
         }
       }
     } catch (err: unknown) {
-      const errorMessage = getApiErrorMessage(err, '提交失败，请检查网络后重试');
+      const errorMessage = err instanceof Error ? err.message : '提交失败，请检查网络后重试';
       setError(errorMessage);
     }
   };
@@ -402,318 +469,318 @@ function AddPark() {
   return (
     <>
       <Box sx={{ display: { xs: 'block', md: 'flex' }, gap: 2 }}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="h5">申请添加公园</Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h5">申请添加公园</Typography>
 
-        <POISelector
-          mapPOIs={mapPOIs}
-          selectedPOIId={selectedPOIId}
-          setSelectedPOIId={setSelectedPOIId}
-          potaParks={potaParks}
-          setProvince={(province: string) => updateFormState({ province })}
-          setProvinces={(provinces: string[]) => updateFormState({ provinces })}
-          provinces={formState.provinces}
-          setParkName={(name: string) => updateFormState({ parkName: name })}
-          setParkType={(type: string) => updateFormState({ parkType: type })}
-          setWebsite={(url: string) => updateFormState({ website: url })}
-          setAccessMethods={(methods: string[]) => updateFormState({ accessMethods: methods })}
-          setActivationMethods={(methods: string[]) =>
-            updateFormState({ activationMethods: methods })
-          }
-          setIsPotaPark={(isPota: boolean) => updateFormState({ isPotaPark: isPota })}
-          setLatitude={(lat: string) => updateFormState({ latitude: lat })}
-          setLongitude={(lon: string) => updateFormState({ longitude: lon })}
-          error={error}
-          setError={setError}
-        />
-
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <TextField
-            label="公园名称"
-            value={parkName}
-            onChange={(e) => updateFormState({ parkName: e.target.value })}
-            sx={{ flex: 1 }}
+          <POISelector
+            mapPOIs={mapPOIs}
+            selectedPOIId={selectedPOIId}
+            setSelectedPOIId={setSelectedPOIId}
+            potaParks={potaParks}
+            setProvince={(province: string) => updateFormState({ province })}
+            setProvinces={(provinces: string[]) => updateFormState({ provinces })}
+            provinces={formState.provinces}
+            setParkName={(name: string) => updateFormState({ parkName: name })}
+            setParkType={(type: string) => updateFormState({ parkType: type })}
+            setWebsite={(url: string) => updateFormState({ website: url })}
+            setAccessMethods={(methods: string[]) => updateFormState({ accessMethods: methods })}
+            setActivationMethods={(methods: string[]) =>
+              updateFormState({ activationMethods: methods })
+            }
+            setIsPotaPark={(isPota: boolean) => updateFormState({ isPotaPark: isPota })}
+            setLatitude={(lat: string) => updateFormState({ latitude: lat })}
+            setLongitude={(lon: string) => updateFormState({ longitude: lon })}
+            error={error}
+            setError={setError}
           />
 
-          <FormControl sx={{ minWidth: 200, flex: 1 }}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <TextField
+              label="公园名称"
+              value={parkName}
+              onChange={(e) => updateFormState({ parkName: e.target.value })}
+              sx={{ flex: 1 }}
+            />
+
+            <FormControl sx={{ minWidth: 200, flex: 1 }}>
+              <Autocomplete
+                disablePortal
+                options={PARK_TYPE_OPTIONS}
+                value={
+                  PARK_TYPE_OPTIONS.find(
+                    (option) => option.id === parkType || option.en === parkType
+                  ) || null
+                }
+                onChange={(_, newValue) => {
+                  updateFormState({ parkType: newValue ? newValue.id : '' });
+                }}
+                disabled={isPotaPark}
+                getOptionLabel={(option) => {
+                  // 使用选项本身的中文名称
+                  const zh = option.zh;
+                  return `${zh} (${option.en})`;
+                }}
+                filterOptions={(options, { inputValue }) => {
+                  if (!inputValue) return options;
+
+                  // 拼音匹配的选项
+                  const pinyinMatched: typeof options = [];
+                  // 英文匹配的选项
+                  const englishMatched: typeof options = [];
+
+                  options.forEach((option) => {
+                    const zh = option.zh;
+                    const en = option.en;
+
+                    // 检查拼音匹配
+                    try {
+                      if (Pinyin.match(zh, inputValue) !== false) {
+                        pinyinMatched.push(option);
+                        return; // 如果已经匹配拼音，则不再检查英文匹配
+                      }
+                    } catch {
+                      // 拼音匹配失败，继续尝试其他匹配方式
+                    }
+
+                    // 检查英文匹配
+                    if (en.toLowerCase().includes(inputValue.toLowerCase())) {
+                      englishMatched.push(option);
+                    }
+                  });
+
+                  // 返回拼音匹配结果在前，英文匹配结果在后
+                  return [...pinyinMatched, ...englishMatched];
+                }}
+                renderInput={(params) => <TextField {...params} label="公园类型" />}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                        {option.zh}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                        {option.en}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+              />
+            </FormControl>
+          </Box>
+
+          <SearchButtons
+            handleSearchPOTA={handleSearchPOTAAction}
+            handleSearchMap={handleSearchMapAction}
+            searchingPota={searchingPota}
+            searchingMap={searchingMap}
+            onReset={resetFormState}
+            hasContent={!!parkName || mapPOIs.length > 0}
+          />
+
+          {searchResults.length > 0 && mapPOIs.length === 0 && (
+            <Box
+              sx={{
+                mt: 1,
+                maxHeight: 200,
+                overflowY: 'auto',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                p: 1,
+                backgroundColor: 'background.paper',
+              }}
+            >
+              {searchResults.map((result, index) => (
+                <Typography
+                  key={`search-${index}-${result.substring(0, 10)}`}
+                  sx={{
+                    py: 0.5,
+                    fontSize: '0.875rem',
+                    borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                  }}
+                >
+                  {result}
+                </Typography>
+              ))}
+            </Box>
+          )}
+
+          <FormControl fullWidth sx={{ mt: 2 }}>
             <Autocomplete
               disablePortal
-              options={PARK_TYPE_OPTIONS}
-              value={
-                PARK_TYPE_OPTIONS.find(
-                  (option) => option.id === parkType || option.en === parkType
-                ) || null
-              }
+              multiple
+              options={provinces}
+              value={provinces.filter((p) => formState.provinces?.includes(p.code))}
               onChange={(_, newValue) => {
-                updateFormState({ parkType: newValue ? newValue.id : '' });
+                const codes = newValue.map((p) => p.code);
+                updateFormState({ province: codes.length > 0 ? codes[0] : '', provinces: codes });
               }}
               disabled={isPotaPark}
-              getOptionLabel={(option) => {
-                // 使用选项本身的中文名称
-                const zh = option.zh;
-                return `${zh} (${option.en})`;
-              }}
+              getOptionLabel={(option) => `(${option.code}) ${option.name}`}
+              isOptionEqualToValue={(option, value) => option.code === value.code}
               filterOptions={(options, { inputValue }) => {
                 if (!inputValue) return options;
-
-                // 拼音匹配的选项
-                const pinyinMatched: typeof options = [];
-                // 英文匹配的选项
-                const englishMatched: typeof options = [];
-
-                options.forEach((option) => {
-                  const zh = option.zh;
-                  const en = option.en;
-
-                  // 检查拼音匹配
-                  try {
-                    if (Pinyin.match(zh, inputValue) !== false) {
-                      pinyinMatched.push(option);
-                      return; // 如果已经匹配拼音，则不再检查英文匹配
-                    }
-                  } catch {
-                    // 拼音匹配失败，继续尝试其他匹配方式
-                  }
-
-                  // 检查英文匹配
-                  if (en.toLowerCase().includes(inputValue.toLowerCase())) {
-                    englishMatched.push(option);
-                  }
-                });
-
-                // 返回拼音匹配结果在前，英文匹配结果在后
-                return [...pinyinMatched, ...englishMatched];
+                return options.filter(
+                  (option) => Pinyin.match(`${option.code} ${option.name}`, inputValue) !== false
+                );
               }}
-              renderInput={(params) => <TextField {...params} label="公园类型" />}
-              renderOption={(props, option) => (
-                <li {...props} key={option.id}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                      {option.zh}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                      {option.en}
-                    </Typography>
-                  </Box>
-                </li>
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="省份"
+                  helperText="目前仅支持31个省、直辖市、自治区，不支持港澳台地区"
+                />
               )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    variant="outlined"
+                    label={`${option.name} (${option.code})`}
+                    size="small"
+                    {...getTagProps({ index })}
+                  />
+                ))
+              }
             />
           </FormControl>
-        </Box>
 
-        <SearchButtons
-          handleSearchPOTA={handleSearchPOTAAction}
-          handleSearchMap={handleSearchMapAction}
-          searchingPota={searchingPota}
-          searchingMap={searchingMap}
-          onReset={resetFormState}
-          hasContent={!!parkName || mapPOIs.length > 0}
-        />
-
-        {searchResults.length > 0 && mapPOIs.length === 0 && (
-          <Box
-            sx={{
-              mt: 1,
-              maxHeight: 200,
-              overflowY: 'auto',
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 1,
-              p: 1,
-              backgroundColor: 'background.paper',
-            }}
-          >
-            {searchResults.map((result, index) => (
-              <Typography
-                key={`search-${index}-${result.substring(0, 10)}`}
-                sx={{
-                  py: 0.5,
-                  fontSize: '0.875rem',
-                  borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
-                  borderColor: 'divider',
-                }}
-              >
-                {result}
-              </Typography>
-            ))}
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <TextField
+              label="纬度 (WGS84)"
+              value={latitude}
+              onChange={(e) => {
+                updateFormState({ latitude: e.target.value });
+              }}
+              disabled={isPotaPark}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="经度 (WGS84)"
+              value={longitude}
+              onChange={(e) => {
+                updateFormState({ longitude: e.target.value });
+              }}
+              disabled={isPotaPark}
+              sx={{ flex: 1 }}
+            />
           </Box>
-        )}
 
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <Autocomplete
-            disablePortal
-            multiple
-            options={provinces}
-            value={provinces.filter((p) => formState.provinces?.includes(p.code))}
-            onChange={(_, newValue) => {
-              const codes = newValue.map((p) => p.code);
-              updateFormState({ province: codes.length > 0 ? codes[0] : '', provinces: codes });
-            }}
+          <TextField
+            fullWidth
+            label="公园网站"
+            value={website}
+            onChange={(e) => updateFormState({ website: e.target.value })}
             disabled={isPotaPark}
-            getOptionLabel={(option) => `(${option.code}) ${option.name}`}
-            isOptionEqualToValue={(option, value) => option.code === value.code}
-            filterOptions={(options, { inputValue }) => {
-              if (!inputValue) return options;
-              return options.filter(
-                (option) => Pinyin.match(`${option.code} ${option.name}`, inputValue) !== false
-              );
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="省份"
-                helperText="目前仅支持31个省、直辖市、自治区，不支持港澳台地区"
+            sx={{ mt: 2 }}
+          />
+
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>访问方法</InputLabel>
+            <Select
+              multiple
+              value={accessMethods}
+              label="访问方法"
+              onChange={handleAccessMethodsChange}
+              disabled={isPotaPark}
+            >
+              {['汽车', '步行', '船只', '水上飞机/空中出租车', '其他'].map((method) => (
+                <MenuItem key={method} value={method}>
+                  {method}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>激活方法</InputLabel>
+            <Select
+              multiple
+              value={activationMethods}
+              label="激活方法"
+              onChange={handleActivationMethodsChange}
+              disabled={isPotaPark}
+            >
+              {['步行', '车载', '固定建筑', '露营地', '庇护所', '其他'].map((method) => (
+                <MenuItem key={method} value={method}>
+                  {method}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={confirmed}
+                onChange={(e) => updateFormState({ confirmed: e.target.checked })}
               />
-            )}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  variant="outlined"
-                  label={`${option.name} (${option.code})`}
-                  size="small"
-                  {...getTagProps({ index })}
-                />
-              ))
             }
+            label="我已确认公园真实性"
+            sx={{ mt: 2 }}
           />
-        </FormControl>
-
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <TextField
-            label="纬度 (WGS84)"
-            value={latitude}
-            onChange={(e) => {
-              updateFormState({ latitude: e.target.value });
-            }}
-            disabled={isPotaPark}
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            label="经度 (WGS84)"
-            value={longitude}
-            onChange={(e) => {
-              updateFormState({ longitude: e.target.value });
-            }}
-            disabled={isPotaPark}
-            sx={{ flex: 1 }}
-          />
+          <Button
+            variant="contained"
+            onClick={handleFormSubmit}
+            disabled={submitting || isPotaPark || !confirmed}
+            sx={{ mt: 1 }}
+            fullWidth
+          >
+            {buttonText}
+          </Button>
         </Box>
 
-        <TextField
-          fullWidth
-          label="公园网站"
-          value={website}
-          onChange={(e) => updateFormState({ website: e.target.value })}
-          disabled={isPotaPark}
-          sx={{ mt: 2 }}
-        />
-
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel>访问方法</InputLabel>
-          <Select
-            multiple
-            value={accessMethods}
-            label="访问方法"
-            onChange={handleAccessMethodsChange}
-            disabled={isPotaPark}
-          >
-            {['汽车', '步行', '船只', '水上飞机/空中出租车', '其他'].map((method) => (
-              <MenuItem key={method} value={method}>
-                {method}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel>激活方法</InputLabel>
-          <Select
-            multiple
-            value={activationMethods}
-            label="激活方法"
-            onChange={handleActivationMethodsChange}
-            disabled={isPotaPark}
-          >
-            {['步行', '车载', '固定建筑', '露营地', '庇护所', '其他'].map((method) => (
-              <MenuItem key={method} value={method}>
-                {method}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={confirmed}
-              onChange={(e) => updateFormState({ confirmed: e.target.checked })}
-            />
-          }
-          label="我已确认公园真实性"
-          sx={{ mt: 2 }}
-        />
-        <Button
-          variant="contained"
-          onClick={handleFormSubmit}
-          disabled={submitting || isPotaPark || !confirmed}
-          sx={{ mt: 1 }}
-          fullWidth
-        >
-          {buttonText}
-        </Button>
-      </Box>
-
-      <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 2, md: 0 } }}>
-        <Box sx={{ height: 500, width: '100%', borderRadius: 1, overflow: 'hidden' }}>
-          <MapContainer
-            center={[mapCenter[0], mapCenter[1]]}
-            zoom={mapZoom}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <MapController
+        <Box sx={{ flex: 1, minWidth: 0, mt: { xs: 2, md: 0 } }}>
+          <Box sx={{ height: 500, width: '100%', borderRadius: 1, overflow: 'hidden' }}>
+            <MapContainer
               center={[mapCenter[0], mapCenter[1]]}
-              onZoomChange={(zoom) => updateFormState({ mapZoom: zoom })}
-            />
-            <MapBoundsController bounds={mapBounds} />
-            {/* 使用统一的瓦片服务 */}
-            <UnifiedTileLayer />
-            <LocationMarker
-              isPotaPark={isPotaPark}
-              mapPOIs={mapPOIs}
-              updateFormState={updateFormState}
-              latitude={latitude}
-              longitude={longitude}
-            />
-            {mapPOIs.map((poi) => (
-              <Marker
-                key={poi.id}
-                position={[poi.lat, poi.lon]}
-                icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
-                eventHandlers={{
-                  click: () => setSelectedPOIId(poi.id),
-                }}
+              zoom={mapZoom}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <MapController
+                center={[mapCenter[0], mapCenter[1]]}
+                onZoomChange={(zoom) => updateFormState({ mapZoom: zoom })}
               />
-            ))}
-          </MapContainer>
+              <MapBoundsController bounds={mapBounds} />
+              {/* 使用统一的瓦片服务 */}
+              <UnifiedTileLayer />
+              <LocationMarker
+                isPotaPark={isPotaPark}
+                mapPOIs={mapPOIs}
+                updateFormState={updateFormState}
+                latitude={latitude}
+                longitude={longitude}
+              />
+              {mapPOIs.map((poi) => (
+                <Marker
+                  key={poi.id}
+                  position={[poi.lat, poi.lon]}
+                  icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
+                  eventHandlers={{
+                    click: () => setSelectedPOIId(poi.id),
+                  }}
+                />
+              ))}
+            </MapContainer>
+          </Box>
         </Box>
       </Box>
-    </Box>
-    
-    {/* 通用弹框组件 */}
-    <AlertDialog
-      open={dialogOpen}
-      type={dialogType}
-      title={dialogTitle}
-      message={dialogMessage}
-      parkList={dialogParkList}
-      parkListTitle={dialogParkListTitle}
-      onCancel={handleDialogCancel}
-      onConfirm={dialogConfirmAction || undefined}
-      confirmButtonText={dialogType === 'error' ? '确定' : '确认提交'}
-      cancelButtonText="取消"
-      showCancelButton={dialogType !== 'error'}
-    />
+
+      {/* 通用弹框组件 */}
+      <AlertDialog
+        open={dialogOpen}
+        type={dialogType}
+        title={dialogTitle}
+        message={dialogMessage}
+        parkList={dialogParkList}
+        parkListTitle={dialogParkListTitle}
+        onCancel={handleDialogCancel}
+        onConfirm={dialogConfirmAction || undefined}
+        confirmButtonText={dialogType === 'error' ? '确定' : '确认提交'}
+        cancelButtonText="取消"
+        showCancelButton={dialogType !== 'error'}
+      />
     </>
   );
 }

@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { ApplicationDetailDataSchema, ParkApplicationSubmitRequestSchema } from '../../../../shared/schemas/parkApplication';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
-import { getApiErrorMessage } from '../../utils/error';
+import { getApiErrorMessage, getApiErrorDetails } from '../../utils/error';
 import { REVERSE_ACCESS_METHODS_MAP, REVERSE_ACTIVATION_METHODS_MAP } from '../../utils/potaMapping';
 import { isValidUrl } from '../../utils/urlValidation';
 
@@ -19,13 +19,14 @@ interface SubmitParams {
   confirmed: boolean;
   confirmedNameSimilarity?: boolean; // 名称相似度确认
   confirmedNearbyLocation?: boolean; // 地理位置确认
+  confirmedRejectedPark?: boolean; // 已拒绝公园确认
 }
 
 export const useSubmit = () => {
   const [submitting, setSubmitting] = useState(false);
   const submitRequestRef = useRef(false);
 
-  const handleSubmit = async (params: SubmitParams) => {
+  const handleSubmit = async (params: SubmitParams): Promise<SubmitResult> => {
     // 前端必填校验（避免无效请求）
     const name = params.parkName.trim();
     const type = params.parkType.trim();
@@ -86,6 +87,7 @@ export const useSubmit = () => {
         confirmed_authenticity: params.confirmed,
         confirmedNameSimilarity: params.confirmedNameSimilarity,
         confirmedNearbyLocation: params.confirmedNearbyLocation,
+        confirmedRejectedPark: params.confirmedRejectedPark,
       });
       await requestWithSchema(
         apiClient.post('/api/park-applications', requestBody, { timeout: 5000 }),
@@ -96,7 +98,8 @@ export const useSubmit = () => {
     } catch (err: unknown) {
       console.error(err);
       const errorMessage = getApiErrorMessage(err, '提交失败，请检查网络后重试');
-      return { success: false, error: errorMessage };
+      const errorDetails = getApiErrorDetails(err);
+      return { success: false, error: errorMessage, errorDetails };
     } finally {
       submitRequestRef.current = false;
       setSubmitting(false);
@@ -107,4 +110,10 @@ export const useSubmit = () => {
     submitting,
     handleSubmit,
   };
+};
+
+export type SubmitResult = {
+  success: boolean;
+  error?: string;
+  errorDetails?: any;
 };

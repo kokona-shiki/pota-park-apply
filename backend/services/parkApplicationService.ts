@@ -21,6 +21,7 @@ type ParkApplicationSubmitInput = {
   confirmed_authenticity: boolean;
   confirmedNameSimilarity?: boolean;
   confirmedNearbyLocation?: boolean;
+  confirmedRejectedPark?: boolean;
 };
 
 // 提交公园申请
@@ -74,24 +75,64 @@ export const submitParkApplication = async (
   // 业务逻辑验证：公园名称完全重复检查
   const existingPark = await getOne(
     `
-    SELECT id, park_name FROM park_applications 
+    SELECT id, park_name, status FROM park_applications 
     WHERE park_name = $1
     `,
     [park_name]
   );
 
   if (existingPark) {
-    const err: AppError & { details?: { existingPark: { id: number; name: string } } } = new Error('公园名称完全重复');
-    err.code = 'DUPLICATE_NAME';
-    err.status = 400;
-    err.details = {
-      existingPark: {
-        id: existingPark.id,
-        name: existingPark.park_name
+      const { id, status } = existingPark;
+      let errorMessage: string;
+      let errorCode: string;
+      let allowRetry: boolean = false;
+      
+      switch (status) {
+        case 'pending':
+          errorMessage = '您提交的公园名称已经在审核中';
+          errorCode = 'DUPLICATE_NAME_PENDING';
+          break;
+        case 'approved':
+          errorMessage = '您提交的公园名称待上传 POTA';
+          errorCode = 'DUPLICATE_NAME_APPROVED';
+          break;
+        case 'pota_synced':
+          errorMessage = '您提交的公园名称已经上传 POTA';
+          errorCode = 'DUPLICATE_NAME_POTA_SYNCED';
+          break;
+        case 'rejected':
+          errorMessage = '您提交的公园名称曾被审核拒绝，请确定是否要提交';
+          errorCode = 'DUPLICATE_NAME_REJECTED';
+          allowRetry = true;
+          break;
+        default:
+          errorMessage = '您提交的公园名称已存在';
+          errorCode = 'DUPLICATE_NAME';
       }
-    };
-    throw err;
-  }
+      
+      // 如果是已拒绝状态且用户已确认，则允许提交
+      if (status === 'rejected' && applicationData.confirmedRejectedPark) {
+        // 允许提交，跳过错误
+      } else {
+        const err: AppError & { 
+          details?: { 
+            existingPark: { id: number; name: string; status: ApplicationStatus };
+            allowRetry?: boolean 
+          } 
+        } = new Error(errorMessage);
+        err.code = errorCode;
+        err.status = 400;
+        err.details = {
+          existingPark: {
+            id: id,
+            name: existingPark.park_name,
+            status: status
+          },
+          allowRetry: allowRetry
+        };
+        throw err;
+      }
+    }
 
   // 业务逻辑验证：公园名称相似度检查
   const similarParks = await getMany(
