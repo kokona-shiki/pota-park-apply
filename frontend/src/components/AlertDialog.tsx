@@ -133,10 +133,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
       <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
         {showCancelButton && (
           <Button
-            onClick={() => {
-              console.log('[AlertDialog] 用户点击取消按钮');
-              onCancel();
-            }}
+            onClick={onCancel}
             variant="outlined"
             sx={{
               textTransform: 'none',
@@ -148,10 +145,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
         )}
         {hasConfirmButton && (
           <Button
-            onClick={() => {
-              console.log('[AlertDialog] 用户点击确认按钮');
-              onConfirm?.();
-            }}
+            onClick={onConfirm}
             variant="contained"
             color={isError ? 'error' : 'warning'}
             autoFocus
@@ -165,10 +159,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
         )}
         {isError && !hasConfirmButton && (
           <Button
-            onClick={() => {
-              console.log('[AlertDialog] 用户点击确定按钮（错误类型）');
-              onCancel();
-            }}
+            onClick={onCancel}
             variant="contained"
             color="primary"
             autoFocus

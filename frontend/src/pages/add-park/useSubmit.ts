@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { ApplicationDetailDataSchema, ParkApplicationSubmitRequestSchema } from '../../../../shared/schemas/parkApplication';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
-import { getApiErrorMessage, getApiErrorDetails } from '../../utils/error';
+import { getApiErrorMessage, getApiErrorDetails, type ApiErrorDetails } from '../../utils/error';
 import { REVERSE_ACCESS_METHODS_MAP, REVERSE_ACTIVATION_METHODS_MAP } from '../../utils/potaMapping';
 import { isValidUrl } from '../../utils/urlValidation';
 
@@ -27,13 +27,6 @@ export const useSubmit = () => {
   const submitRequestRef = useRef(false);
 
   const handleSubmit = async (params: SubmitParams): Promise<SubmitResult> => {
-    console.log('[useSubmit] handleSubmit 开始执行', {
-      params,
-      confirmedNameSimilarity: params.confirmedNameSimilarity,
-      confirmedNearbyLocation: params.confirmedNearbyLocation,
-      confirmedRejectedPark: params.confirmedRejectedPark
-    });
-
     // 前端必填校验（避免无效请求）
     const name = params.parkName.trim();
     const type = params.parkType.trim();
@@ -75,14 +68,11 @@ export const useSubmit = () => {
     }
 
     if (submitRequestRef.current) {
-      console.log('[useSubmit] 提交请求已在处理中，直接返回');
       return { success: false, error: '提交请求已在处理中' };
     }
 
     submitRequestRef.current = true;
     setSubmitting(true);
-
-    console.log('[useSubmit] 准备发送 API 请求');
 
     try {
       const requestBody = ParkApplicationSubmitRequestSchema.parse({
@@ -99,25 +89,20 @@ export const useSubmit = () => {
         confirmedNearbyLocation: params.confirmedNearbyLocation,
         confirmedRejectedPark: params.confirmedRejectedPark,
       });
-      console.log('[useSubmit] 请求体:', requestBody);
       await requestWithSchema(
         apiClient.post('/api/park-applications', requestBody, { timeout: 5000 }),
         ApplicationDetailDataSchema
       ); // 5秒超时
 
-      console.log('[useSubmit] API 请求成功');
       return { success: true };
     } catch (err: unknown) {
-      console.error('[useSubmit] API 请求失败:', err);
+      console.error(err);
       const errorMessage = getApiErrorMessage(err, '提交失败，请检查网络后重试');
       const errorDetails = getApiErrorDetails(err);
-      console.log('[useSubmit] 错误信息:', errorMessage);
-      console.log('[useSubmit] 错误详情:', errorDetails);
       return { success: false, error: errorMessage, errorDetails };
     } finally {
       submitRequestRef.current = false;
       setSubmitting(false);
-      console.log('[useSubmit] handleSubmit 执行完成');
     }
   };
 
@@ -130,17 +115,5 @@ export const useSubmit = () => {
 export type SubmitResult = {
   success: boolean;
   error?: string;
-  errorDetails?: {
-    code?: string;
-    details?: {
-      similarParks?: Array<{ id: number; name: string }>;
-      nearbyParks?: Array<{ id: number; name: string }>;
-      existingPark?: {
-        id: number;
-        name: string;
-        status: string;
-      };
-      allowRetry?: boolean;
-    };
-  };
+  errorDetails?: ApiErrorDetails;
 };

@@ -12,6 +12,27 @@ export type ApiErrorData = {
     };
     allowRetry?: boolean;
   };
+  // 兼容嵌套格式：data 字段可能包含 details
+  data?: {
+    similarParks?: Array<{ id: number; name: string }>;
+    nearbyParks?: Array<{ id: number; name: string }>;
+    existingPark?: {
+      id: number;
+      name: string;
+      status: string;
+    };
+    allowRetry?: boolean;
+    details?: {
+      similarParks?: Array<{ id: number; name: string }>;
+      nearbyParks?: Array<{ id: number; name: string }>;
+      existingPark?: {
+        id: number;
+        name: string;
+        status: string;
+      };
+      allowRetry?: boolean;
+    };
+  };
 };
 
 type ApiErrorResponse = {
@@ -32,7 +53,27 @@ export function getApiErrorMessage(err: unknown, fallback = '请求失败') {
 }
 
 // 获取完整的 API 错误详情
-export function getApiErrorDetails(err: unknown) {
+export type ApiErrorDetails = {
+  code?: string;
+  details?: {
+    similarParks?: Array<{ id: number; name: string }>;
+    nearbyParks?: Array<{ id: number; name: string }>;
+    existingPark?: {
+      id: number;
+      name: string;
+      status: string;
+    };
+    allowRetry?: boolean;
+  };
+  // 兼容旧格式：details 可能直接是 existingPark 对象
+  existingPark?: {
+    id: number;
+    name: string;
+    status: string;
+  };
+};
+
+export function getApiErrorDetails(err: unknown): ApiErrorDetails {
   const e = err as Error & {
     isBusinessError?: boolean;
     code?: number | string;
@@ -93,8 +134,8 @@ export function getApiErrorDetails(err: unknown) {
   }
   
   // 情况3：直接返回错误对象的 code 和 message
-  return { 
-    code: e.code || 'UNKNOWN_ERROR', 
-    details: { message: e.message } 
+  return {
+    code: typeof e.code === 'string' ? e.code : 'UNKNOWN_ERROR',
+    details: undefined,
   };
 }

@@ -259,11 +259,9 @@ function AddPark() {
 
   // 处理提交
   const handleFormSubmit = async () => {
-    console.log('[index.tsx] handleFormSubmit 开始执行');
     setError(null);
 
     try {
-      console.log('[index.tsx] 调用 handleSubmit');
       const result = await handleSubmit({
         parkName,
         parkType: resolveParkTypeId(parkType),
@@ -277,25 +275,18 @@ function AddPark() {
         confirmed,
       });
 
-      console.log('[index.tsx] handleSubmit 返回结果:', result);
-
       if (result.success) {
-        console.log('[index.tsx] 提交成功，清除表单状态并跳转');
         // 清除保存的表单状态
         clearFormState();
         // 跳转到"我的上传"，让用户立刻看到已提交的申请
         navigate('/my-uploads');
       } else {
-        console.log('[index.tsx] 提交失败，处理错误信息');
         // 处理错误信息，检查是否为特定限制类型
         const errorMessage = result.error || '提交失败，请重试';
 
         // 检查是否包含公园名称相关错误
         const errorCode = result.errorDetails?.code;
         const isDuplicateNameError = errorCode?.startsWith('DUPLICATE_NAME');
-
-        console.log('[index.tsx] 错误代码:', errorCode);
-        console.log('[index.tsx] 是否为重复名称错误:', isDuplicateNameError);
 
         if (isDuplicateNameError) {
           // 获取错误详情
@@ -324,7 +315,6 @@ function AddPark() {
             // 如果允许重试（拒绝状态），设置确认动作
             if (allowRetry) {
               const confirmAction = async () => {
-                console.log('[index.tsx] 用户确认已拒绝公园，准备重新提交');
                 // 用户确认后，带确认字段重新提交
                 const result = await handleSubmit({
                   parkName,
@@ -339,8 +329,6 @@ function AddPark() {
                   confirmed,
                   confirmedRejectedPark: true,
                 });
-
-                console.log('[index.tsx] 确认后重新提交结果:', result);
 
                 if (result.success) {
                   clearFormState();
@@ -377,7 +365,6 @@ function AddPark() {
         }
         // 检查是否包含公园名称相似度高错误
         else if (errorCode === 'SIMILAR_NAME' || errorMessage.includes('公园名称相似度高')) {
-          console.log('[index.tsx] 检测到公园名称相似度高错误');
           // 尝试解析错误中的公园列表
           let parkList: { id: number; name: string }[] = [];
           try {
@@ -388,15 +375,12 @@ function AddPark() {
             // 解析失败，使用空列表
           }
 
-          console.log('[index.tsx] 相似公园列表:', parkList);
-
           setDialogType('warning');
           setDialogTitle('警告');
           setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
           setDialogParkList(parkList);
           setDialogParkListTitle('相似公园列表');
           const confirmAction = async () => {
-            console.log('[index.tsx] 用户确认相似名称，准备重新提交');
             // 用户确认后，带确认字段重新提交
             const result = await handleSubmit({
               parkName,
@@ -412,8 +396,6 @@ function AddPark() {
               confirmedNameSimilarity: true,
             });
 
-            console.log('[index.tsx] 确认后重新提交结果:', result);
-
             if (result.success) {
               clearFormState();
               navigate('/my-uploads');
@@ -426,7 +408,6 @@ function AddPark() {
         }
         // 检查是否包含公园距离过近错误
         else if (errorCode === 'NEARBY_LOCATION' || errorMessage.includes('公园距离过近')) {
-          console.log('[index.tsx] 检测到公园距离过近错误');
           // 尝试解析错误中的公园列表
           let parkList: { id: number; name: string }[] = [];
           try {
@@ -437,15 +418,12 @@ function AddPark() {
             // 解析失败，使用空列表
           }
 
-          console.log('[index.tsx] 附近公园列表:', parkList);
-
           setDialogType('warning');
           setDialogTitle('警告');
           setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
           setDialogParkList(parkList);
           setDialogParkListTitle('附近公园列表');
           const confirmAction = async () => {
-            console.log('[index.tsx] 用户确认附近位置，准备重新提交');
             // 用户确认后，带确认字段重新提交
             const result = await handleSubmit({
               parkName,
@@ -460,8 +438,6 @@ function AddPark() {
               confirmed,
               confirmedNearbyLocation: true,
             });
-
-            console.log('[index.tsx] 确认后重新提交结果:', result);
 
             if (result.success) {
               clearFormState();
