@@ -2,7 +2,16 @@ export type ApiErrorData = {
   message?: unknown;
   error?: unknown;
   code?: string;
-  details?: any;
+  details?: {
+    similarParks?: Array<{ id: number; name: string }>;
+    nearbyParks?: Array<{ id: number; name: string }>;
+    existingPark?: {
+      id: number;
+      name: string;
+      status: string;
+    };
+    allowRetry?: boolean;
+  };
 };
 
 type ApiErrorResponse = {
@@ -27,7 +36,9 @@ export function getApiErrorDetails(err: unknown) {
   const e = err as Error & {
     isBusinessError?: boolean;
     code?: number | string;
-    response?: any;
+    response?: {
+      data?: ApiErrorData;
+    };
   };
   
   // 情况1：如果是业务错误（App.tsx 拦截器处理后的格式）
@@ -49,6 +60,10 @@ export function getApiErrorDetails(err: unknown) {
         else if ('details' in responseData.data) {
           details = responseData.data.details;
         }
+        // 否则直接使用 data 作为 details（如 SIMILAR_NAME 错误的 similarParks）
+        else {
+          details = responseData.data;
+        }
       }
       
       return { code, details };
@@ -67,6 +82,10 @@ export function getApiErrorDetails(err: unknown) {
       }
       else if ('details' in responseData.data) {
         details = responseData.data.details;
+      }
+      // 否则直接使用 data 作为 details（如 SIMILAR_NAME 错误的 similarParks）
+      else {
+        details = responseData.data;
       }
     }
     
