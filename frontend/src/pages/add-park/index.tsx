@@ -21,6 +21,8 @@ import Pinyin from 'pinyin-match';
 
 import parkTypeMappingData from '../../../../shared/park_type_mapping.json';
 import regionData from '../../../../shared/region.json';
+import { ApplicationDetailDataSchema } from '../../../../shared/schemas/parkApplication';
+import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { MapContainer, Marker, useMap } from 'react-leaflet';
 import { UnifiedTileLayer } from '../../components/UnifiedTileLayer';
 import 'leaflet/dist/leaflet.css';
@@ -32,8 +34,10 @@ import { useFormState, clearFormState } from './useFormState';
 import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
+import type { ParkApplicationDetail } from '../../types/parkApplication';
 
 import AlertDialog from '../../components/AlertDialog';
+import { ParkApplicationDetailDialog } from '../../components/ParkApplicationDetailDialog';
 
 // 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -155,6 +159,11 @@ function AddPark() {
   const [dialogParkListTitle, setDialogParkListTitle] = useState('');
   const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
 
+  // 公园详情对话框状态管理
+  const [selectedPark, setSelectedPark] = useState<ParkApplicationDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
   const provinces = useMemo(() => regionData as Province[], []);
 
   // 从表单状态获取各个值
@@ -255,6 +264,24 @@ function AddPark() {
   const handleDialogCancel = () => {
     setDialogOpen(false);
     setDialogConfirmAction(null);
+  };
+
+  // 处理公园点击 - 显示详情对话框
+  const handleParkClick = async (parkId: number) => {
+    setSelectedPark(null);
+    setDetailError(null);
+    try {
+      setDetailLoading(true);
+      const payload = await requestWithSchema(
+        apiClient.get(`/api/park-applications/${parkId}`),
+        ApplicationDetailDataSchema
+      );
+      setSelectedPark(payload.application ?? null);
+    } catch (e: unknown) {
+      setDetailError((e as Error).message || '获取申请详情失败');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   // 处理提交
@@ -780,9 +807,20 @@ function AddPark() {
         parkListTitle={dialogParkListTitle}
         onCancel={handleDialogCancel}
         onConfirm={dialogConfirmAction || undefined}
+        onParkClick={handleParkClick}
         confirmButtonText={dialogType === 'error' ? '确定' : '确认提交'}
         cancelButtonText="取消"
         showCancelButton={dialogType !== 'error'}
+      />
+
+      {/* 公园详情对话框 */}
+      <ParkApplicationDetailDialog
+        open={!!selectedPark}
+        onClose={() => setSelectedPark(null)}
+        application={selectedPark}
+        loading={detailLoading}
+        error={detailError}
+        mode="detail"
       />
     </>
   );

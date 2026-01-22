@@ -8,7 +8,6 @@ import {
   Button,
   Typography,
   Box,
-  Link,
 } from '@mui/material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -29,6 +28,7 @@ export type AlertDialogProps = {
   parkListTitle?: string;
   onCancel: () => void;
   onConfirm?: () => void;
+  onParkClick?: (parkId: number) => void;
   confirmButtonText?: string;
   cancelButtonText?: string;
   showCancelButton?: boolean;
@@ -43,12 +43,14 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
   parkListTitle,
   onCancel,
   onConfirm,
+  onParkClick,
   confirmButtonText = '确认',
   cancelButtonText = '取消',
   showCancelButton = true,
 }) => {
   const isError = type === 'error';
   const hasConfirmButton = onConfirm !== undefined;
+  const hasParkClick = onParkClick !== undefined;
   
   return (
     <Dialog
@@ -110,20 +112,18 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
                   borderBottom: index < parkList.length - 1 ? '1px solid' : 'none',
                   borderBottomColor: 'divider',
                 }}>
-                  <Link
-                    href={`/park/${park.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{ 
-                      textDecoration: 'none',
+                  <Typography
+                    onClick={() => onParkClick?.(park.id)}
+                    sx={{
+                      cursor: hasParkClick ? 'pointer' : 'default',
                       color: 'primary.main',
-                      '&:hover': {
+                      '&:hover': hasParkClick ? {
                         textDecoration: 'underline',
-                      },
+                      } : {},
                     }}
                   >
                     {park.name}
-                  </Link>
+                  </Typography>
                 </Box>
               ))}
             </Box>
