@@ -1,5 +1,7 @@
 // shared/schemas/parkType.ts
 
+import parkTypeMapping from '../park_type_mapping.json';
+
 /**
  * 中英文对照的公园类型映射
  */
@@ -44,3 +46,14 @@ export interface ParkTypeMapping {
   pota_only_types?: PotaOnlyType[];
   default_pota_type: DefaultPotaType;
 }
+
+/**
+ * 公园类型 UUID 到 "中文+英文" 的映射
+ */
+export const PARK_TYPE_MAP = new Map<string, string>(
+  [
+    ...parkTypeMapping.chinese_to_english,
+    ...(parkTypeMapping.pota_only_types || []),
+    parkTypeMapping.default_pota_type,
+  ].map((item) => [item.id, `${item.chineseName} ${item.englishName}`])
+);

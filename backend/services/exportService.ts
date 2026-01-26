@@ -4,6 +4,7 @@ import { create } from 'xmlbuilder2';
 import AdmZip from 'adm-zip';
 import { writeToString } from 'fast-csv';
 import regionMapping from '../../shared/region.json';
+import { PARK_TYPE_MAP } from '../../shared/schemas/parkType';
 import type { ExportAuditLog } from '../../shared/schemas/export';
 
 const REGION_BY_ISO = new Map(regionMapping.map((item) => [item.code, item.name]));
@@ -86,6 +87,11 @@ const formatTimeToUTC8 = (timeStr: string | null): string | null => {
   }
 };
 
+const formatParkType = (parkType: string | null): string => {
+  if (!parkType) return '';
+  return PARK_TYPE_MAP.get(parkType) || parkType;
+};
+
 const getAllParks = async (): Promise<ParkExportData[]> => {
   const parks = await getMany(`
     SELECT 
@@ -143,7 +149,7 @@ export const exportToCSV = async (userId: number): Promise<Buffer> => {
     '公园申请 id': park.id,
     '公园名称': park.park_name,
     '公园经纬度': `${park.latitude},${park.longitude}`,
-    '公园类型': park.park_type || '',
+    '公园类型': formatParkType(park.park_type),
     '省份': formatProvinces(park.provinces),
     '公园描述': park.description || '',
     '访问方法': formatAccessMethods(park.access_methods),
@@ -179,14 +185,14 @@ export const exportToKMZ = async (userId: number): Promise<Buffer> => {
   parks.forEach(park => {
     const placemark = folder.ele('Placemark');
     placemark.ele('name').txt(park.park_name);
-    placemark.ele('Point').txt(`${park.longitude},${park.latitude},0`);
+    placemark.ele('Point').ele('coordinates').txt(`${park.longitude},${park.latitude},0`);
 
     const extendedData = placemark.ele('ExtendedData');
 
     extendedData.ele('Data', { name: 'parkId' }).txt(park.id.toString());
     extendedData.ele('Data', { name: 'parkName' }).txt(park.park_name);
     extendedData.ele('Data', { name: 'coordinates' }).txt(`${park.latitude},${park.longitude}`);
-    extendedData.ele('Data', { name: 'parkType' }).txt(park.park_type || '');
+    extendedData.ele('Data', { name: 'parkType' }).txt(formatParkType(park.park_type));
     extendedData.ele('Data', { name: 'province' }).txt(formatProvinces(park.provinces));
     extendedData.ele('Data', { name: 'description' }).txt(park.description || '');
     extendedData.ele('Data', { name: 'accessMethods' }).txt(formatAccessMethods(park.access_methods));
