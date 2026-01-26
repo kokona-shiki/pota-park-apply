@@ -29,9 +29,11 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
 import { useAuth } from '../auth/useAuth';
+import { usePermission } from '../hooks/usePermission';
 
 interface SideBarProps {
   isOpen: boolean;
@@ -46,6 +48,7 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const [potaMenuOpen, setPotaMenuOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const { user } = useAuth();
+  const { hasPermission: hasExportPermission } = usePermission('export_parks');
 
   // 系统管理员只能进行用户管理，不显示其他功能入口
 
@@ -110,12 +113,14 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                     <ListItemText primary="我的上传" />
                   </ListItemButton>
 
-                  <ListItemButton onClick={() => navigate('/export')}>
-                    <ListItemIcon>
-                      <DownloadIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="导出" />
-                  </ListItemButton>
+                  {hasExportPermission && (
+                    <ListItemButton onClick={() => navigate('/export')}>
+                      <ListItemIcon>
+                        <DownloadIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="导出" />
+                    </ListItemButton>
+                  )}
                 </>
               )}
 
@@ -132,6 +137,12 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                       <ListIcon />
                     </ListItemIcon>
                     <ListItemText primary="呼号变更申请" />
+                  </ListItemButton>
+                  <ListItemButton onClick={() => navigate('/export-audit-logs')}>
+                    <ListItemIcon>
+                      <ListAltIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="导出审计日志" />
                   </ListItemButton>
                 </>
               )}

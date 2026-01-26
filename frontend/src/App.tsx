@@ -20,6 +20,7 @@ import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import PotaSyncLogs from './pages/PotaSyncLogs';
 import ParkTypeAlignment from './pages/ParkTypeAlignment';
+import ExportAuditLogs from './pages/ExportAuditLogs';
 import { z } from 'zod';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from './services/apiClient';
@@ -860,6 +861,14 @@ function App() {
                   <RequirePotaPermission>
                     <ParkTypeAlignment />
                   </RequirePotaPermission>
+                }
+              />
+              <Route
+                path="/export-audit-logs"
+                element={
+                  <RequireSysAdmin>
+                    <ExportAuditLogs />
+                  </RequireSysAdmin>
                 }
               />
             </Routes>
