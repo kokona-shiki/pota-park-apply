@@ -569,7 +569,7 @@ export const migrateSchemaToLatest = async () => {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
     const v = schemaVersion?.value;
 
-    if (!v || v === '9') {
+    if (!v || v === '10') {
       return;
     }
 
@@ -747,6 +747,46 @@ export const migrateSchemaToLatest = async () => {
       `);
 
       console.log('✅ schema 迁移完成（schema_version=9）');
+      return;
+    }
+
+    if (v === '9') {
+      console.log('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS export_audit_logs (
+          id SERIAL PRIMARY KEY,
+          file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('csv', 'kmz')),
+          park_count INTEGER NOT NULL,
+          exported_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          exported_by_callsign VARCHAR(50),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await query(`
+        INSERT INTO permissions (permission_code, description)
+        VALUES ('export_parks', '导出公园数据权限')
+        ON CONFLICT (permission_code) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO role_permissions (role, permission_id)
+        SELECT 'pota_representative', p.id
+        FROM permissions p
+        WHERE p.permission_code = 'export_parks'
+        ON CONFLICT (role, permission_id) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '10')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=10）');
       return;
     }
 

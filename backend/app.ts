@@ -11,6 +11,7 @@ import provinceRoutes from './routes/provinceRoutes.js';
 import potaRoutes from './routes/potaRoutes.js';
 import potaImportRoutes from './routes/potaImportRoutes.js';
 import potaSyncLogRoutes from './routes/potaSyncLogRoutes.js';
+import exportRoutes from './routes/exportRoutes.js';
 import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
@@ -94,6 +95,7 @@ app.use(provinceRoutes);
 app.use(potaRoutes);
 app.use(potaImportRoutes);
 app.use(potaSyncLogRoutes);
+app.use(exportRoutes);
 
 // 404 处理
 app.use('*', (_req, res) => {

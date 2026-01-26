@@ -44,7 +44,10 @@ const init = async () => {
           );
 
           if (schemaVersion?.value === '9') {
-            console.log('✅ 检测到数据库已初始化（schema_version=9），仅确保初始系统管理员存在...');
+            console.log(
+              '✅ 检测到数据库已初始化（schema_version=9），执行迁移并确保初始系统管理员存在...'
+            );
+            await migrateSchemaToLatest();
             await ensureInitialSystemAdmin();
             console.log('🎉 数据库检查完成！');
             return;
