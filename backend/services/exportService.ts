@@ -54,6 +54,7 @@ type ParkExportData = {
   pota_synced_by_callsign: string | null;
   pota_id: string | null;
   pota_notes: string | null;
+  is_pota_imported: boolean;
 };
 
 const formatAccessMethods = (methods: string[]): string => {
@@ -114,7 +115,12 @@ const getAllParks = async (): Promise<ParkExportData[]> => {
       pa.pota_synced_by,
       u2.callsign as pota_synced_by_callsign,
       pa.pota_id,
-      pa.pota_notes
+      pa.pota_notes,
+      EXISTS (
+        SELECT 1 FROM application_audit_logs aal
+        WHERE aal.application_id = pa.id
+        AND aal.action = 'pota_imported'
+      ) as is_pota_imported
     FROM park_applications pa
     LEFT JOIN users u ON pa.applicant_id = u.id
     LEFT JOIN users u2 ON pa.pota_synced_by = u2.id
@@ -163,6 +169,7 @@ export const exportToCSV = async (userId: number): Promise<Buffer> => {
     '同步到 POTA 的时间': formatTimeToUTC8(park.pota_synced_at) || '',
     '同步到 POTA 的操作员 ID': park.pota_synced_by || '',
     '同步到 POTA 的操作员呼号': park.pota_synced_by_callsign || '',
+    '是否从 POTA 导入': park.is_pota_imported ? '是' : '否',
     'POTA 公园 ID': park.pota_id || '',
     'POTA 备注': park.pota_notes || ''
   }));
@@ -206,6 +213,7 @@ export const exportToKMZ = async (userId: number): Promise<Buffer> => {
     extendedData.ele('Data', { name: 'potaSyncedAt' }).txt(formatTimeToUTC8(park.pota_synced_at) || '');
     extendedData.ele('Data', { name: 'potaSyncedById' }).txt(park.pota_synced_by?.toString() || '');
     extendedData.ele('Data', { name: 'potaSyncedByCallsign' }).txt(park.pota_synced_by_callsign || '');
+    extendedData.ele('Data', { name: 'isPotaImported' }).txt(park.is_pota_imported ? '是' : '否');
     extendedData.ele('Data', { name: 'potaId' }).txt(park.pota_id || '');
     extendedData.ele('Data', { name: 'potaNotes' }).txt(park.pota_notes || '');
   });

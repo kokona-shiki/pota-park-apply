@@ -111,7 +111,7 @@ export const createParkWithAudit = async (
     `,
       [
         newApplication.rows[0].id,
-        'pota_synced', // 动作是POTA同步
+        'pota_imported', // 动作是POTA导入
         operatorId, // 操作员ID
         operatorRole, // 操作员角色
         null, // 旧状态（新创建）

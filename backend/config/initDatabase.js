@@ -51,9 +51,10 @@ export const createTables = async () => {
     // 版本 4: 添加 POTA 认证相关表（pota_pkce, pota_tokens）
     // 版本 5: 添加用户级别的 POTA 加密盐值（pota_encryption_salt）
     // 版本 8: 添加 POTA 未处理公园表（pota_unprocessed_parks）
+    // 版本 11: 更新审核日志 action 从 'pota_synced' 到 'pota_imported'
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '8')
+      VALUES ('schema_version', '11')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -265,7 +266,7 @@ export const createTables = async () => {
         
         -- 操作信息
         action VARCHAR(50) NOT NULL
-          CHECK (action IN ('submitted', 'approved', 'rejected', 'reverted_approved', 'reverted_rejected', 'pota_synced')),
+          CHECK (action IN ('submitted', 'approved', 'rejected', 'reverted_approved', 'reverted_rejected', 'pota_imported')),
         
         -- 操作者信息
         operator_id INTEGER NOT NULL REFERENCES users(id),
@@ -787,6 +788,27 @@ export const migrateSchemaToLatest = async () => {
       `);
 
       console.log('✅ schema 迁移完成（schema_version=10）');
+      return;
+    }
+
+    if (v === '10') {
+      console.log('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
+
+      await query(`
+        UPDATE application_audit_logs
+        SET action = 'pota_imported'
+        WHERE action = 'pota_synced'
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '11')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=11）');
       return;
     }
 
