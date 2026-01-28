@@ -13,6 +13,8 @@ import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendHttpError, sendOk } from '../utils/response.js';
 import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/auth.js';
+import { generateCaptcha, verifyCaptcha } from '../services/captchaService.js';
+import * as emailVerificationService from '../services/emailVerificationService.js';
 
 const router = express.Router();
 
@@ -66,6 +68,79 @@ const authLimiter = rateLimit({
   message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试', data: null },
 });
 
+// 发送验证码限流（更严格）
+const sendCodeLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { code: 'RATE_LIMITED', message: '发送验证码过于频繁，请稍后再试', data: null },
+});
+
+// 生成图形验证码
+router.get('/api/captcha', (req, res) => {
+  const captcha = generateCaptcha();
+  res.type('svg');
+  res.send(captcha.svg);
+});
+
+// 发送邮箱验证码
+router.post('/api/send-verification-email', sendCodeLimiter, async (req, res) => {
+  try {
+    const { email, captchaId, captchaCode } = req.body;
+
+    if (!email || !captchaId || !captchaCode) {
+      return sendBizError(res, 'VALIDATION_ERROR', '邮箱和验证码不能为空', null);
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return sendBizError(res, 'INVALID_EMAIL', '邮箱格式不正确', null);
+    }
+
+    const isCaptchaValid = verifyCaptcha(captchaId, captchaCode);
+    if (!isCaptchaValid) {
+      return sendBizError(res, 'INVALID_CAPTCHA', '图形验证码错误或已过期', null);
+    }
+
+    const isCooldown = await emailVerificationService.checkSendCooldown(email);
+    if (isCooldown) {
+      const remaining = await emailVerificationService.getRemainingCooldown(email);
+      return sendBizError(res, 'SEND_COOLDOWN', `请等待 ${remaining} 秒后再试`, null);
+    }
+
+    await emailVerificationService.createVerificationToken(email);
+
+    return sendOk(res, null, '验证码已发送，请查收邮件');
+  } catch (error) {
+    console.error('发送验证码失败:', error);
+    return sendError(res, error, { bizCode: 'SEND_CODE_FAILED', bizMessage: '发送验证码失败' });
+  }
+});
+
+// 验证邮箱验证码
+router.post('/api/verify-email-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return sendBizError(res, 'VALIDATION_ERROR', '邮箱和验证码不能为空', null);
+    }
+
+    const isValid = await emailVerificationService.verifyEmailCode(email, code);
+
+    if (!isValid) {
+      await emailVerificationService.incrementAttempt(email);
+      return sendBizError(res, 'INVALID_CODE', '验证码错误或已过期', null);
+    }
+
+    return sendOk(res, null, '邮箱验证成功');
+  } catch (error) {
+    console.error('验证邮箱失败:', error);
+    return sendError(res, error, { bizCode: 'VERIFY_EMAIL_FAILED', bizMessage: '验证邮箱失败' });
+  }
+});
+
 // 用户注册（注册成功后需要重新登录，不自动签发 token）
 router.post('/api/register', authLimiter, async (req, res) => {
   try {
@@ -73,7 +148,13 @@ router.post('/api/register', authLimiter, async (req, res) => {
     if (!parsed.success) {
       return sendBizError(res, 'VALIDATION_ERROR', '邮箱、呼号和密码不能为空', null);
     }
-    const { email, callsign, password } = parsed.data;
+    const { email, callsign, password, verificationCode } = parsed.data;
+
+    const isEmailVerified = await emailVerificationService.verifyEmailCode(email, verificationCode);
+    if (!isEmailVerified) {
+      await emailVerificationService.incrementAttempt(email);
+      return sendBizError(res, 'EMAIL_NOT_VERIFIED', '邮箱验证码错误或已过期', null);
+    }
 
     const user = await userService.registerUser({ email, callsign, password });
 

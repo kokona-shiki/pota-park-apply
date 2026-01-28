@@ -21,6 +21,7 @@ export const RegisterRequestSchema = z.object({
   email: z.email(),
   callsign: z.string().min(1),
   password: z.string().min(1),
+  verificationCode: z.string().length(6),
 });
 
 export const AuthPayloadSchema = z.object({

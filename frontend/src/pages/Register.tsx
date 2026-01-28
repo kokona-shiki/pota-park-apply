@@ -1,6 +1,6 @@
 // src/pages/Register.tsx
-import { useState } from 'react';
-import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography, Box, CircularProgress } from '@mui/material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
@@ -10,18 +10,86 @@ function Register() {
   const [callsign, setCallsign] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaSvg, setCaptchaSvg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
 
+  const fetchCaptcha = async () => {
+    try {
+      const response = await fetch('/api/captcha');
+      const svg = await response.text();
+      setCaptchaSvg(svg);
+      setCaptchaCode('');
+      const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      setCaptchaId(newId);
+    } catch (err) {
+      console.error('获取验证码失败:', err);
+    }
+  };
+
+  const handleSendVerificationCode = async () => {
+    setError(null);
+    setSuccess(null);
+
+    if (!email) {
+      setError('请先输入邮箱地址');
+      return;
+    }
+
+    if (!captchaCode) {
+      setError('请输入图形验证码');
+      return;
+    }
+
+    setSendingCode(true);
+
+    try {
+      const response = await apiClient.post('/api/send-verification-email', {
+        email,
+        captchaId,
+        captchaCode,
+      });
+
+      if (response.data.code === 'SUCCESS') {
+        setSuccess('验证码已发送，请查收邮件');
+        setCooldown(60);
+        const timer = setInterval(() => {
+          setCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setError(response.data.message || '发送验证码失败');
+        fetchCaptcha();
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, '发送验证码失败'));
+      fetchCaptcha();
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     setError(null);
+    setSuccess(null);
     setSubmitting(true);
 
-    const requestBody = RegisterRequestSchema.parse({ callsign, email, password });
+    const requestBody = RegisterRequestSchema.parse({ callsign, email, password, verificationCode });
 
     requestWithSchema(apiClient.post('/api/register', requestBody), UserInfoDataSchema)
       .then(() => {
@@ -29,11 +97,16 @@ function Register() {
       })
       .catch((err) => {
         setError(getApiErrorMessage(err, '注册失败'));
+        fetchCaptcha();
       })
       .finally(() => {
         setSubmitting(false);
       });
   };
+
+  useEffect(() => {
+    fetchCaptcha();
+  }, []);
 
   return (
     <Container
@@ -62,6 +135,12 @@ function Register() {
           </Alert>
         )}
 
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
@@ -79,6 +158,30 @@ function Register() {
             sx={{ mt: 2 }}
             autoComplete="email"
           />
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <TextField
+              fullWidth
+              label="邮箱验证码"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              helperText="请输入邮箱收到的6位验证码"
+              autoComplete="one-time-code"
+            />
+            <Button
+              variant="outlined"
+              onClick={handleSendVerificationCode}
+              disabled={sendingCode || cooldown > 0 || !email}
+              sx={{ minWidth: 120, mt: 0.5 }}
+            >
+              {sendingCode ? (
+                <CircularProgress size={20} />
+              ) : cooldown > 0 ? (
+                `${cooldown}s`
+              ) : (
+                '发送验证码'
+              )}
+            </Button>
+          </Box>
           <TextField
             fullWidth
             label="密码"
@@ -89,8 +192,32 @@ function Register() {
             helperText="至少 8 位，建议包含大小写字母、数字与符号"
             autoComplete="new-password"
           />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+            <Box
+              sx={{
+                width: 120,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #ccc',
+                borderRadius: 1,
+                cursor: 'pointer',
+              }}
+              onClick={fetchCaptcha}
+              dangerouslySetInnerHTML={{ __html: captchaSvg }}
+            />
+            <TextField
+              fullWidth
+              label="图形验证码"
+              value={captchaCode}
+              onChange={(e) => setCaptchaCode(e.target.value)}
+              helperText="点击图片刷新"
+              autoComplete="off"
+            />
+          </Box>
 
-          <Button fullWidth variant="contained" type="submit" sx={{ mt: 2 }} disabled={submitting}>
+          <Button fullWidth variant="contained" type="submit" sx={{ mt: 3 }} disabled={submitting}>
             {submitting ? '注册中...' : '注册'}
           </Button>
         </form>

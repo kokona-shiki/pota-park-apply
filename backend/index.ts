@@ -5,7 +5,13 @@ import { testConnection } from './config/database.js';
 import { getMapProvider } from './config/proxyConfig.js';
 import scheduler from './utils/scheduler.js';
 
-dotenv.config();
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config({ path: join(__dirname, '../.env') });
 
 const PORT = process.env.PORT || 3101;
 
