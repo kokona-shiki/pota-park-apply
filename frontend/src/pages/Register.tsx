@@ -1,6 +1,23 @@
 // src/pages/Register.tsx
 import { useState, useEffect, useRef } from 'react';
-import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography, Box, CircularProgress } from '@mui/material';
+import {
+  Alert,
+  Avatar,
+  Button,
+  Container,
+  Divider,
+  IconButton,
+  InputAdornment,
+  Link,
+  Paper,
+  TextField,
+  Typography,
+  Box,
+  CircularProgress
+} from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
@@ -10,6 +27,7 @@ function Register() {
   const [callsign, setCallsign] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [captchaCode, setCaptchaCode] = useState('');
   const [captchaId, setCaptchaId] = useState('');
@@ -23,6 +41,8 @@ function Register() {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const stripBlankChars = (v: string) => v.replace(/\s+/g, '');
 
   const fetchCaptcha = async () => {
     try {
@@ -183,51 +203,109 @@ function Register() {
             fullWidth
             label="呼号"
             value={callsign}
-            onChange={(e) => setCallsign(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === ' ') e.preventDefault();
+            }}
+            onChange={(e) => setCallsign(stripBlankChars(e.target.value))}
             helperText="建议使用大写字母 + 数字，例如：BH1ABC"
             autoComplete="nickname"
+            InputProps={
+              callsign.length > 0
+                ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="清空"
+                          onClick={() => setCallsign('')}
+                          edge="end"
+                          size="small"
+                          tabIndex={-1}
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                : undefined
+            }
           />
           <TextField
             fullWidth
             label="邮箱"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === ' ') e.preventDefault();
+            }}
+            onChange={(e) => setEmail(stripBlankChars(e.target.value))}
             sx={{ mt: 2 }}
             autoComplete="email"
+            InputProps={
+              email.length > 0
+                ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="清空"
+                          onClick={() => setEmail('')}
+                          edge="end"
+                          size="small"
+                          tabIndex={-1}
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                : undefined
+            }
           />
-          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-            <TextField
-              fullWidth
-              label="邮箱验证码"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              helperText="请输入邮箱收到的6位验证码"
-              autoComplete="one-time-code"
-            />
-            <Button
-              variant="outlined"
-              onClick={handleSendVerificationCode}
-              disabled={sendingCode || cooldown > 0 || !email}
-              sx={{ minWidth: 120, mt: 0.5 }}
-            >
-              {sendingCode ? (
-                <CircularProgress size={20} />
-              ) : cooldown > 0 ? (
-                `${cooldown}s`
-              ) : (
-                '发送验证码'
-              )}
-            </Button>
-          </Box>
           <TextField
             fullWidth
             label="密码"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === ' ') e.preventDefault();
+            }}
+            onChange={(e) => {
+              const next = stripBlankChars(e.target.value);
+              setPassword(next);
+              if (next.length === 0) setShowPassword(false);
+            }}
             sx={{ mt: 2 }}
             helperText="至少 8 位，建议包含大小写字母、数字与符号"
             autoComplete="new-password"
+            InputProps={
+              password.length > 0
+                ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                          onClick={() => setShowPassword((v) => !v)}
+                          edge="end"
+                          size="small"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                        </IconButton>
+                        <IconButton
+                          aria-label="清空密码"
+                          onClick={() => {
+                            setPassword('');
+                            setShowPassword(false);
+                          }}
+                          edge="end"
+                          size="small"
+                          tabIndex={-1}
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                : undefined
+            }
           />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
             <Box
@@ -248,10 +326,78 @@ function Register() {
               fullWidth
               label="图形验证码"
               value={captchaCode}
-              onChange={(e) => setCaptchaCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === ' ') e.preventDefault();
+              }}
+              onChange={(e) => setCaptchaCode(stripBlankChars(e.target.value))}
               helperText="点击图片刷新"
               autoComplete="off"
+              InputProps={
+                captchaCode.length > 0
+                  ? {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="清空"
+                            onClick={() => setCaptchaCode('')}
+                            edge="end"
+                            size="small"
+                            tabIndex={-1}
+                          >
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  : undefined
+              }
             />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <TextField
+              fullWidth
+              label="邮箱验证码"
+              value={verificationCode}
+              onKeyDown={(e) => {
+                if (e.key === ' ') e.preventDefault();
+              }}
+              onChange={(e) => setVerificationCode(stripBlankChars(e.target.value))}
+              helperText="请输入邮箱收到的6位验证码"
+              autoComplete="one-time-code"
+              InputProps={
+                verificationCode.length > 0
+                  ? {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="清空"
+                            onClick={() => setVerificationCode('')}
+                            edge="end"
+                            size="small"
+                            tabIndex={-1}
+                          >
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  : undefined
+              }
+            />
+            <Button
+              variant="outlined"
+              onClick={handleSendVerificationCode}
+              disabled={sendingCode || cooldown > 0 || !email}
+              sx={{ minWidth: 120, mt: 0.5 }}
+            >
+              {sendingCode ? (
+                <CircularProgress size={20} />
+              ) : cooldown > 0 ? (
+                `${cooldown}s`
+              ) : (
+                '发送验证码'
+              )}
+            </Button>
           </Box>
 
           <Button fullWidth variant="contained" type="submit" sx={{ mt: 3 }} disabled={submitting}>
