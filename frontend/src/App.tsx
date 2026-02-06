@@ -603,8 +603,9 @@ function App() {
       const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
       const isRefreshRequest = url.includes('/api/refresh-token');
       const isLogoutRequest = url.includes('/api/logout');
+      const isPublicRequest = url.includes('/api/send-verification-email') || url.includes('/api/captcha');
 
-      if (isAuthRequest || isRefreshRequest || isLogoutRequest) {
+      if (isAuthRequest || isRefreshRequest || isLogoutRequest || isPublicRequest) {
         return config;
       }
 
@@ -674,8 +675,9 @@ function App() {
 
         const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
         const isRefreshRequest = url.includes('/api/refresh-token');
+        const isPublicRequest = url.includes('/api/send-verification-email') || url.includes('/api/captcha');
 
-        if (status !== 401 || isAuthRequest || isRefreshRequest) {
+        if (status !== 401 || isAuthRequest || isRefreshRequest || isPublicRequest) {
           return Promise.reject(err);
         }
 

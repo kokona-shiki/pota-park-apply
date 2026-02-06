@@ -27,10 +27,12 @@ function Register() {
     try {
       const response = await fetch('/api/captcha');
       const svg = await response.text();
+      const captchaId = response.headers.get('X-Captcha-Id');
       setCaptchaSvg(svg);
       setCaptchaCode('');
-      const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      setCaptchaId(newId);
+      if (captchaId) {
+        setCaptchaId(captchaId);
+      }
     } catch (err) {
       console.error('获取验证码失败:', err);
     }
@@ -59,22 +61,17 @@ function Register() {
         captchaCode,
       });
 
-      if (response.data.code === 'SUCCESS') {
-        setSuccess('验证码已发送，请查收邮件');
-        setCooldown(60);
-        const timer = setInterval(() => {
-          setCooldown((prev) => {
-            if (prev <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      } else {
-        setError(response.data.message || '发送验证码失败');
-        fetchCaptcha();
-      }
+      setSuccess('验证码已发送，请查收邮件');
+      setCooldown(60);
+      const timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err) {
       setError(getApiErrorMessage(err, '发送验证码失败'));
       fetchCaptcha();
@@ -87,6 +84,42 @@ function Register() {
     e?.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (!callsign) {
+      setError('请输入呼号');
+      return;
+    }
+
+    if (!email) {
+      setError('请输入邮箱地址');
+      return;
+    }
+
+    if (!password) {
+      setError('请输入密码');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('密码至少需要 8 位');
+      return;
+    }
+
+    if (!verificationCode) {
+      setError('请输入邮箱验证码');
+      return;
+    }
+
+    if (verificationCode.length !== 6) {
+      setError('邮箱验证码必须是 6 位数字');
+      return;
+    }
+
+    if (!captchaCode) {
+      setError('请输入图形验证码');
+      return;
+    }
+
     setSubmitting(true);
 
     const requestBody = RegisterRequestSchema.parse({ callsign, email, password, verificationCode });

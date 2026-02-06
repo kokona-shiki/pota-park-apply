@@ -81,6 +81,7 @@ const sendCodeLimiter = rateLimit({
 router.get('/api/captcha', (req, res) => {
   const captcha = generateCaptcha();
   res.type('svg');
+  res.setHeader('X-Captcha-Id', captcha.id);
   res.send(captcha.svg);
 });
 
