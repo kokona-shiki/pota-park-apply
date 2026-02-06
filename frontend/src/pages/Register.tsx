@@ -1,5 +1,5 @@
 // src/pages/Register.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Alert, Avatar, Button, Container, Divider, Link, Paper, TextField, Typography, Box, CircularProgress } from '@mui/material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
@@ -19,6 +19,7 @@ function Register() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const hasFetchedCaptcha = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,7 +56,7 @@ function Register() {
     setSendingCode(true);
 
     try {
-      const response = await apiClient.post('/api/send-verification-email', {
+      await apiClient.post('/api/send-verification-email', {
         email,
         captchaId,
         captchaCode,
@@ -138,7 +139,10 @@ function Register() {
   };
 
   useEffect(() => {
-    fetchCaptcha();
+    if (!hasFetchedCaptcha.current) {
+      hasFetchedCaptcha.current = true;
+      fetchCaptcha();
+    }
   }, []);
 
   return (

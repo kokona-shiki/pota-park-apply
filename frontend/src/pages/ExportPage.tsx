@@ -16,6 +16,12 @@ import {
 } from '@mui/icons-material';
 import { apiClient } from '../services/apiClient';
 import { usePermission } from '../hooks/usePermission';
+import { safeParseJsonWithSchema } from '../utils/parseJson';
+import { z } from 'zod';
+
+const ErrorResponseSchema = z.object({
+  message: z.string(),
+});
 
 function ExportPage() {
   const { hasPermission } = usePermission('export_parks');
@@ -36,8 +42,8 @@ function ExportPage() {
       const contentType = response.headers['content-type'];
 
       if (contentType?.includes('application/json')) {
-        const errorData = JSON.parse(new TextDecoder().decode(response.data));
-        setError(errorData.message || '导出失败');
+        const errorData = safeParseJsonWithSchema(ErrorResponseSchema, new TextDecoder().decode(response.data));
+        setError(errorData?.message || '导出失败');
         setLoading(null);
         return;
       }
