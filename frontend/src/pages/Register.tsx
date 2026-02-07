@@ -388,7 +388,7 @@ function Register() {
               variant="outlined"
               onClick={handleSendVerificationCode}
               disabled={sendingCode || cooldown > 0 || !email}
-              sx={{ minWidth: 120, mt: 0.5 }}
+              sx={{ minWidth: 100, height: 56 }}
             >
               {sendingCode ? (
                 <CircularProgress size={20} />

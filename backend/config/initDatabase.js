@@ -605,7 +605,7 @@ export const migrateSchemaToLatest = async () => {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
     const v = schemaVersion?.value;
 
-    if (!v || v === '10') {
+    if (!v || v === '12') {
       return;
     }
 
