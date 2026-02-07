@@ -3,7 +3,7 @@ import { sendVerificationEmail } from './emailService.js';
 
 const CODE_EXPIRES_MINUTES = 30;
 const MAX_ATTEMPTS = 5;
-const SEND_COOLDOWN_SECONDS = 60;
+const SEND_COOLDOWN_SECONDS = parseInt(process.env.EMAIL_SEND_COOLDOWN_SECONDS || '180', 10);
 
 const generateCode = (): string => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();

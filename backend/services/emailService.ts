@@ -45,7 +45,7 @@ const generateEmailTemplate = (data: EmailVerificationData): string => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>验证您的 POTA Park Apply 账号</title>
+      <title>验证您的 POTA 中国公园录入系统账号</title>
       <style>
         body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -133,7 +133,7 @@ const generateEmailTemplate = (data: EmailVerificationData): string => {
           <p class="greeting">
             ${callsign ? `尊敬的 <strong>${callsign}</strong>，` : '您好，'}
           </p>
-          <p>感谢您注册 <strong>POTA Park Apply</strong>！</p>
+          <p>感谢您注册 <strong>POTA 中国公园录入系统</strong>！</p>
           
           <div class="code-container">
             <div class="code">${code}</div>
@@ -152,7 +152,7 @@ const generateEmailTemplate = (data: EmailVerificationData): string => {
         </div>
         <div class="footer">
           <p>此邮件由系统自动发送，请勿回复。</p>
-          <p>&copy; ${new Date().getFullYear()} POTA Park Apply. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} POTA 中国公园录入系统. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -165,9 +165,9 @@ export const sendVerificationEmail = async (data: EmailVerificationData): Promis
     const transporter = getTransporter();
 
     const mailOptions = {
-      from: `"POTA Park Apply" <${process.env.SMTP_USER}>`,
+      from: `"POTA 中国公园录入系统" <${process.env.SMTP_USER}>`,
       to: data.email,
-      subject: '验证您的 POTA Park Apply 账号',
+      subject: '验证您的 POTA 中国公园录入系统账号',
       html: generateEmailTemplate(data),
     };
 
