@@ -1,4 +1,3 @@
-// src/components/AlertDialog.tsx
 import React from 'react';
 import {
   Dialog,
@@ -29,6 +28,81 @@ export type AlertDialogProps = {
   showCancelButton?: boolean;
 };
 
+function getIcon(type: AlertDialogType) {
+  return type === 'error' ? (
+    <ErrorIcon sx={{ color: 'error.main', fontSize: 20 }} />
+  ) : (
+    <WarningIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+  );
+}
+
+function shouldShowParkList(parkList?: Array<{ id: number; name: string }>) {
+  return parkList !== undefined && parkList.length > 0;
+}
+
+function getDialogActions({
+  isError,
+  hasConfirmButton,
+  showCancelButton,
+  onCancel,
+  onConfirm,
+  confirmButtonText,
+  cancelButtonText,
+}: {
+  isError: boolean;
+  hasConfirmButton: boolean;
+  showCancelButton: boolean;
+  onCancel: () => void;
+  onConfirm?: () => void;
+  confirmButtonText: string;
+  cancelButtonText: string;
+}) {
+  return (
+    <>
+      {showCancelButton && (
+        <Button
+          onClick={onCancel}
+          variant="outlined"
+          sx={{
+            textTransform: 'none',
+            borderRadius: 0.5,
+          }}
+        >
+          {cancelButtonText}
+        </Button>
+      )}
+      {hasConfirmButton && (
+        <Button
+          onClick={onConfirm}
+          variant="contained"
+          color={isError ? 'error' : 'warning'}
+          autoFocus
+          sx={{
+            textTransform: 'none',
+            borderRadius: 0.5,
+          }}
+        >
+          {confirmButtonText}
+        </Button>
+      )}
+      {isError && !hasConfirmButton && (
+        <Button
+          onClick={onCancel}
+          variant="contained"
+          color="primary"
+          autoFocus
+          sx={{
+            textTransform: 'none',
+            borderRadius: 0.5,
+          }}
+        >
+          {confirmButtonText}
+        </Button>
+      )}
+    </>
+  );
+}
+
 const AlertDialog: React.FC<AlertDialogProps> = ({
   open,
   type,
@@ -46,6 +120,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
   const isError = type === 'error';
   const hasConfirmButton = onConfirm !== undefined;
   const hasParkClick = onParkClick !== undefined;
+  const showParkList = shouldShowParkList(parkList);
 
   return (
     <Dialog
@@ -66,22 +141,18 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
         fontWeight: 500,
         fontSize: '1.125rem',
       }}>
-        {isError ? (
-          <ErrorIcon sx={{ color: 'error.main', fontSize: 20 }} />
-        ) : (
-          <WarningIcon sx={{ color: 'warning.main', fontSize: 20 }} />
-        )}
+        {getIcon(type)}
         {title}
       </DialogTitle>
       <DialogContent sx={{ py: 2 }}>
         <Typography variant="body1" sx={{
           color: 'text.primary',
-          mb: parkList && parkList.length > 0 ? 2 : 0,
+          mb: showParkList ? 2 : 0,
         }}>
           {message}
         </Typography>
 
-        {parkList && parkList.length > 0 && (
+        {showParkList && (
           <ParkList
             parkList={parkList}
             parkListTitle={parkListTitle}
@@ -90,46 +161,15 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
         )}
       </DialogContent>
       <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-        {showCancelButton && (
-          <Button
-            onClick={onCancel}
-            variant="outlined"
-            sx={{
-              textTransform: 'none',
-              borderRadius: 0.5,
-            }}
-          >
-            {cancelButtonText}
-          </Button>
-        )}
-        {hasConfirmButton && (
-          <Button
-            onClick={onConfirm}
-            variant="contained"
-            color={isError ? 'error' : 'warning'}
-            autoFocus
-            sx={{
-              textTransform: 'none',
-              borderRadius: 0.5,
-            }}
-          >
-            {confirmButtonText}
-          </Button>
-        )}
-        {isError && !hasConfirmButton && (
-          <Button
-            onClick={onCancel}
-            variant="contained"
-            color="primary"
-            autoFocus
-            sx={{
-              textTransform: 'none',
-              borderRadius: 0.5,
-            }}
-          >
-            {confirmButtonText}
-          </Button>
-        )}
+        {getDialogActions({
+          isError,
+          hasConfirmButton,
+          showCancelButton,
+          onCancel,
+          onConfirm,
+          confirmButtonText,
+          cancelButtonText,
+        })}
       </DialogActions>
     </Dialog>
   );
