@@ -140,6 +140,12 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                     </ListItemIcon>
                     <ListItemText primary="用户管理" />
                   </ListItemButton>
+                  <ListItemButton onClick={() => navigate('/notifications')}>
+                    <ListItemIcon>
+                      <NotificationsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="通知中心" />
+                  </ListItemButton>
                   <ListItemButton onClick={() => setGlobalNotificationMenuOpen(!globalNotificationMenuOpen)}>
                     <ListItemIcon>
                       <NotificationsIcon />
@@ -186,6 +192,14 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
 
               {isPotaRepresentative && (
                 <>
+                  {isSysAdmin && (
+                    <ListItemButton onClick={() => navigate('/notifications')}>
+                      <ListItemIcon>
+                        <NotificationsIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="通知中心" />
+                    </ListItemButton>
+                  )}
                   <ListItemButton onClick={() => setPotaMenuOpen(!potaMenuOpen)}>
                     <ListItemIcon>
                       <SettingsIcon />
