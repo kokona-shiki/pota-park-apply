@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => {
   // 因此：开发环境放宽 `script-src`；生产环境的 CSP 建议由反代/部署平台统一下发。
   const csp =
     mode === 'development'
-      ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
-      : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
+      ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob: https://s3.amazonaws.com https://cdn-bio.qrz.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
+      : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:*; img-src 'self' data: blob: https://s3.amazonaws.com https://cdn-bio.qrz.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'self'"
 
   return {
     plugins: [react()],
