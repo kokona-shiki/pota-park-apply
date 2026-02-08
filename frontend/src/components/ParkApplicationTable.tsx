@@ -1,17 +1,12 @@
-// src/components/ParkApplicationTable.tsx
 import type { MouseEvent } from 'react';
 import {
   Box,
-  Button,
-  Chip,
-  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TablePagination,
   TableRow,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import type { ParkApplication, TableColumnConfig, Order, OrderBy } from '../types/parkApplication';
@@ -34,6 +29,41 @@ interface ParkApplicationTableProps {
   onReviewClick?: (app: ParkApplication) => void;
   emptyMessage?: string;
   searchQuery?: string;
+}
+
+function getColSpan(showApplicantCallsign: boolean, showActions: boolean) {
+  return 5 + (showApplicantCallsign ? 1 : 0) + (showActions ? 1 : 0);
+}
+
+function getOnReviewClick(
+  showReviewButton: boolean,
+  appStatus: string,
+  onReviewClick?: (app: ParkApplication) => void
+) {
+  return showReviewButton && appStatus === 'pending' ? onReviewClick : undefined;
+}
+
+function EmptyState({
+  colSpan,
+  emptyMessage,
+  searchQuery,
+}: {
+  colSpan: number;
+  emptyMessage: string;
+  searchQuery?: string;
+}) {
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} align="center" sx={{ py: 8 }}>
+        <Typography color="text.secondary">{emptyMessage}</Typography>
+        {searchQuery && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            关键词：{searchQuery}
+          </Typography>
+        )}
+      </TableCell>
+    </TableRow>
+  );
 }
 
 export function ParkApplicationTable({
@@ -59,6 +89,8 @@ export function ParkApplicationTable({
   const showActions = columnConfig.showActions ?? false;
   const showReviewButton = columnConfig.showReviewButton ?? false;
 
+  const colSpan = getColSpan(showApplicantCallsign, showActions);
+
   return (
     <>
       <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}>
@@ -73,16 +105,11 @@ export function ParkApplicationTable({
 
           <TableBody>
             {!loading && pagedApps.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5 + (showApplicantCallsign ? 1 : 0) + (showActions ? 1 : 0)} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">{emptyMessage}</Typography>
-                  {searchQuery && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      关键词：{searchQuery}
-                    </Typography>
-                  )}
-                </TableCell>
-              </TableRow>
+              <EmptyState
+                colSpan={colSpan}
+                emptyMessage={emptyMessage}
+                searchQuery={searchQuery}
+              />
             ) : (
               pagedApps.map((app) => (
                 <ParkAppTableRow
@@ -92,7 +119,7 @@ export function ParkApplicationTable({
                   showActions={showActions}
                   onDetailClick={onDetailClick}
                   onFlowClick={onFlowClick}
-                  onReviewClick={showReviewButton && app.status === 'pending' ? onReviewClick : undefined}
+                  onReviewClick={getOnReviewClick(showReviewButton, app.status, onReviewClick)}
                 />
               ))
             )}
