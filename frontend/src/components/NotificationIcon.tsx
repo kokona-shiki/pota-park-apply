@@ -9,9 +9,11 @@ interface NotificationIconProps {
 export const NotificationIcon = ({ onClick }: NotificationIconProps) => {
   const { unreadCount, loading } = useUnreadNotifications();
 
+  console.log('[DEBUG] NotificationIcon 渲染, unreadCount:', unreadCount, 'loading:', loading);
+
   return (
     <IconButton onClick={onClick} color="inherit">
-      <Badge badgeContent={loading ? 0 : unreadCount} color="error" max={99} overlap="circular">
+      <Badge badgeContent={loading ? 0 : unreadCount} color="error" max={99} overlap="circular" invisible={loading ? false : unreadCount === 0}>
         <NotificationsIcon />
       </Badge>
     </IconButton>

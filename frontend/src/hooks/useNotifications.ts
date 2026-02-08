@@ -84,7 +84,9 @@ export const useUnreadNotifications = () => {
     setLoading(true);
     try {
       const response = await fetchApi<{ unread_count: number }>('/api/notifications/unread-count');
+      console.log('[DEBUG] 获取未读数量响应:', response);
       if (response.data?.unread_count !== undefined) {
+        console.log('[DEBUG] 设置未读数量:', response.data.unread_count);
         setUnreadCount(response.data.unread_count);
       }
     } catch (err: any) {
