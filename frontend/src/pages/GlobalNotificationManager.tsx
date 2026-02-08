@@ -38,7 +38,7 @@ export const GlobalNotificationManager = () => {
   const [withdrawReason, setWithdrawReason] = useState('');
 
   const fetchNotifications = async () => {
-    if (!hasPermission) return;
+    if (hasPermission !== true) return;
     setLoading(true);
     setError(null);
 
@@ -56,9 +56,17 @@ export const GlobalNotificationManager = () => {
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [hasPermission]);
 
-  if (!hasPermission) {
+  if (hasPermission === null) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (hasPermission === false) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="error">您没有权限访问此页面</Typography>
