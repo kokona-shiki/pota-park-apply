@@ -179,7 +179,7 @@ export const getGlobalNotifications = async (filters: {
   }
 
   const countResult = await query(
-    `SELECT COUNT(*) as total FROM notifications ${whereClause}`,
+    `SELECT COUNT(DISTINCT title, description, published_at, published_by) as total FROM notifications ${whereClause}`,
     params
   );
   const total = Number.parseInt(countResult.rows[0].total, 10);
@@ -188,13 +188,13 @@ export const getGlobalNotifications = async (filters: {
 
   const notifications = await getMany(
     `
-    SELECT n.*, 
+    SELECT DISTINCT ON (n.title, n.description, n.published_at, n.published_by) n.*, 
            u.email as published_by_email,
            u.callsign as published_by_callsign
     FROM notifications n
     LEFT JOIN users u ON n.published_by = u.id
     ${whereClause}
-    ORDER BY created_at DESC
+    ORDER BY n.title, n.description, n.published_at, n.published_by, n.created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `,
     [...params, pageSize, offset]
