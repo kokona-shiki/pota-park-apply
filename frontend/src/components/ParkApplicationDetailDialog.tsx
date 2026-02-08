@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,13 +21,14 @@ import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import shadow from 'leaflet/dist/images/marker-shadow.png';
 import type { ParkApplicationDetail } from '../types/parkApplication';
-import { formatDateTime, getStatusMeta } from '../utils/parkApplication';
+import { formatDateTime } from '../utils/parkApplication';
 import { UnifiedTileLayer } from './UnifiedTileLayer';
 import parkTypeMappingData from '../../../shared/park_type_mapping.json';
-import regionData from '../../../shared/region.json';
 import type { ParkTypeMapping } from '../../../shared/schemas';
+import ParkInfoHeader from './ParkApplicationDetailDialog/ParkInfoHeader';
+import ParkInfoFields from './ParkApplicationDetailDialog/ParkInfoFields';
+import ParkMap from './ParkApplicationDetailDialog/ParkMap';
 
-// 配置 Leaflet 图标
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: iconRetina,
@@ -36,7 +36,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: shadow,
 });
 
-// 公园类型映射
 const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
 const PARK_TYPE_BY_ID = new Map(
@@ -49,9 +48,6 @@ const PARK_TYPE_BY_ID = new Map(
 const DEFAULT_DETAIL_MAP_ZOOM = 13;
 type LatLngTuple = [number, number];
 
-/**
- * 获取中英文对照的公园类型显示
- */
 function getParkTypeWithEnglish(parkType: string | null | undefined): string {
   if (!parkType) return '';
 
@@ -60,12 +56,10 @@ function getParkTypeWithEnglish(parkType: string | null | undefined): string {
     return `${typeById.zh} (${typeById.en})`;
   }
 
-  // 查找英文到中文的映射（兼容旧数据）
   const mapping = PARK_TYPE_MAPPING.english_to_chinese.find(
     (item) => item.englishName === parkType
   );
   if (mapping && mapping.chineseNames.length > 0) {
-    // 返回 中文 (英文) 格式
     return `${mapping.chineseNames[0]} (${parkType})`;
   }
 
@@ -83,21 +77,14 @@ function getParkTypeWithEnglish(parkType: string | null | undefined): string {
     return `${potaMapping.chineseName} (${potaMapping.englishName})`;
   }
 
-  // 如果没有找到映射，直接返回原始值
   return parkType;
 }
 
-/**
- * 转换为有限数字
- */
 function toFiniteNumber(input: unknown): number | null {
   const n = Number.parseFloat(String(input));
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * 地图重置视图控件
- */
 function ResetViewControl({ center, zoom }: { center: LatLngTuple; zoom: number }) {
   const map = useMap();
   const [lat, lon] = center;
@@ -190,7 +177,6 @@ export function ParkApplicationDetailDialog({
 }: ParkApplicationDetailDialogProps) {
   if (!application) return null;
 
-  const statusMeta = getStatusMeta(application.status);
   const lat = toFiniteNumber(application.latitude);
   const lon = toFiniteNumber(application.longitude);
   const hasCoordinates = lat !== null && lon !== null;
@@ -208,22 +194,7 @@ export function ParkApplicationDetailDialog({
         )}
 
         <Box>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between"
-            alignItems={{ sm: 'center' }}
-            gap={1}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 700, minWidth: 0 }}
-              noWrap
-              title={application.park_name}
-            >
-              {application.park_name}
-            </Typography>
-            <Chip size="small" label={statusMeta.label} color={statusMeta.color} />
-          </Stack>
+          <ParkInfoHeader application={application} mode={mode} />
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
             申请编号：{String(application.id)} |
@@ -233,76 +204,8 @@ export function ParkApplicationDetailDialog({
 
           <Divider sx={{ my: 2 }} />
 
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="省份"
-              value=""
-              InputProps={{
-                readOnly: true,
-                startAdornment:
-                  application.provinces && application.provinces.length > 0 ? (
-                    <Box sx={{ display: 'flex', gap: 0.5, mx: 0.5 }}>
-                      {application.provinces.map((code: string) => {
-                        const province = regionData.find(
-                          (p: { code: string; name: string }) => p.code === code
-                        );
-                        return (
-                          <Chip
-                            key={code}
-                            label={`${province ? province.name : ''} (${code})`}
-                            size="small"
-                            variant="outlined"
-                          />
-                        );
-                      })}
-                    </Box>
-                  ) : undefined,
-              }}
-            />
-            {application.park_type && (
-              <TextField
-                label="公园类型"
-                value={getParkTypeWithEnglish(application.park_type)}
-                InputProps={{ readOnly: true }}
-              />
-            )}
-            <TextField
-              label="纬度"
-              value={String(application.latitude ?? '')}
-              InputProps={{ readOnly: true }}
-            />
-            <TextField
-              label="经度"
-              value={String(application.longitude ?? '')}
-              InputProps={{ readOnly: true }}
-            />
-            {application.website && (
-              <TextField
-                label="网站"
-                value={application.website}
-                InputProps={{ readOnly: true }}
-                sx={{ gridColumn: { xs: '1 / -1' } }}
-              />
-            )}
-            {application.description && (
-              <TextField
-                label="描述"
-                value={application.description}
-                InputProps={{ readOnly: true }}
-                multiline
-                minRows={2}
-                sx={{ gridColumn: { xs: '1 / -1' } }}
-              />
-            )}
-          </Box>
+          <ParkInfoFields application={application} />
 
-          {/* 地图显示 */}
           {hasCoordinates && center && (
             <>
               <Divider sx={{ my: 2 }} />
@@ -346,7 +249,6 @@ export function ParkApplicationDetailDialog({
             </>
           )}
 
-          {/* 审核表单 */}
           {showReviewForm && mode === 'review' && (
             <>
               <Divider sx={{ my: 2 }} />
