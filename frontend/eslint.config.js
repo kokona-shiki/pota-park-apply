@@ -21,6 +21,7 @@ export default defineConfig([
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      'complexity': ['error', 10],
       'no-restricted-properties': [
         'error',
         {

@@ -28,6 +28,7 @@ const frontendConfig = {
         caughtErrorsIgnorePattern: '^_',
       },
     ],
+    'complexity': ['error', 10],
     'no-restricted-properties': [
       'error',
       {
@@ -57,6 +58,7 @@ const backendConfig = {
         caughtErrorsIgnorePattern: '^_',
       },
     ],
+    'complexity': ['error', 10],
   },
 };
 
