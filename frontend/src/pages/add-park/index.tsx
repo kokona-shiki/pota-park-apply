@@ -119,13 +119,11 @@ function MapController({
   }, [map]);
 
   useEffect(() => {
-    // 只有当中心点真正改变时才移动地图
     if (lat !== map.getCenter().lat || lon !== map.getCenter().lng) {
       map.setView([lat, lon]);
     }
   }, [map, lat, lon]);
 
-  // 监听缩放变化
   useEffect(() => {
     const handleZoomEnd = () => {
       onZoomChange(map.getZoom());
@@ -139,6 +137,254 @@ function MapController({
   return null;
 }
 
+// 辅助函数：检查错误代码是否为重复名称错误
+function isDuplicateNameError(errorCode: string | undefined) {
+  return errorCode?.startsWith('DUPLICATE_NAME');
+}
+
+// 辅助函数：检查错误代码是否为相似名称错误
+function isSimilarNameError(errorCode: string | undefined, errorMessage: string) {
+  return errorCode === 'SIMILAR_NAME' || errorMessage.includes('公园名称相似度高');
+}
+
+// 辅助函数：检查错误代码是否为附近位置错误
+function isNearbyLocationError(errorCode: string | undefined, errorMessage: string) {
+  return errorCode === 'NEARBY_LOCATION' || errorMessage.includes('公园距离过近');
+}
+
+// 辅助函数：检查是否应该显示链接
+function shouldShowParkLink(errorCode: string | undefined) {
+  return errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
+}
+
+// 辅助函数：检查旧格式是否应该显示链接
+function shouldShowParkLinkOldFormat(status: string | undefined) {
+  return status === 'approved' || status === 'pota_synced';
+}
+
+// 辅助函数：获取公园列表标题
+function getParkListTitle(status: string | undefined) {
+  return status === 'pota_synced' ? '已存在的公园' : '';
+}
+
+// 辅助函数：处理带确认字段的提交
+async function handleSubmitWithConfirmation(
+  handleSubmit: any,
+  formData: any,
+  navigate: any,
+  setError: any,
+  clearFormState: any,
+  confirmationField: string
+) {
+  const result = await handleSubmit({
+    ...formData,
+    [confirmationField]: true,
+  });
+
+  if (result.success) {
+    clearFormState();
+    navigate('/my-uploads');
+  } else {
+    setError(result.error || '提交失败，请重试');
+  }
+}
+
+// 辅助函数：设置对话框状态
+function setDialogState(
+  setDialogType: any,
+  setDialogTitle: any,
+  setDialogMessage: any,
+  setDialogParkList: any,
+  setDialogParkListTitle: any,
+  setDialogConfirmAction: any,
+  setDialogOpen: any,
+  type: 'error' | 'warning',
+  title: string,
+  message: string,
+  parkList: any[],
+  parkListTitle: string,
+  confirmAction: (() => void) | null
+) {
+  setDialogType(type);
+  setDialogTitle(title);
+  setDialogMessage(message);
+  setDialogParkList(parkList);
+  setDialogParkListTitle(parkListTitle);
+  setDialogConfirmAction(confirmAction);
+  setDialogOpen(true);
+}
+
+// 辅助函数：处理重复名称错误
+function handleDuplicateNameError(
+  result: any,
+  formData: any,
+  handleSubmit: any,
+  navigate: any,
+  setError: any,
+  clearFormState: any,
+  setDialogType: any,
+  setDialogTitle: any,
+  setDialogMessage: any,
+  setDialogParkList: any,
+  setDialogParkListTitle: any,
+  setDialogConfirmAction: any,
+  setDialogOpen: any
+) {
+  const errorMessage = result.error || '提交失败，请重试';
+  const errorCode = result.errorDetails?.code;
+  const details = result.errorDetails?.details;
+
+  if (details) {
+    const existingPark = details.existingPark;
+    const allowRetry = details.allowRetry;
+
+    const parkList = shouldShowParkLink(errorCode) && existingPark
+      ? [{ id: existingPark.id, name: existingPark.name }]
+      : [];
+
+    const confirmAction = allowRetry ? async () => {
+      await handleSubmitWithConfirmation(
+        handleSubmit,
+        formData,
+        navigate,
+        setError,
+        clearFormState,
+        'confirmedRejectedPark'
+      );
+    } : null;
+
+    setDialogState(
+      setDialogType,
+      setDialogTitle,
+      setDialogMessage,
+      setDialogParkList,
+      setDialogParkListTitle,
+      setDialogConfirmAction,
+      setDialogOpen,
+      allowRetry ? 'warning' : 'error',
+      allowRetry ? '警告' : '错误',
+      errorMessage,
+      parkList,
+      getParkListTitle(existingPark?.status),
+      confirmAction
+    );
+  } else if (result.errorDetails?.existingPark) {
+    const existingPark = result.errorDetails?.existingPark;
+    const shouldShowLink = shouldShowParkLinkOldFormat(existingPark?.status);
+    const parkList = shouldShowLink
+      ? [{ id: existingPark.id, name: existingPark.name }]
+      : [];
+
+    setDialogState(
+      setDialogType,
+      setDialogTitle,
+      setDialogMessage,
+      setDialogParkList,
+      setDialogParkListTitle,
+      setDialogConfirmAction,
+      setDialogOpen,
+      'error',
+      '错误',
+      errorMessage,
+      parkList,
+      getParkListTitle(existingPark?.status),
+      null
+    );
+  }
+}
+
+// 辅助函数：处理相似名称错误
+function handleSimilarNameError(
+  result: any,
+  formData: any,
+  handleSubmit: any,
+  navigate: any,
+  setError: any,
+  clearFormState: any,
+  setDialogType: any,
+  setDialogTitle: any,
+  setDialogMessage: any,
+  setDialogParkList: any,
+  setDialogParkListTitle: any,
+  setDialogConfirmAction: any,
+  setDialogOpen: any
+) {
+  const parkList = result.errorDetails?.details?.similarParks || [];
+
+  const confirmAction = async () => {
+    await handleSubmitWithConfirmation(
+      handleSubmit,
+      formData,
+      navigate,
+      setError,
+      clearFormState,
+      'confirmedNameSimilarity'
+    );
+  };
+
+  setDialogState(
+    setDialogType,
+    setDialogTitle,
+    setDialogMessage,
+    setDialogParkList,
+    setDialogParkListTitle,
+    setDialogConfirmAction,
+    setDialogOpen,
+    'warning',
+    '警告',
+    '当前填写的公园名称与已有公园名称相似度较高。',
+    parkList,
+    '相似公园列表',
+    confirmAction
+  );
+}
+
+// 辅助函数：处理附近位置错误
+function handleNearbyLocationError(
+  result: any,
+  formData: any,
+  handleSubmit: any,
+  navigate: any,
+  setError: any,
+  clearFormState: any,
+  setDialogType: any,
+  setDialogTitle: any,
+  setDialogMessage: any,
+  setDialogParkList: any,
+  setDialogParkListTitle: any,
+  setDialogConfirmAction: any,
+  setDialogOpen: any
+) {
+  const parkList = result.errorDetails?.details?.nearbyParks || [];
+
+  const confirmAction = async () => {
+    await handleSubmitWithConfirmation(
+      handleSubmit,
+      formData,
+      navigate,
+      setError,
+      clearFormState,
+      'confirmedNearbyLocation'
+    );
+  };
+
+  setDialogState(
+    setDialogType,
+    setDialogTitle,
+    setDialogMessage,
+    setDialogParkList,
+    setDialogParkListTitle,
+    setDialogConfirmAction,
+    setDialogOpen,
+    'warning',
+    '警告',
+    '当前填写的公园位置与已有公园位置距离较近。',
+    parkList,
+    '附近公园列表',
+    confirmAction
+  );
+}
+
 function AddPark() {
   const navigate = useNavigate();
   const { formState, updateFormState, resetFormState } = useFormState();
@@ -150,7 +396,6 @@ function AddPark() {
   const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
   const [potaParks, setPotaParks] = useState<Map<number, PotaParkInfo>>(new Map());
 
-  // 弹框状态管理
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'error' | 'warning'>('error');
   const [dialogTitle, setDialogTitle] = useState('');
@@ -159,14 +404,12 @@ function AddPark() {
   const [dialogParkListTitle, setDialogParkListTitle] = useState('');
   const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
 
-  // 公园详情对话框状态管理
   const [selectedPark, setSelectedPark] = useState<ParkApplicationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const provinces = useMemo(() => regionData as Province[], []);
 
-  // 从表单状态获取各个值
   const {
     parkName,
     parkType,
@@ -182,14 +425,12 @@ function AddPark() {
     mapZoom,
   } = formState;
 
-  // 计算按钮文本以避免嵌套三元运算符警告
   const buttonText = (() => {
     if (submitting) return '提交中...';
     if (isPotaPark) return '已存在 POTA 公园';
     return '提交审核';
   })();
 
-  // 地图搜索相关的状态
   const [searchResults, setSearchResults] = useState<string[]>([]);
 
   const parkTypeById = useMemo(
@@ -207,7 +448,6 @@ function AddPark() {
     return parkTypeIdByEnglish.get(value) || '';
   };
 
-  // 处理访问方法变更
   const handleAccessMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
     updateFormState({
@@ -215,7 +455,6 @@ function AddPark() {
     });
   };
 
-  // 处理激活方法变更
   const handleActivationMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
     updateFormState({
@@ -223,7 +462,6 @@ function AddPark() {
     });
   };
 
-  // 处理搜索 POTA
   const handleSearchPOTAAction = async () => {
     setError(null);
     setSearchResults([]);
@@ -243,7 +481,6 @@ function AddPark() {
     }
   };
 
-  // 处理搜索地图
   const handleSearchMapAction = async () => {
     setError(null);
 
@@ -260,13 +497,11 @@ function AddPark() {
     }
   };
 
-  // 处理弹框取消
   const handleDialogCancel = () => {
     setDialogOpen(false);
     setDialogConfirmAction(null);
   };
 
-  // 处理公园点击 - 显示详情对话框
   const handleParkClick = async (parkId: number) => {
     setSelectedPark(null);
     setDetailError(null);
@@ -284,12 +519,11 @@ function AddPark() {
     }
   };
 
-  // 处理提交
   const handleFormSubmit = async () => {
     setError(null);
 
     try {
-      const result = await handleSubmit({
+      const formData = {
         parkName,
         parkType: resolveParkTypeId(parkType),
         province,
@@ -300,184 +534,66 @@ function AddPark() {
         accessMethods,
         activationMethods,
         confirmed,
-      });
+      };
+
+      const result = await handleSubmit(formData);
 
       if (result.success) {
-        // 清除保存的表单状态
         clearFormState();
-        // 跳转到"我的上传"，让用户立刻看到已提交的申请
         navigate('/my-uploads');
       } else {
-        // 处理错误信息，检查是否为特定限制类型
         const errorMessage = result.error || '提交失败，请重试';
-
-        // 检查是否包含公园名称相关错误
         const errorCode = result.errorDetails?.code;
-        const isDuplicateNameError = errorCode?.startsWith('DUPLICATE_NAME');
 
-        if (isDuplicateNameError) {
-          // 获取错误详情
-          const details = result.errorDetails?.details;
-          if (details) {
-            // 提取 existingPark 和 allowRetry
-            const existingPark = details.existingPark;
-            const allowRetry = details.allowRetry;
-
-            // 设置对话框状态
-            setDialogType(allowRetry ? 'warning' : 'error');
-            setDialogTitle(allowRetry ? '警告' : '错误');
-            setDialogMessage(errorMessage);
-
-            // 根据错误代码决定是否显示链接
-            // 只有已通过(APPROVED)和已上传POTA(POTA_SYNCED)的公园才显示链接
-            const shouldShowLink =
-              errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
-            const parkList =
-              shouldShowLink && existingPark
-                ? [{ id: existingPark.id, name: existingPark.name }]
-                : [];
-            setDialogParkList(parkList);
-            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
-
-            // 如果允许重试（拒绝状态），设置确认动作
-            if (allowRetry) {
-              const confirmAction = async () => {
-                // 用户确认后，带确认字段重新提交
-                const result = await handleSubmit({
-                  parkName,
-                  parkType: resolveParkTypeId(parkType),
-                  province,
-                  provinces: formState.provinces,
-                  latitude,
-                  longitude,
-                  website,
-                  accessMethods,
-                  activationMethods,
-                  confirmed,
-                  confirmedRejectedPark: true,
-                });
-
-                if (result.success) {
-                  clearFormState();
-                  navigate('/my-uploads');
-                } else {
-                  setError(result.error || '提交失败，请重试');
-                }
-              };
-              setDialogConfirmAction(() => confirmAction);
-            } else {
-              setDialogConfirmAction(null);
-            }
-
-            setDialogOpen(true);
-          }
-          // 兼容旧格式：如果 details 是 existingPark 对象本身
-          else if (result.errorDetails?.existingPark) {
-            const existingPark = result.errorDetails?.existingPark;
-            setDialogType('error');
-            setDialogTitle('错误');
-            setDialogMessage(errorMessage);
-
-            // 兼容旧格式时，根据 status 决定是否显示链接
-            const shouldShowLink =
-              existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
-            const parkList = shouldShowLink
-              ? [{ id: existingPark.id, name: existingPark.name }]
-              : [];
-            setDialogParkList(parkList);
-            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
-            setDialogConfirmAction(null);
-            setDialogOpen(true);
-          }
-        }
-        // 检查是否包含公园名称相似度高错误
-        else if (errorCode === 'SIMILAR_NAME' || errorMessage.includes('公园名称相似度高')) {
-          // 尝试解析错误中的公园列表
-          let parkList: { id: number; name: string }[] = [];
-          try {
-            // 直接使用errorMessage中的数据，无需解析
-            // 后端返回的错误信息已经包含details字段
-            parkList = result.errorDetails?.details?.similarParks || [];
-          } catch {
-            // 解析失败，使用空列表
-          }
-
-          setDialogType('warning');
-          setDialogTitle('警告');
-          setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
-          setDialogParkList(parkList);
-          setDialogParkListTitle('相似公园列表');
-          const confirmAction = async () => {
-            // 用户确认后，带确认字段重新提交
-            const result = await handleSubmit({
-              parkName,
-              parkType: resolveParkTypeId(parkType),
-              province,
-              provinces: formState.provinces,
-              latitude,
-              longitude,
-              website,
-              accessMethods,
-              activationMethods,
-              confirmed,
-              confirmedNameSimilarity: true,
-            });
-
-            if (result.success) {
-              clearFormState();
-              navigate('/my-uploads');
-            } else {
-              setError(result.error || '提交失败，请重试');
-            }
-          };
-          setDialogConfirmAction(() => confirmAction);
-          setDialogOpen(true);
-        }
-        // 检查是否包含公园距离过近错误
-        else if (errorCode === 'NEARBY_LOCATION' || errorMessage.includes('公园距离过近')) {
-          // 尝试解析错误中的公园列表
-          let parkList: { id: number; name: string }[] = [];
-          try {
-            // 直接使用errorMessage中的数据，无需解析
-            // 后端返回的错误信息已经包含details字段
-            parkList = result.errorDetails?.details?.nearbyParks || [];
-          } catch {
-            // 解析失败，使用空列表
-          }
-
-          setDialogType('warning');
-          setDialogTitle('警告');
-          setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
-          setDialogParkList(parkList);
-          setDialogParkListTitle('附近公园列表');
-          const confirmAction = async () => {
-            // 用户确认后，带确认字段重新提交
-            const result = await handleSubmit({
-              parkName,
-              parkType: resolveParkTypeId(parkType),
-              province,
-              provinces: formState.provinces,
-              latitude,
-              longitude,
-              website,
-              accessMethods,
-              activationMethods,
-              confirmed,
-              confirmedNearbyLocation: true,
-            });
-
-            if (result.success) {
-              clearFormState();
-              navigate('/my-uploads');
-            } else {
-              setError(result.error || '提交失败，请重试');
-            }
-          };
-          setDialogConfirmAction(() => confirmAction);
-          setDialogOpen(true);
-        }
-        // 其他错误
-        else {
+        if (isDuplicateNameError(errorCode)) {
+          handleDuplicateNameError(
+            result,
+            formData,
+            handleSubmit,
+            navigate,
+            setError,
+            clearFormState,
+            setDialogType,
+            setDialogTitle,
+            setDialogMessage,
+            setDialogParkList,
+            setDialogParkListTitle,
+            setDialogConfirmAction,
+            setDialogOpen
+          );
+        } else if (isSimilarNameError(errorCode, errorMessage)) {
+          handleSimilarNameError(
+            result,
+            formData,
+            handleSubmit,
+            navigate,
+            setError,
+            clearFormState,
+            setDialogType,
+            setDialogTitle,
+            setDialogMessage,
+            setDialogParkList,
+            setDialogParkListTitle,
+            setDialogConfirmAction,
+            setDialogOpen
+          );
+        } else if (isNearbyLocationError(errorCode, errorMessage)) {
+          handleNearbyLocationError(
+            result,
+            formData,
+            handleSubmit,
+            navigate,
+            setError,
+            clearFormState,
+            setDialogType,
+            setDialogTitle,
+            setDialogMessage,
+            setDialogParkList,
+            setDialogParkListTitle,
+            setDialogConfirmAction,
+            setDialogOpen
+          );
+        } else {
           setError(errorMessage);
         }
       }
@@ -487,7 +603,6 @@ function AddPark() {
     }
   };
 
-  // 计算所有 POI 的边界
   const mapBounds = useMemo(() => {
     if (mapPOIs.length === 0) return null;
 
@@ -546,39 +661,32 @@ function AddPark() {
                 }}
                 disabled={isPotaPark}
                 getOptionLabel={(option) => {
-                  // 使用选项本身的中文名称
                   const zh = option.zh;
                   return `${zh} (${option.en})`;
                 }}
                 filterOptions={(options, { inputValue }) => {
                   if (!inputValue) return options;
 
-                  // 拼音匹配的选项
                   const pinyinMatched: typeof options = [];
-                  // 英文匹配的选项
                   const englishMatched: typeof options = [];
 
                   options.forEach((option) => {
                     const zh = option.zh;
                     const en = option.en;
 
-                    // 检查拼音匹配
                     try {
                       if (Pinyin.match(zh, inputValue) !== false) {
                         pinyinMatched.push(option);
-                        return; // 如果已经匹配拼音，则不再检查英文匹配
+                        return;
                       }
                     } catch {
-                      // 拼音匹配失败，继续尝试其他匹配方式
                     }
 
-                    // 检查英文匹配
                     if (en.toLowerCase().includes(inputValue.toLowerCase())) {
                       englishMatched.push(option);
                     }
                   });
 
-                  // 返回拼音匹配结果在前，英文匹配结果在后
                   return [...pinyinMatched, ...englishMatched];
                 }}
                 renderInput={(params) => <TextField {...params} label="公园类型" />}
@@ -611,7 +719,7 @@ function AddPark() {
           {searchResults.length > 0 && mapPOIs.length === 0 && (
             <Box
               sx={{
-                mt: 1,
+                mt:1,
                 maxHeight: 200,
                 overflowY: 'auto',
                 border: '1px solid',
@@ -773,7 +881,6 @@ function AddPark() {
                 onZoomChange={(zoom) => updateFormState({ mapZoom: zoom })}
               />
               <MapBoundsController bounds={mapBounds} />
-              {/* 使用统一的瓦片服务 */}
               <UnifiedTileLayer />
               <LocationMarker
                 isPotaPark={isPotaPark}
@@ -797,7 +904,6 @@ function AddPark() {
         </Box>
       </Box>
 
-      {/* 通用弹框组件 */}
       <AlertDialog
         open={dialogOpen}
         type={dialogType}
@@ -813,7 +919,6 @@ function AddPark() {
         showCancelButton={dialogType !== 'error'}
       />
 
-      {/* 公园详情对话框 */}
       <ParkApplicationDetailDialog
         open={!!selectedPark}
         onClose={() => setSelectedPark(null)}
