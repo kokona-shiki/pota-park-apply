@@ -2,7 +2,6 @@ import {
   Box,
   Typography,
   Button,
-  Divider,
   CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -68,7 +67,9 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
         overflow: 'auto',
         bgcolor: 'background.paper',
         boxShadow: 3,
-        borderRadius: 1,
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
       }}
     >
       <Box
@@ -81,14 +82,17 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
           top: 0,
           bgcolor: 'background.paper',
           zIndex: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
         }}
       >
-        <Typography variant="h6">通知</Typography>
+        <Typography variant="h6" fontWeight={600}>
+          通知
+        </Typography>
         <Button size="small" onClick={handleMarkAllAsRead}>
           全部标记已读
         </Button>
       </Box>
-      <Divider />
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
@@ -99,44 +103,53 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
         </Box>
       ) : (
         <Box>
-          {notifications.map((notification) => (
+          {notifications.map((notification, index) => (
             <Box
               key={notification.id}
               onClick={() => handleNotificationClick(notification)}
               sx={{
                 p: 2,
                 cursor: 'pointer',
+                position: 'relative',
                 '&:hover': {
                   bgcolor: 'action.hover',
                 },
                 bgcolor: notification.is_read ? 'transparent' : 'action.selected',
+                borderBottom: index !== notifications.length - 1 ? '1px solid' : 'none',
+                borderColor: 'divider',
               }}
             >
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  fontWeight: notification.is_read ? 'normal' : 'bold',
-                }}
-              >
-                {notification.title}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  fontSize: '0.875rem',
-                  mt: 0.5,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}
-              >
-                {truncateMarkdown(notification.description, 100)}
-              </Typography>
-              <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5 }}>
-                {formatTime(notification.created_at)}
-              </Typography>
+              <Box sx={{ pr: 3 }}>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={600}
+                  color="text.primary"
+                  sx={{ mb: 0.5 }}
+                >
+                  {notification.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    fontSize: '0.875rem',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {truncateMarkdown(notification.description, 100)}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1, display: 'block' }}
+                >
+                  {formatTime(notification.created_at)}
+                </Typography>
+              </Box>
               {!notification.is_read && (
                 <Box
                   sx={{
