@@ -11,7 +11,10 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "typecheck": "tsc -b",
+    "sonar": "node -e \"const scanner = require('sonarqube-scanner').default; scanner({ serverUrl: 'http://localhost:9000', token: process.env.SONAR_TOKEN || 'admin', options: { 'sonar.projectKey': 'pota-park-frontend', 'sonar.sources': 'src', 'sonar.tests': 'src/__tests__', 'sonar.typescript.tsconfigPath': 'tsconfig.json', 'sonar.exclusions': 'node_modules/**,dist/**,build/**', 'sonar.sourceEncoding': 'UTF-8' } }, () => process.exit())\"",
+    "lint": "eslint .",
     "clean": "rm -rf node_modules dist pnpm-lock.yaml",
     "reinstall": "pnpm clean && pnpm install"
   },
@@ -50,6 +53,7 @@
     "globals": "^16.5.0",
     "jest-environment-jsdom": "^30.2.0",
     "jsdom": "^27.4.0",
+    "sonarqube-scanner": "^4.1.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
