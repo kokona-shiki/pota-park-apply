@@ -1,10 +1,14 @@
-// src/hooks/useAuthInterceptors.ts
-import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
-import { safeParseJsonWithSchema } from '../utils/json';
-import { AUTH_DATA_KEY, REDIRECT_KEY, LOGOUT_BROADCAST_KEY, REFRESH_LOCK_KEY } from '../auth/constants';
+import { safeParseJsonWithSchema } from '../utils/parseJson';
+import {
+  AUTH_DATA_KEY,
+  REDIRECT_KEY,
+  LOGOUT_BROADCAST_KEY,
+  REFRESH_LOCK_KEY,
+} from '../auth/constants';
 
 interface UseAuthInterceptorsParams {
   getCurrentAccessToken: () => string | null;
@@ -16,6 +20,26 @@ interface UseAuthInterceptorsParams {
   resolveAllWaiters: (token: string | null) => void;
 }
 
+const isAuthRequest = (url: string) => {
+  return url.includes('/api/login') || url.includes('/api/register');
+};
+
+const isRefreshRequest = (url: string) => {
+  return url.includes('/api/refresh-token');
+};
+
+const isLogoutRequest = (url: string) => {
+  return url.includes('/api/logout');
+};
+
+const isPublicRequest = (url: string) => {
+  return url.includes('/api/send-verification-email') || url.includes('/api/captcha');
+};
+
+const shouldSkipAuth = (url: string) => {
+  return isAuthRequest(url) || isRefreshRequest(url) || isLogoutRequest(url) || isPublicRequest(url);
+};
+
 export function useAuthInterceptors({
   getCurrentAccessToken,
   isTokenFresh,
@@ -25,27 +49,12 @@ export function useAuthInterceptors({
   rejectAllWaiters,
   resolveAllWaiters,
 }: UseAuthInterceptorsParams) {
-  const navigate = useLocation();
+  const navigate = useNavigate();
+  const locationRef = useRef(window.location);
 
-  const isAuthRequest = (url: string) => {
-    return url.includes('/api/login') || url.includes('/api/register');
-  };
-
-  const isRefreshRequest = (url: string) => {
-    return url.includes('/api/refresh-token');
-  };
-
-  const isLogoutRequest = (url: string) => {
-    return url.includes('/api/logout');
-  };
-
-  const isPublicRequest = (url: string) => {
-    return url.includes('/api/send-verification-email') || url.includes('/api/captcha');
-  };
-
-  const shouldSkipAuth = (url: string) => {
-    return isAuthRequest(url) || isRefreshRequest(url) || isLogoutRequest(url) || isPublicRequest(url);
-  };
+  useEffect(() => {
+    locationRef.current = window.location;
+  }, [window.location]);
 
   useEffect(() => {
     const requestInterceptor = apiClient.interceptors.request.use(async (config) => {
@@ -123,11 +132,12 @@ export function useAuthInterceptors({
           headers?: Record<string, string>;
         } = err?.config || {};
         if (originalRequest.__retried) {
-          const from = navigate;
+          const from = locationRef.current;
           if (from.pathname !== '/login' && from.pathname !== '/register') {
             localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
           }
           logout();
+          navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
           return Promise.reject(err);
         }
 
@@ -144,11 +154,12 @@ export function useAuthInterceptors({
             return apiClient(originalRequest);
           })
           .catch((refreshErr) => {
-            const from = navigate;
+            const from = locationRef.current;
             if (from.pathname !== '/login' && from.pathname !== '/register') {
               localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
             }
             logout();
+            navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
             return Promise.reject(refreshErr);
           });
       }

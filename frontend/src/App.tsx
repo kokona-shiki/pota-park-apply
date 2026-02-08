@@ -1,127 +1,16 @@
-// src/App.tsx
-import { useState, useEffect, useCallback, useContext, useRef } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import type { ReactElement } from 'react';
+import { useState, useRef, useContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
 import { PopupNotification } from './components/PopupNotification';
-import { z } from 'zod';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
-import { apiClient, requestWithSchema } from './services/apiClient';
-import { usePermission } from './hooks/usePermission';
-import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
-import type { AuthUser } from './auth/context';
-import { safeParseJsonWithSchema } from './utils/parseJson';
+import { AuthContext } from './auth/context';
+import { useAuthManager } from './auth/useAuthManager';
+import { useAuthInterceptors } from './hooks/useAuthInterceptors';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
+import { useMultiTabSync } from './hooks/useMultiTabSync';
+import { useAuthInit } from './hooks/useAuthInit';
 import { AppRoutes } from './AppRoutes';
-
-const TOKEN_EXP_SKEW_MS = 60 * 1000; // exp 提前 60 秒视为“即将过期”
-const REFRESH_LOCK_KEY = 'pota_is_refreshing';
-const REFRESH_LOCK_TTL_MS = 30 * 1000;
-const REFRESH_WAIT_TIMEOUT_MS = 35 * 1000;
-const TAB_ID_KEY = 'pota_tab_id';
-
-const JwtPayloadSchema = z
-  .object({
-    exp: z.number().optional(),
-    iat: z.number().optional(),
-  })
-  .passthrough();
-
-const RefreshLockSchema = z.object({
-  owner: z.string(),
-  ts: z.number(),
-});
-
-type AuthData = {
-  accessToken: string;
-  user: AuthUser;
-};
-
-type RefreshLock = {
-  owner: string;
-  ts: number;
-};
-
-type TokenWaiter = {
-  resolve: (token: string | null) => void;
-  reject: (err: unknown) => void;
-  timeoutId: number;
-};
-
-function getOrCreateTabId() {
-  const existing = sessionStorage.getItem(TAB_ID_KEY);
-  if (existing) return existing;
-  const tabId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  sessionStorage.setItem(TAB_ID_KEY, tabId);
-  return tabId;
-}
-
-function base64UrlToBase64(input: string) {
-  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-  const padLen = (4 - (base64.length % 4)) % 4;
-  return base64 + '='.repeat(padLen);
-}
-
-function decodeJwtPayload(token: string) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    const json = atob(base64UrlToBase64(payload));
-    return safeParseJsonWithSchema(JwtPayloadSchema, json);
-  } catch {
-    return null;
-  }
-}
-
-function getJwtExpMs(token: string) {
-  const payload = decodeJwtPayload(token);
-  const exp = payload?.exp;
-  if (typeof exp !== 'number') return null;
-  return exp * 1000;
-}
-
-function getJwtIatMs(token: string) {
-  const payload = decodeJwtPayload(token);
-  const iat = payload?.iat;
-  if (typeof iat !== 'number') return null;
-  return iat * 1000;
-}
-
-function isTokenFresh(token: string) {
-  const expMs = getJwtExpMs(token);
-  if (!expMs) return false;
-  return Date.now() < expMs - TOKEN_EXP_SKEW_MS;
-}
-
-function readAuthData() {
-  const raw = localStorage.getItem(AUTH_DATA_KEY);
-  if (!raw) return null;
-  try {
-    return safeParseJsonWithSchema(AuthPayloadSchema, raw);
-  } catch {
-    return null;
-  }
-}
-
-function writeAuthData(data: AuthData) {
-  localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(data));
-}
-
-function readRefreshLock(): RefreshLock | null {
-  const raw = localStorage.getItem(REFRESH_LOCK_KEY);
-  if (!raw) return null;
-  try {
-    return safeParseJsonWithSchema(RefreshLockSchema, raw);
-  } catch {
-    return null;
-  }
-}
-
-function isLockExpired(lock: RefreshLock) {
-  return Date.now() - lock.ts > REFRESH_LOCK_TTL_MS;
-}
 
 function useAuthRequired() {
   const ctx = useContext(AuthContext);
@@ -129,627 +18,105 @@ function useAuthRequired() {
   return ctx;
 }
 
-function RequireAuth({ children }: { children: ReactElement }) {
-  const { user, isAuthLoading } = useAuthRequired();
-  const location = useLocation();
-
-  // 如果正在加载认证状态,显示加载提示
-  if (isAuthLoading) {
-    return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
-      >
-        <Typography>加载中...</Typography>
-      </Box>
-    );
-  }
-
-  // 认证加载完成,检查用户是否登录
-  if (!user) {
-    // 保存目标路径到 localStorage,以便登录后跳转
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
-    }
-    return (
-      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
-    );
-  }
-
-  return children;
+function LoadingState() {
+  return (
+    <Box
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+    >
+      <Typography>加载中...</Typography>
+    </Box>
+  );
 }
 
-/**
- * 需要 POTA 权限的路由保护
- */
-function RequirePotaPermission({ children }: { children: ReactElement }) {
-  const { user, isAuthLoading } = useAuthRequired();
-  const location = useLocation();
-  
-  // 如果正在加载认证状态,显示加载提示
-  if (isAuthLoading) {
-    return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
-      >
-        <Typography>加载中...</Typography>
-      </Box>
-    );
-  }
-
-  // 认证加载完成,检查用户是否登录
-  if (!user) {
-    // 保存目标路径到 localStorage,以便登录后跳转
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
-    }
-    return (
-      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
-    );
-  }
-
-  // 不再检查权限，让后端处理权限控制
-  return children;
-}
-
-function RequireSysAdmin({ children }: { children: ReactElement }) {
-  const { user, isAuthLoading } = useAuthRequired();
-  const location = useLocation();
-  const { hasPermission, loading } = usePermission('view_all_users'); // system_admin有view_all_users权限
-
-  // 如果正在加载认证状态,显示加载提示
-  if (isAuthLoading || loading) {
-    return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
-      >
-        <Typography>加载中...</Typography>
-      </Box>
-    );
-  }
-
-  // 认证加载完成,检查用户是否登录
-  if (!user) {
-    // 保存目标路径到 localStorage,以便登录后跳转
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
-    }
-    return (
-      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
-    );
-  }
-
-  if (!hasPermission) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-}
-
-/**
- * 禁止系统管理员访问的路由保护
- * 系统管理员只能进行用户管理，不能访问其他功能页面
- */
-function RequireNotSysAdmin({ children }: { children: ReactElement }) {
-  const { user, isAuthLoading } = useAuthRequired();
-  const location = useLocation();
-  const { hasPermission } = usePermission('view_all_users'); // system_admin有view_all_users权限
-
-  // 如果正在加载认证状态,显示加载提示
-  if (isAuthLoading) {
-    return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
-      >
-        <Typography>加载中...</Typography>
-      </Box>
-    );
-  }
-
-  // 认证加载完成,检查用户是否登录
-  if (!user) {
-    // 保存目标路径到 localStorage,以便登录后跳转
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
-    }
-    return (
-      <Navigate to="/login" replace state={{ from: location, reason: '未登录或登录已失效' }} />
-    );
-  }
-
-  // 如果是系统管理员（有view_all_users权限），重定向到用户管理页面
-  if (hasPermission === true) {
-    return <Navigate to="/admin-panel" replace />;
-  }
-
-  return children;
+function isAuthPage(pathname: string) {
+  return pathname === '/login' || pathname === '/register';
 }
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-
-  const navigate = useNavigate();
   const location = useLocation();
-  const locationRef = useRef(location);
-
-  // Tab identity
-  const tabIdRef = useRef<string>(getOrCreateTabId());
-
-  // refresh-token 去重（本 Tab）+ 跨 Tab 锁/队列
-  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
-  const waitersRef = useRef<TokenWaiter[]>([]);
-
-  const isTokenReadyRef = useRef(false);
-  const interceptorRegisteredRef = useRef(false);
   const hasInitializedRef = useRef(false);
+  const isTokenReadyRef = useRef(false);
 
-  const accessTokenRef = useRef<string | null>(null);
+  const authManager = useAuthManager();
 
-  useEffect(() => {
-    locationRef.current = location;
-  }, [location]);
+  const { ensureValidAccessToken } = useTokenRefresh({
+    getCurrentAccessToken: authManager.getCurrentAccessToken,
+    performRefreshAsLeader: authManager.performRefreshAsLeader,
+    readRefreshLock: authManager.readRefreshLock,
+    isLockExpired: authManager.isLockExpired,
+    isTokenFresh: authManager.isTokenFresh,
+    getJwtIatMs: authManager.getJwtIatMs,
+    writeAuthData: authManager.writeAuthData,
+    rejectAllWaiters: authManager.rejectAllWaiters,
+    resolveAllWaiters: authManager.resolveAllWaiters,
+    waitForTokenFromOtherTab: authManager.waitForTokenFromOtherTab,
+    tabIdRef: authManager.tabIdRef,
+  });
 
-  // token -> axios 默认 Authorization
-  useEffect(() => {
-    accessTokenRef.current = accessToken;
+  useAuthInterceptors({
+    getCurrentAccessToken: authManager.getCurrentAccessToken,
+    isTokenFresh: authManager.isTokenFresh,
+    ensureValidAccessToken,
+    logout: authManager.logout,
+    readAuthData: authManager.readAuthData,
+    rejectAllWaiters: authManager.rejectAllWaiters,
+    resolveAllWaiters: authManager.resolveAllWaiters,
+  });
 
-    if (accessToken) {
-      apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-      isTokenReadyRef.current = true;
-      console.log(
-        '[App] Authorization header 已设置:',
-        apiClient.defaults.headers.common.Authorization.substring(0, 50) + '...'
-      );
-    }
-    // 不要在 accessToken 为 null 时清除 header，避免初始加载时的竞态条件
-  }, [accessToken]);
+  useMultiTabSync({
+    setUser: authManager.setUser,
+    setAccessToken: authManager.setAccessToken,
+    rejectAllWaiters: authManager.rejectAllWaiters,
+    resolveAllWaiters: authManager.resolveAllWaiters,
+    readAuthData: authManager.readAuthData,
+    isTokenFresh: authManager.isTokenFresh,
+  });
 
-  const rejectAllWaiters = useCallback((err: unknown) => {
-    const waiters = waitersRef.current;
-    waitersRef.current = [];
-    for (const w of waiters) {
-      window.clearTimeout(w.timeoutId);
-      w.reject(err);
-    }
-  }, []);
+  useAuthInit({
+    isAuthPage: isAuthPage(location.pathname),
+    isTokenFresh: authManager.isTokenFresh,
+    ensureValidAccessToken,
+    readAuthData: authManager.readAuthData,
+    setUser: authManager.setUser,
+    setAccessToken: authManager.setAccessToken,
+    setIsAuthLoading: authManager.setIsAuthLoading,
+    isTokenReadyRef,
+    hasInitializedRef,
+  });
 
-  const resolveAllWaiters = useCallback((token: string | null) => {
-    const waiters = waitersRef.current;
-    waitersRef.current = [];
-    for (const w of waiters) {
-      window.clearTimeout(w.timeoutId);
-      w.resolve(token);
-    }
-  }, []);
-
-  const waitForTokenFromOtherTab = useCallback(() => {
-    return new Promise<string | null>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        reject(new Error('等待刷新超时'));
-      }, REFRESH_WAIT_TIMEOUT_MS);
-
-      waitersRef.current.push({ resolve, reject, timeoutId });
-    });
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    setAccessToken(null);
-
-    // 清除 localStorage 中的认证数据
-    localStorage.removeItem(AUTH_DATA_KEY);
-
-    // 通知其他标签页同步登出
-    localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()));
-
-    // 通知后端清除 refresh cookie（失败也不影响前端登出）
-    requestWithSchema(apiClient.post('/api/logout'), z.null()).catch((e) => {
-      console.warn('退出登录请求失败（忽略）:', e?.message || e);
-    });
-
-    rejectAllWaiters(new Error('已登出'));
-  }, [rejectAllWaiters]);
-
-  const getCurrentAccessToken = useCallback(() => {
-    // 注意：这里必须优先读 localStorage。
-    // 因为本项目支持“跨标签页/iframe”同步，当其他文档上下文更新了 `AUTH_DATA_KEY` 时，
-    // 本文档的 React state 可能还没来得及同步（或错过 storage 事件），但 localStorage 已经是最新。
-    const stored = readAuthData()?.accessToken || null;
-    return stored || accessTokenRef.current || null;
-  }, []);
-
-  const performRefreshAsLeader = useCallback(async () => {
-    const { accessToken: newAccessToken, user: newUser } = await requestWithSchema(
-      apiClient.post('/api/refresh-token', {}, { headers: { 'X-Tab-Id': tabIdRef.current } }),
-      AuthPayloadSchema
-    );
-
-    if (!newAccessToken || !newUser) {
-      throw new Error('刷新 token 返回数据不完整');
-    }
-
-    setAccessToken(newAccessToken);
-    setUser(newUser as AuthUser);
-
-    writeAuthData({ accessToken: newAccessToken, user: newUser });
-    return newAccessToken as string;
-  }, []);
-
-  const ensureValidAccessToken = useCallback(
-    async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-      const current = getCurrentAccessToken();
-      if (current && !forceRefresh && isTokenFresh(current)) {
-        return current;
-      }
-
-      // 本 Tab 内去重
-      if (refreshPromiseRef.current) {
-        return refreshPromiseRef.current;
-      }
-
-      // 优先使用浏览器原生跨文档互斥锁（同源 tab/iframe 共享），可稳定避免并发双刷。
-      const navAny = navigator as Navigator & { locks?: LockManager };
-      if (navAny?.locks?.request) {
-        const lockPromise = navAny.locks
-          .request('pota_refresh_token_v1', { mode: 'exclusive' }, async () => {
-            const latest = getCurrentAccessToken();
-
-            // 关键：锁内二次检查。
-            // - 对“普通请求”：如果已经有新鲜 token（可能是别的 iframe/tab 刷新的），直接复用。
-            // - 对“强制刷新”：如果 token 刚刚由别的上下文刷新（iat 很新），也复用，避免并发双刷。
-            if (latest && isTokenFresh(latest)) {
-              if (!forceRefresh) return latest;
-
-              const iatMs = getJwtIatMs(latest);
-              if (iatMs && Date.now() - iatMs < 3000) return latest;
-            }
-
-            return await performRefreshAsLeader();
-          });
-
-        refreshPromiseRef.current = lockPromise.finally(() => {
-          refreshPromiseRef.current = null;
-        }) as unknown as Promise<string | null>;
-
-        return refreshPromiseRef.current;
-      }
-
-      // 降级：localStorage 锁（非原子，仍可能在极端竞态下出现双刷）
-      const tabId = tabIdRef.current;
-      const lock = readRefreshLock();
-
-      const canLead = !lock || lock.owner === tabId || isLockExpired(lock);
-
-      if (canLead) {
-        // 抢锁（非原子，但足以避免绝大多数并发）
-        localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify({ owner: tabId, ts: Date.now() }));
-
-        refreshPromiseRef.current = performRefreshAsLeader()
-          .then((token) => {
-            resolveAllWaiters(token);
-            return token;
-          })
-          .catch((err) => {
-            // 失败时释放锁并广播登出（避免其他标签页一直等待）
-            localStorage.removeItem(REFRESH_LOCK_KEY);
-            localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()));
-            rejectAllWaiters(err);
-            throw err;
-          })
-          .finally(() => {
-            refreshPromiseRef.current = null;
-            // 领头羊释放锁
-            const latest = readRefreshLock();
-            if (latest?.owner === tabId) {
-              localStorage.removeItem(REFRESH_LOCK_KEY);
-            }
-          });
-
-        return refreshPromiseRef.current;
-      }
-
-      // 其他标签页正在刷新：挂起等待 storage 事件通知
-      const token = await waitForTokenFromOtherTab();
-      if (token && isTokenFresh(token)) return token;
-
-      const latestToken = getCurrentAccessToken();
-      if (latestToken && isTokenFresh(latestToken)) return latestToken;
-
-      throw new Error('等待刷新完成后仍无有效 token');
-    },
-    [
-      getCurrentAccessToken,
-      performRefreshAsLeader,
-      rejectAllWaiters,
-      resolveAllWaiters,
-      waitForTokenFromOtherTab,
-    ]
-  );
-
-  const refreshSession = useCallback(() => {
-    // 对外暴露：强制刷新一次（会走跨标签页锁）
-    return ensureValidAccessToken({ forceRefresh: true }).then(() => {
-      const stored = readAuthData();
-      return stored;
-    });
-  }, [ensureValidAccessToken]);
-
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
-
-  // 尝试静默恢复登录态：
-  // - token 未过期：直接恢复（0 额外负载）
-  // - token 过期：使用跨标签页锁刷新，避免并发打爆 refresh-token
-  useEffect(() => {
-    if (isAuthPage) {
-      const timeout = setTimeout(() => setIsAuthLoading(false), 0);
-      return () => clearTimeout(timeout);
-    }
-
-    if (hasInitializedRef.current) return;
-    hasInitializedRef.current = true;
-
-    const stored = readAuthData();
-    if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
-      console.log('[App] 从 localStorage 恢复登录态（token 有效）');
-      apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
-      isTokenReadyRef.current = true;
-      setAccessToken(stored.accessToken);
-      setUser(stored.user as AuthUser);
-      setIsAuthLoading(false);
-      return;
-    }
-
-    // localStorage 无有效 token（或即将过期）：走 refresh-token
-    console.log('[App] localStorage 无有效 token，尝试 refresh-token（带跨标签页锁）');
-
-    ensureValidAccessToken()
-      .then(() => {
-        const latest = readAuthData();
-        if (latest?.accessToken) {
-          setAccessToken(latest.accessToken);
-          setUser(latest.user as AuthUser);
-        }
-      })
-      .catch((err) => {
-        console.error('[App] 刷新 token 失败:', err?.response?.status, err?.response?.data);
-        setUser(null);
-        setAccessToken(null);
-        localStorage.removeItem(AUTH_DATA_KEY);
-      })
-      .finally(() => {
-        setIsAuthLoading(false);
-      });
-  }, [ensureValidAccessToken, isAuthPage]);
-
-  // 多标签页同步：退出登录广播 + token 更新同步 + refresh 锁队列
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === LOGOUT_BROADCAST_KEY) {
-        setUser(null);
-        setAccessToken(null);
-        localStorage.removeItem(AUTH_DATA_KEY);
-        rejectAllWaiters(new Error('已登出'));
-        return;
-      }
-
-      // token 更新（领头羊刷新成功后写入 AUTH_DATA_KEY）
-      if (e.key === AUTH_DATA_KEY) {
-        if (!e.newValue) {
-          // 被清空
-          setUser(null);
-          setAccessToken(null);
-          rejectAllWaiters(new Error('认证信息被清除'));
-          return;
-        }
-
-        try {
-          const authData = safeParseJsonWithSchema(AuthPayloadSchema, e.newValue);
-          if (!authData) {
-            setAccessToken(null);
-            setUser(null);
-            rejectAllWaiters(new Error('认证信息解析失败'));
-            return;
-          }
-          setAccessToken(authData.accessToken);
-          setUser(authData.user);
-          console.log('[App] 从其他标签页同步 token');
-          resolveAllWaiters(authData.accessToken || null);
-        } catch (err) {
-          console.error('[App] 解析 localStorage 失败:', err);
-        }
-      }
-
-      // 刷新锁变化：锁释放但没有 token 更新时，避免等待队列一直挂起
-      if (e.key === REFRESH_LOCK_KEY && e.newValue === null) {
-        const latest = readAuthData();
-        if (latest?.accessToken && isTokenFresh(latest.accessToken)) {
-          resolveAllWaiters(latest.accessToken);
-        } else {
-          rejectAllWaiters(new Error('刷新锁已释放但无有效 token'));
-        }
-      }
-    };
-
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, [rejectAllWaiters, resolveAllWaiters]);
-
-  // axios 全局拦截：
-  // - request：解析 exp，token 有效直接发；过期则跨标签页锁刷新
-  // - response：兜底处理 401（比如 token 被服务端提前失效）
-  useEffect(() => {
-    if (interceptorRegisteredRef.current) return;
-    interceptorRegisteredRef.current = true;
-
-    // request interceptor
-    apiClient.interceptors.request.use(async (config) => {
-      const url = String((config as { url?: string })?.url || '');
-      const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
-      const isRefreshRequest = url.includes('/api/refresh-token');
-      const isLogoutRequest = url.includes('/api/logout');
-      const isPublicRequest = url.includes('/api/send-verification-email') || url.includes('/api/captcha');
-
-      if (isAuthRequest || isRefreshRequest || isLogoutRequest || isPublicRequest) {
-        return config;
-      }
-
-      const token = getCurrentAccessToken();
-      if (token && isTokenFresh(token)) {
-        (config.headers as Record<string, string>) = {
-          ...(config.headers as Record<string, string>),
-          Authorization: `Bearer ${token}`,
-        };
-        return config;
-      }
-
-      try {
-        // 这里不要强制刷新。
-        // 否则在“跨 iframe 并发”场景下，第二个拿到锁的上下文会被 forceRefresh 逼着再刷一次。
-        const newToken = await ensureValidAccessToken();
-        if (newToken) {
-          (config.headers as Record<string, string>) = {
-            ...(config.headers as Record<string, string>),
-            Authorization: `Bearer ${newToken}`,
-          };
-        }
-      } catch {
-        // 不在这里强制跳转，交给 response 401 兜底
-      }
-
-      return config;
-    });
-
-    // response interceptor
-    apiClient.interceptors.response.use(
-      (res) => {
-        // 统一后端返回：{ code, message, data }
-        const payload = res?.data as {
-          code?: number;
-          message?: string;
-          data?: unknown;
-          pagination?: unknown;
-          [key: string]: unknown;
-        };
-        if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
-          if (payload.code === 0) {
-            if (payload.data && typeof payload.data === 'object' && 'pagination' in payload.data) {
-              return { ...res, data: payload };
-            }
-            return { ...res, data: payload.data };
-          }
-
-          // business error: HTTP 200，但用 code/message 表达
-          const bizRes = { ...res, data: { ...payload, error: payload.message } };
-          const bizErr: Error & {
-            isBusinessError?: boolean;
-            code?: number;
-            response?: typeof res;
-          } = new Error(payload?.message || '业务错误');
-          bizErr.isBusinessError = true;
-          bizErr.code = payload.code;
-          bizErr.response = bizRes;
-          return Promise.reject(bizErr);
-        }
-
-        return res;
-      },
-      (err) => {
-        const status = err?.response?.status;
-        const url = String(err?.config?.url || '');
-
-        const isAuthRequest = url.includes('/api/login') || url.includes('/api/register');
-        const isRefreshRequest = url.includes('/api/refresh-token');
-        const isPublicRequest = url.includes('/api/send-verification-email') || url.includes('/api/captcha');
-
-        if (status !== 401 || isAuthRequest || isRefreshRequest || isPublicRequest) {
-          return Promise.reject(err);
-        }
-
-        const originalRequest: {
-          [key: string]: unknown;
-          __retried?: boolean;
-          headers?: Record<string, string>;
-        } = err?.config || {};
-        if (originalRequest.__retried) {
-          const from = locationRef.current;
-          if (from.pathname !== '/login' && from.pathname !== '/register') {
-            localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
-          }
-          logout();
-          navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
-          return Promise.reject(err);
-        }
-
-        originalRequest.__retried = true;
-
-        return ensureValidAccessToken({ forceRefresh: true })
-          .then((token) => {
-            if (token) {
-              originalRequest.headers = {
-                ...(originalRequest.headers || {}),
-                Authorization: `Bearer ${token}`,
-              };
-            }
-            return apiClient(originalRequest);
-          })
-          .catch((refreshErr) => {
-            const from = locationRef.current;
-            if (from.pathname !== '/login' && from.pathname !== '/register') {
-              localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
-            }
-            logout();
-            navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
-            return Promise.reject(refreshErr);
-          });
-      }
-    );
-
-    return () => {
-      // 拦截器保持整个应用生命周期
-    };
-  }, [ensureValidAccessToken, getCurrentAccessToken, logout, navigate]);
+  const currentIsAuthPage = isAuthPage(location.pathname);
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        setUser,
-        accessToken,
-        setAccessToken,
-        refreshSession,
-        logout,
-        isAuthLoading,
+        user: authManager.user,
+        setUser: authManager.setUser,
+        accessToken: authManager.accessToken,
+        setAccessToken: authManager.setAccessToken,
+        refreshSession: () => authManager.refreshSession(ensureValidAccessToken),
+        logout: authManager.logout,
+        isAuthLoading: authManager.isAuthLoading,
         isTokenReady: isTokenReadyRef.current,
       }}
     >
-      {isAuthLoading ? (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '100vh',
-          }}
-        >
-          <Typography>加载中...</Typography>
-        </Box>
+      {authManager.isAuthLoading ? (
+        <LoadingState />
       ) : (
         <Box sx={{ display: 'flex' }}>
-          {!isAuthPage && (
+          {!currentIsAuthPage && (
             <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
           )}
-          {!isAuthPage && (
+          {!currentIsAuthPage && (
             <SideBar
               isOpen={isSidebarOpen}
-              isAdmin={!!user && user.permissions?.includes('review_application') === true}
-              isSysAdmin={!!user && user.permissions?.includes('view_all_users') === true}
-              isPotaRepresentative={!!user && user.permissions?.includes('pota_import') === true}
+              isAdmin={!!authManager.user && authManager.user.permissions?.includes('review_application') === true}
+              isSysAdmin={!!authManager.user && authManager.user.permissions?.includes('view_all_users') === true}
+              isPotaRepresentative={!!authManager.user && authManager.user.permissions?.includes('pota_import') === true}
             />
           )}
           <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-            {!isAuthPage && <Toolbar />}
+            {!currentIsAuthPage && <Toolbar />}
             <AppRoutes />
           </Box>
         </Box>

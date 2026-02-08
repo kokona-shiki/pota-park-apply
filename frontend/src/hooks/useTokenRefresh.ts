@@ -1,7 +1,13 @@
-// src/hooks/useTokenRefresh.ts
 import { useCallback, useRef } from 'react';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
-import { AUTH_DATA_KEY, REFRESH_LOCK_KEY, LOGOUT_BROADCAST_KEY } from '../auth/constants';
+import {
+  AUTH_DATA_KEY,
+  REFRESH_LOCK_KEY,
+  LOGOUT_BROADCAST_KEY,
+  TOKEN_EXP_SKEW_MS,
+  REFRESH_LOCK_TTL_MS,
+  REFRESH_WAIT_TIMEOUT_MS,
+} from '../auth/constants';
 
 interface UseTokenRefreshParams {
   getCurrentAccessToken: () => string | null;
@@ -14,6 +20,7 @@ interface UseTokenRefreshParams {
   rejectAllWaiters: (err: Error) => void;
   resolveAllWaiters: (token: string | null) => void;
   waitForTokenFromOtherTab: () => Promise<string | null>;
+  tabIdRef: React.MutableRefObject<string>;
 }
 
 export function useTokenRefresh({
@@ -27,8 +34,9 @@ export function useTokenRefresh({
   rejectAllWaiters,
   resolveAllWaiters,
   waitForTokenFromOtherTab,
+  tabIdRef,
 }: UseTokenRefreshParams) {
-  const refreshPromiseRef = React.useRef<Promise<string | null> | null>(null);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
   const ensureValidAccessToken = useCallback(
     async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
@@ -64,7 +72,7 @@ export function useTokenRefresh({
         return refreshPromiseRef.current;
       }
 
-      const tabId = useRef('tab-' + Date.now()).current;
+      const tabId = tabIdRef.current;
       const lock = readRefreshLock();
 
       const canLead = !lock || lock.owner === tabId || isLockExpired(lock);
@@ -111,6 +119,7 @@ export function useTokenRefresh({
       rejectAllWaiters,
       resolveAllWaiters,
       waitForTokenFromOtherTab,
+      tabIdRef,
     ]
   );
 
