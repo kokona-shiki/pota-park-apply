@@ -79,8 +79,8 @@ export const fetchApi = async <T>(
   url: string,
   options: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-    body?: any;
-    params?: any;
+    body?: unknown;
+    params?: Record<string, unknown>;
   } = {}
 ): Promise<ApiResponse<T>> => {
   const { method = 'GET', body, params } = options;
