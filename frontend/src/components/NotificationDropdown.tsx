@@ -5,7 +5,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications, useUnreadNotifications } from '../hooks/useNotifications';
+import { useNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
 import { truncateMarkdown } from '../utils/markdown';
 
@@ -16,7 +16,6 @@ interface NotificationDropdownProps {
 export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
   const navigate = useNavigate();
   const { notifications, loading, refetch } = useNotifications({ pageSize: 10 });
-  const { refetch: refetchUnreadCount } = useUnreadNotifications();
 
   const handleNotificationClick = async (notification: any) => {
     if (!notification.is_read) {
@@ -25,7 +24,6 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
           method: 'PUT',
         });
         refetch();
-        refetchUnreadCount();
       } catch (err: any) {
         console.error('标记已读失败:', err);
       }
@@ -41,7 +39,6 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
         method: 'PUT',
       });
       refetch();
-      refetchUnreadCount();
     } catch (err: any) {
       console.error('全部标记已读失败:', err);
     }

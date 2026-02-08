@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../auth/useAuth';
+import type { AuthUser } from '../auth/context';
 import { fetchApi } from '../services/apiClient';
 
 interface Notification {
@@ -77,8 +78,9 @@ export const useUnreadNotifications = () => {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const userRef = useRef<AuthUser | null>(null);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -103,13 +105,20 @@ export const useUnreadNotifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchUnreadCount();
+    // 当 user 从 null 变为非 null 或者 user 对象的 id 发生变化时，重新获取未读数量
+    if (user) {
+      if (!userRef.current || user.id !== userRef.current.id) {
+        fetchUnreadCount();
+        userRef.current = user;
+      }
+    }
+    // 无论 user 是否变化，都设置定期轮询
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, fetchUnreadCount]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };
