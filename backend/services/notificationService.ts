@@ -619,7 +619,7 @@ export const withdrawNotification = async (
   await update(
     `
     UPDATE notifications 
-    SET status = 'withdrawn', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), 'withdraw_reason', to_jsonb($2))
+    SET status = 'withdrawn', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), 'withdraw_reason', to_jsonb(COALESCE($2, ''::text)))
     WHERE id = $1
     `,
     [notificationId, reason]
