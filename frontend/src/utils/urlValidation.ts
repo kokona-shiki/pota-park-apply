@@ -33,7 +33,7 @@ function isValidHostname(hostname: string): boolean {
   );
 }
 
-export const isValidUrl = (url: string): boolean {
+export const isValidUrl = (url: string): boolean => {
   const trimmedUrl = url.trim();
 
   if (!trimmedUrl) {
