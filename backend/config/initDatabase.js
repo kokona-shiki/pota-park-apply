@@ -53,9 +53,10 @@ export const createTables = async () => {
     // 版本 8: 添加 POTA 未处理公园表（pota_unprocessed_parks）
     // 版本 11: 更新审核日志 action 从 'pota_synced' 到 'pota_imported'
     // 版本 12: 添加邮箱验证码表（email_verification_tokens）
+    // 版本 13: 添加通知表（notifications, notification_drafts）
     await query(`
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', '12')
+      VALUES ('schema_version', '13')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value,
           updated_at = CURRENT_TIMESTAMP
@@ -368,6 +369,42 @@ export const createTables = async () => {
       )
     `);
 
+    // 13. 通知表
+    await query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        link_url VARCHAR(500),
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        metadata JSONB,
+        is_global BOOLEAN DEFAULT false,
+        notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+        popup_dismissed BOOLEAN DEFAULT false,
+        status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
+        published_at TIMESTAMP WITH TIME ZONE,
+        published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        scheduled_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS notification_drafts (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        link_url VARCHAR(500),
+        notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+        scheduled_at TIMESTAMP WITH TIME ZONE,
+        created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ 数据库表创建完成');
   } catch (error) {
     console.error('❌ 创建数据库表失败:', error);
@@ -484,6 +521,15 @@ export const createIndexes = async () => {
     await query(
       'CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at ON pota_unprocessed_parks (created_at DESC)'
     );
+
+    // 通知表索引
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_is_global ON notifications(is_global)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode ON notifications(notification_mode)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by ON notification_drafts(created_by)');
 
     console.log('✅ 索引创建完成');
   } catch (error) {
@@ -605,7 +651,7 @@ export const migrateSchemaToLatest = async () => {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
     const v = schemaVersion?.value;
 
-    if (!v || v === '12') {
+    if (!v || v === '13') {
       return;
     }
 
@@ -895,6 +941,116 @@ export const migrateSchemaToLatest = async () => {
       return;
     }
 
+    if (v === '12') {
+      console.log('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          type VARCHAR(50) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          description TEXT NOT NULL,
+          link_url VARCHAR(500),
+          is_read BOOLEAN DEFAULT false,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          metadata JSONB,
+          is_global BOOLEAN DEFAULT false,
+          notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+          popup_dismissed BOOLEAN DEFAULT false,
+          status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
+          published_at TIMESTAMP WITH TIME ZONE,
+          published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          scheduled_at TIMESTAMP WITH TIME ZONE
+        )
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_user_id 
+        ON notifications(user_id)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_is_read 
+        ON notifications(is_read)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_created_at 
+        ON notifications(created_at DESC)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_is_global 
+        ON notifications(is_global)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_status 
+        ON notifications(status)
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode 
+        ON notifications(notification_mode)
+      `);
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS notification_drafts (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT NOT NULL,
+          link_url VARCHAR(500),
+          notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+          scheduled_at TIMESTAMP WITH TIME ZONE,
+          created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by 
+        ON notification_drafts(created_by)
+      `);
+
+      await query(`
+        INSERT INTO permissions (permission_code, description)
+        VALUES 
+          ('create_global_notification', '创建全局通知'),
+          ('edit_global_notification', '编辑全局通知'),
+          ('publish_global_notification', '发布全局通知'),
+          ('withdraw_global_notification', '撤回全局通知'),
+          ('view_global_notifications', '查看全局通知列表')
+        ON CONFLICT (permission_code) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO role_permissions (role, permission_id)
+        SELECT 'system_admin', p.id
+        FROM permissions p
+        WHERE p.permission_code IN (
+          'create_global_notification',
+          'edit_global_notification',
+          'publish_global_notification',
+          'withdraw_global_notification',
+          'view_global_notifications'
+        )
+        ON CONFLICT (role, permission_id) DO NOTHING
+      `);
+
+      await query(`
+        INSERT INTO app_meta (key, value)
+        VALUES ('schema_version', '13')
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+
+      console.log('✅ schema 迁移完成（schema_version=13）');
+      return;
+    }
+
     console.warn(`⚠️ 未识别的 schema_version: ${String(v)}`);
   } catch (error) {
     console.error('❌ schema 迁移失败:', error);
@@ -991,7 +1147,12 @@ export const initializeData = async () => {
       ('review_application', '审核申请'),
       ('remind_review', '提醒审核'),
       ('sync_to_pota', '将公园数据录入到POTA系统'),
-      ('pota_import', 'POTA公园导入权限')
+      ('pota_import', 'POTA公园导入权限'),
+      ('create_global_notification', '创建全局通知'),
+      ('edit_global_notification', '编辑全局通知'),
+      ('publish_global_notification', '发布全局通知'),
+      ('withdraw_global_notification', '撤回全局通知'),
+      ('view_global_notifications', '查看全局通知列表')
       ON CONFLICT (permission_code) DO NOTHING
     `);
 
@@ -1006,6 +1167,11 @@ export const initializeData = async () => {
           ('system_admin', 'delete_user'),
           ('system_admin', 'approve_callsign_change'),
           ('system_admin', 'view_all_users'),
+          ('system_admin', 'create_global_notification'),
+          ('system_admin', 'edit_global_notification'),
+          ('system_admin', 'publish_global_notification'),
+          ('system_admin', 'withdraw_global_notification'),
+          ('system_admin', 'view_global_notifications'),
           ('system_admin', 'submit_application'),
           ('system_admin', 'view_application_list'),
           ('system_admin', 'view_application_detail'),

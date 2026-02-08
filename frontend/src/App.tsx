@@ -21,6 +21,10 @@ import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import PotaSyncLogs from './pages/PotaSyncLogs';
 import ParkTypeAlignment from './pages/ParkTypeAlignment';
 import ExportAuditLogs from './pages/ExportAuditLogs';
+import { NotificationCenter } from './pages/NotificationCenter';
+import { GlobalNotificationEditor } from './pages/GlobalNotificationEditor';
+import { GlobalNotificationManager } from './pages/GlobalNotificationManager';
+import { PopupNotification } from './components/PopupNotification';
 import { z } from 'zod';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from './services/apiClient';
@@ -873,10 +877,35 @@ function App() {
                   </RequireSysAdmin>
                 }
               />
+              <Route
+                path="/notifications"
+                element={
+                  <RequireAuth>
+                    <NotificationCenter />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/global-notification-editor"
+                element={
+                  <RequireSysAdmin>
+                    <GlobalNotificationEditor />
+                  </RequireSysAdmin>
+                }
+              />
+              <Route
+                path="/global-notification-manager"
+                element={
+                  <RequireSysAdmin>
+                    <GlobalNotificationManager />
+                  </RequireSysAdmin>
+                }
+              />
             </Routes>
           </Box>
         </Box>
       )}
+      <PopupNotification />
     </AuthContext.Provider>
   );
 }

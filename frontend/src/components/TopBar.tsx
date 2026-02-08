@@ -1,9 +1,11 @@
 // src/components/TopBar.tsx
 import { useState } from 'react';
-import { AppBar, Toolbar, IconButton, Typography, Avatar, Menu, MenuItem, Button } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Avatar, Menu, MenuItem, Button, Popover } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { NotificationIcon } from './NotificationIcon';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface TopBarProps {
   isSidebarOpen: boolean;
@@ -13,10 +15,17 @@ interface TopBarProps {
 function TopBar({ isSidebarOpen, setIsSidebarOpen }: TopBarProps) {
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
+
+  const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => setNotificationAnchorEl(null);
 
   const handleLogout = () => {
     logout();
@@ -42,6 +51,23 @@ function TopBar({ isSidebarOpen, setIsSidebarOpen }: TopBarProps) {
 
         {user ? (
           <>
+            <NotificationIcon onClick={handleNotificationClick} />
+            <Popover
+              open={Boolean(notificationAnchorEl)}
+              anchorEl={notificationAnchorEl}
+              onClose={handleNotificationClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <NotificationDropdown onClose={handleNotificationClose} />
+            </Popover>
+
             <IconButton onClick={handleMenu} color="inherit">
               <Avatar />
               <Typography sx={{ ml: 1 }}>{displayName}</Typography>
@@ -72,5 +98,4 @@ function TopBar({ isSidebarOpen, setIsSidebarOpen }: TopBarProps) {
     </AppBar>
   );
 }
-
 export default TopBar;

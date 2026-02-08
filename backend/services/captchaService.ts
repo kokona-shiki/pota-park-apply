@@ -14,7 +14,7 @@ const generateCaptchaId = (): string => {
 };
 
 export const generateCaptcha = (): CaptchaData => {
-  const captcha = svgCaptcha.create({
+  const captcha = svgCaptcha({
     size: 4,
     ignoreChars: '0o1iIl',
     noise: 2,

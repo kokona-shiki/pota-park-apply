@@ -74,3 +74,34 @@ export const requestWithSchema = async <T>(
     throw error;
   }
 };
+
+export const fetchApi = async <T>(
+  url: string,
+  options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    body?: any;
+    params?: any;
+  } = {}
+): Promise<ApiResponse<T>> => {
+  const { method = 'GET', body, params } = options;
+
+  let request: Promise<AxiosResponse<unknown>>;
+
+  switch (method) {
+    case 'GET':
+      request = apiClient.get(url, { params });
+      break;
+    case 'POST':
+      request = apiClient.post(url, body);
+      break;
+    case 'PUT':
+      request = apiClient.put(url, body);
+      break;
+    case 'DELETE':
+      request = apiClient.delete(url);
+      break;
+  }
+
+  const response = await request;
+  return response.data as ApiResponse<T>;
+};

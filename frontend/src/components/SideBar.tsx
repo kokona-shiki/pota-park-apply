@@ -30,6 +30,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from './PotaAuthDialog';
 import { useAuth } from '../auth/useAuth';
@@ -46,6 +47,7 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
   const [potaMenuOpen, setPotaMenuOpen] = useState(false);
+  const [globalNotificationMenuOpen, setGlobalNotificationMenuOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const { user } = useAuth();
   const { hasPermission: hasExportPermission } = usePermission('export_parks');
@@ -121,6 +123,12 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                       <ListItemText primary="导出" />
                     </ListItemButton>
                   )}
+                  <ListItemButton onClick={() => navigate('/notifications')}>
+                    <ListItemIcon>
+                      <NotificationsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="通知中心" />
+                  </ListItemButton>
                 </>
               )}
 
@@ -132,6 +140,35 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
                     </ListItemIcon>
                     <ListItemText primary="用户管理" />
                   </ListItemButton>
+                  <ListItemButton onClick={() => setGlobalNotificationMenuOpen(!globalNotificationMenuOpen)}>
+                    <ListItemIcon>
+                      <NotificationsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="全局通知" />
+                    {globalNotificationMenuOpen ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                  <Collapse in={globalNotificationMenuOpen} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/global-notification-editor')}
+                      >
+                        <ListItemIcon>
+                          <NotificationsIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="创建通知" />
+                      </ListItemButton>
+                      <ListItemButton
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate('/global-notification-manager')}
+                      >
+                        <ListItemIcon>
+                          <NotificationsIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="已发布通知管理" />
+                      </ListItemButton>
+                    </List>
+                  </Collapse>
                   <ListItemButton onClick={() => navigate('/callsign-change-requests')}>
                     <ListItemIcon>
                       <ListIcon />

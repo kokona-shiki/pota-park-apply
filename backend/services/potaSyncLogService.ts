@@ -1,4 +1,5 @@
 import { query, getMany, insert } from '../config/database.js';
+import * as notificationService from './notificationService.js';
 
 type PotaSyncLogPark = {
   reference: string;
@@ -42,6 +43,24 @@ export const logPotaSync = async (
     console.log(
       `POTA同步日志记录成功: ID ${logEntry.id}, 操作人: ${operator}, 类型: ${operationType}, 状态: ${status}`
     );
+
+    if (status === 'success') {
+      const systemAdmins = await notificationService.getUsersByRole('system_admin');
+      const potaReps = await notificationService.getUsersByRole('pota_representative');
+      const notifyUserIds = [...new Set([...systemAdmins, ...potaReps])];
+
+      if (notifyUserIds.length > 0) {
+        await notificationService.createNotificationForUsers(
+          notifyUserIds,
+          'pota_data_sync',
+          'POTA 数据同步完成',
+          `POTA 数据同步任务已完成，共导入 ${parksImported.length} 个公园`,
+          `/pota-sync-logs`,
+          { log_id: logEntry.id }
+        );
+      }
+    }
+
     return logEntry;
   } catch (error) {
     console.error('记录POTA同步日志失败:', error.message);

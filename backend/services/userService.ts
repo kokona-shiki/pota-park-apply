@@ -10,6 +10,7 @@ import {
   normalizeEmail,
   revokeAllRefreshTokensForUser,
 } from '../utils/auth.js';
+import * as notificationService from './notificationService.js';
 
 type UserAdminAuditPayload = {
   action: string;
@@ -222,9 +223,21 @@ export const requestCallsignChange = async (userId: number, newCallsign: string,
     `
     INSERT INTO callsign_change_requests (user_id, current_callsign, requested_callsign, reason)
     VALUES ($1, $2, $3, $4)
-  `,
+    `,
     [userId, currentUser.callsign, normalized, reason]
   );
+
+  const systemAdmins = await notificationService.getUsersByRole('system_admin');
+  if (systemAdmins.length > 0) {
+    await notificationService.createNotificationForUsers(
+      systemAdmins,
+      'callsign_change_request',
+      '新的呼号变更申请',
+      `用户"${currentUser.callsign}"申请将呼号变更为"${normalized}"`,
+      `/callsign-change-requests`,
+      { request_id: request.id }
+    );
+  }
 
   return request;
 };
@@ -272,12 +285,24 @@ export const reviewCallsignChange = async (
         SET callsign = $1
         WHERE id = $2
         RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-      `,
+        `,
         [request.requested_callsign, request.user_id]
       );
 
       updatedUser = result.rows[0];
     }
+
+    await notificationService.createNotification(
+      {
+        type: 'callsign_change_request',
+        title: status === 'approved' ? '呼号变更申请已通过' : '呼号变更申请已拒绝',
+        description: status === 'approved'
+          ? `您的呼号变更申请已通过，呼号已变更为"${request.requested_callsign}"`
+          : `您的呼号变更申请已被拒绝${reviewNotes ? `：${reviewNotes}` : ''}`,
+        userId: request.user_id,
+        linkUrl: `/callsign-change-requests`,
+      }
+    );
 
     return {
       request: { ...request, status, review_notes: reviewNotes },
@@ -443,6 +468,16 @@ export const updateUserRole = async (
       ) VALUES ('user_role_changed', $1, $2, $3, $4, $5, $6)
     `,
       [operatorId, targetUserId, target.role, newRole, reason, {}]
+    );
+
+    await notificationService.createNotification(
+      {
+        type: 'user_management_operation',
+        title: '用户角色已变更',
+        description: `您的角色已从"${target.role}"变更为"${newRole}"`,
+        userId: targetUserId,
+        linkUrl: '/profile',
+      }
     );
 
     return updated.rows[0];

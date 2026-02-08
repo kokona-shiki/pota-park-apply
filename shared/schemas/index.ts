@@ -9,3 +9,4 @@ export * from './potaExternal';
 export * from './parkType';
 export * from './region';
 export * from './export';
+export * from './notification';

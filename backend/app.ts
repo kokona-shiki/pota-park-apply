@@ -12,6 +12,7 @@ import potaRoutes from './routes/potaRoutes.js';
 import potaImportRoutes from './routes/potaImportRoutes.js';
 import potaSyncLogRoutes from './routes/potaSyncLogRoutes.js';
 import exportRoutes from './routes/exportRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import { initProxies } from './config/proxyConfig.js';
 
 const app = express();
@@ -96,6 +97,7 @@ app.use(potaRoutes);
 app.use(potaImportRoutes);
 app.use(potaSyncLogRoutes);
 app.use(exportRoutes);
+app.use(notificationRoutes);
 
 // 404 处理
 app.use('*', (_req, res) => {

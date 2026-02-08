@@ -15,10 +15,8 @@ dotenv.config({ path: join(__dirname, '../.env') });
 
 const PORT = process.env.PORT || 3101;
 
-// 启动服务器
 const startServer = async () => {
   try {
-    // 测试数据库连接
     const dbConnected = await testConnection();
 
     if (!dbConnected) {
@@ -27,7 +25,6 @@ const startServer = async () => {
 
     const mapProvider = getMapProvider();
 
-    // 启动定时任务
     scheduler.init().catch((err: Error) => {
       console.error('❌ 定时任务初始化失败:', err);
     });
@@ -84,11 +81,29 @@ const startServer = async () => {
       console.log('');
       console.log('📥 POTA 公园导入:');
       console.log('POST /api/pota/import - 手动触发 POTA 公园导入');
-      console.log('GET  /api/pota/import-status - 获取导入权限状态');
-      console.log('GET  /api/pota/import-task/latest - 获取导入任务');
-      console.log('GET  /api/pota/unprocessed-parks - 获取未处理公园');
+      console.log('GET /api/pota/import-status - 获取导入权限状态');
+      console.log('GET /api/pota/import-task/latest - 获取导入任务');
+      console.log('GET /api/pota/unprocessed-parks - 获取未处理公园');
       console.log('POST /api/pota/process-unprocessed-park - 处理未处理公园');
       console.log('POST /api/pota/bulk-process-unprocessed-parks - 批量处理未处理公园');
+      console.log('');
+      console.log('🔔 通知系统:');
+      console.log('GET /api/notifications - 获取通知列表');
+      console.log('GET /api/notifications/unread-count - 获取未读数量');
+      console.log('GET /api/notifications/popup - 获取弹窗通知');
+      console.log('GET /api/notifications/:id - 获取通知详情');
+      console.log('PUT /api/notifications/:id/read - 标记已读');
+      console.log('PUT /api/notifications/read-all - 全部标记已读');
+      console.log('PUT /api/notifications/:id/dismiss-popup - 关闭弹窗');
+      console.log('POST /api/notifications - 创建全局通知');
+      console.log('POST /api/notifications/drafts - 创建草稿');
+      console.log('GET /api/notifications/drafts - 获取草稿列表');
+      console.log('GET /api/notifications/drafts/:id - 获取草稿详情');
+      console.log('PUT /api/notifications/drafts/:id - 更新草稿');
+      console.log('DELETE /api/notifications/drafts/:id - 删除草稿');
+      console.log('POST /api/notifications/drafts/:id/publish - 发布草稿');
+      console.log('POST /api/notifications/:id/withdraw - 撤回通知');
+      console.log('GET /api/notifications/global - 获取全局通知列表');
       console.log('');
     });
   } catch (error) {

@@ -4,6 +4,7 @@ import { resolveParkTypeId } from './pota-import/parkTypeResolver.js';
 import { calculateSimilarity } from '../utils/similarity.js';
 import { parseProvincesFromParkName } from '../utils/locationParser.js';
 import { } from '../utils/distance.js';
+import * as notificationService from './notificationService.js';
 
 type AppError = Error & { status?: number; code?: string };
 
@@ -275,8 +276,39 @@ export const submitParkApplication = async (
       [newApplication.id]
     );
 
+    await notifyReviewersOnNewApplication(newApplication.id, park_name);
+
     return fullApplication.rows[0];
   });
+};
+
+export const notifyReviewersOnNewApplication = async (applicationId: number, parkName: string) => {
+  try {
+    const reviewers = await getMany(
+      `
+      SELECT u.id FROM users u
+      JOIN role_permissions rp ON u.role = rp.role
+      JOIN permissions p ON rp.permission_id = p.id
+      WHERE u.is_active = true
+        AND p.permission_code = 'review_application'
+      `
+    );
+
+    const reviewerIds = reviewers.map((r) => r.id);
+
+    if (reviewerIds.length > 0) {
+      await notificationService.createNotificationForUsers(
+        reviewerIds,
+        'park_application_status_change',
+        '新的公园申请待审核',
+        `有新的公园申请"${parkName}"需要您审核`,
+        null,
+        { application_id: applicationId }
+      );
+    }
+  } catch (error) {
+    console.error('通知审核员失败:', error);
+  }
 };
 
 // 获取申请列表
@@ -424,7 +456,7 @@ export const reviewApplication = async (
     FROM park_applications pa
     JOIN users u ON u.id = $1
     WHERE pa.id = $2
-  `,
+    `,
     [reviewerId, applicationId]
   );
 
@@ -481,7 +513,45 @@ export const reviewApplication = async (
       [applicationId]
     );
 
-    return fullApplication.rows[0];
+    const application = fullApplication.rows[0];
+
+    if (status === 'approved') {
+      await notificationService.createNotification(
+        {
+          type: 'park_application_status_change',
+          title: '公园申请审核通过',
+          description: `您的公园申请"${currentApplication.park_name}"已通过审核`,
+          userId: application.applicant_id,
+          linkUrl: `/park-applications/${applicationId}`,
+        }
+      );
+
+      if (operatorRole !== 'pota_representative') {
+        const potaReps = await notificationService.getUsersByRole('pota_representative');
+        if (potaReps.length > 0) {
+          await notificationService.createNotificationForUsers(
+            potaReps,
+            'park_application_status_change',
+            '公园申请审核通过',
+            `公园申请"${currentApplication.park_name}"已通过审核`,
+            `/park-applications/${applicationId}`,
+            { application_id: applicationId }
+          );
+        }
+      }
+    } else {
+      await notificationService.createNotification(
+        {
+          type: 'park_application_status_change',
+          title: '公园申请审核拒绝',
+          description: `您的公园申请"${currentApplication.park_name}"已被拒绝${rejectionReason ? `：${rejectionReason}` : ''}`,
+          userId: application.applicant_id,
+          linkUrl: `/park-applications/${applicationId}`,
+        }
+      );
+    }
+
+    return application;
   });
 };
 
@@ -569,7 +639,19 @@ export const reReviewApplication = async (
       [applicationId]
     );
 
-    return fullApplication.rows[0];
+    const application = fullApplication.rows[0];
+
+    await notificationService.createNotification(
+      {
+        type: 'park_application_status_change',
+        title: '公园申请已同步到 POTA',
+        description: `您的公园申请"${currentApplication.park_name}"已成功同步到 POTA 系统`,
+        userId: currentApplication.applicant_id,
+        linkUrl: `/park-applications/${applicationId}`,
+      }
+    );
+
+    return application;
   });
 };
 
