@@ -12,7 +12,6 @@ export type ApiErrorData = {
     };
     allowRetry?: boolean;
   };
-  // 兼容嵌套格式：data 字段可能包含 details
   data?: {
     similarParks?: Array<{ id: number; name: string }>;
     nearbyParks?: Array<{ id: number; name: string }>;
@@ -44,15 +43,20 @@ export type ApiErrorLike = {
   response?: ApiErrorResponse;
 };
 
+function extractMessageFromResponseData(data: ApiErrorData | undefined): string | null {
+  if (!data) return null;
+  const msg = data.message ?? data.error;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  return null;
+}
+
 export function getApiErrorMessage(err: unknown, fallback = '请求失败') {
   const e = err as ApiErrorLike;
-
   const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
   if (typeof msg === 'string' && msg.trim()) return msg;
   return fallback;
 }
 
-// 获取完整的 API 错误详情
 export type ApiErrorDetails = {
   code?: string;
   details?: {
@@ -65,13 +69,54 @@ export type ApiErrorDetails = {
     };
     allowRetry?: boolean;
   };
-  // 兼容旧格式：details 可能直接是 existingPark 对象
   existingPark?: {
     id: number;
     name: string;
     status: string;
   };
 };
+
+function extractDetailsFromData(data: ApiErrorData | undefined): ApiErrorData['details'] | undefined {
+  if (!data) return undefined;
+  if (data.details) return data.details;
+  if (data.data && typeof data.data === 'object') {
+    if ('existingPark' in data.data) return data.data;
+    if ('details' in data.data) return data.data.details;
+    return data.data;
+  }
+  return undefined;
+}
+
+function extractErrorFromBusinessError(e: Error & {
+  isBusinessError?: boolean;
+  code?: number | string;
+  response?: {
+    data?: ApiErrorData;
+  };
+}): ApiErrorDetails | null {
+  if (!e.isBusinessError) return null;
+  const responseData = e.response?.data;
+  if (responseData && typeof responseData === 'object') {
+    const code = responseData.code;
+    const details = extractDetailsFromData(responseData);
+    return { code, details };
+  }
+  return null;
+}
+
+function extractErrorFromResponse(e: Error & {
+  response?: {
+    data?: ApiErrorData;
+  };
+}): ApiErrorDetails | null {
+  const responseData = e?.response?.data;
+  if (responseData && typeof responseData === 'object') {
+    const code = responseData.code;
+    const details = extractDetailsFromData(responseData);
+    return { code, details };
+  }
+  return null;
+}
 
 export function getApiErrorDetails(err: unknown): ApiErrorDetails {
   const e = err as Error & {
@@ -81,59 +126,13 @@ export function getApiErrorDetails(err: unknown): ApiErrorDetails {
       data?: ApiErrorData;
     };
   };
-  
-  // 情况1：如果是业务错误（App.tsx 拦截器处理后的格式）
-  if (e.isBusinessError) {
-    // 从 response.data 中获取业务错误数据
-    const responseData = e.response?.data;
-    if (responseData && typeof responseData === 'object') {
-      // 提取 code 和 details
-      const code = responseData.code;
-      let details = responseData.details;
-      
-      // 如果没有直接的 details 字段，检查 data 字段
-      if (!details && responseData.data && typeof responseData.data === 'object') {
-        // 如果 data 是一个包含 existingPark 的对象，直接作为 details
-        if ('existingPark' in responseData.data) {
-          details = responseData.data;
-        }
-        // 如果 data 包含 details 字段，使用它
-        else if ('details' in responseData.data) {
-          details = responseData.data.details;
-        }
-        // 否则直接使用 data 作为 details（如 SIMILAR_NAME 错误的 similarParks）
-        else {
-          details = responseData.data;
-        }
-      }
-      
-      return { code, details };
-    }
-  }
-  
-  // 情况2：直接从 response.data 获取（未被拦截器处理的情况）
-  const responseData = e?.response?.data;
-  if (responseData && typeof responseData === 'object') {
-    const code = responseData.code;
-    let details = responseData.details;
-    
-    if (!details && responseData.data && typeof responseData.data === 'object') {
-      if ('existingPark' in responseData.data) {
-        details = responseData.data;
-      }
-      else if ('details' in responseData.data) {
-        details = responseData.data.details;
-      }
-      // 否则直接使用 data 作为 details（如 SIMILAR_NAME 错误的 similarParks）
-      else {
-        details = responseData.data;
-      }
-    }
-    
-    return { code, details };
-  }
-  
-  // 情况3：直接返回错误对象的 code 和 message
+
+  const businessError = extractErrorFromBusinessError(e);
+  if (businessError) return businessError;
+
+  const responseError = extractErrorFromResponse(e);
+  if (responseError) return responseError;
+
   return {
     code: typeof e.code === 'string' ? e.code : 'UNKNOWN_ERROR',
     details: undefined,
