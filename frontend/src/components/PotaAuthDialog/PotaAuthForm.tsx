@@ -7,10 +7,9 @@ import { getApiErrorMessage } from '../../utils/error';
 
 interface PotaAuthFormProps {
   onAuthSuccess: () => void;
-  onAuthError: (error: string) => void;
 }
 
-function PotaAuthForm({ onAuthSuccess, onAuthError }: PotaAuthFormProps) {
+function PotaAuthForm({ onAuthSuccess }: PotaAuthFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +18,7 @@ function PotaAuthForm({ onAuthSuccess, onAuthError }: PotaAuthFormProps) {
 
   const startAuth = async () => {
     if (!username || !password) {
-      setAuthError('请输入 POTA 账号和密码');
+      setError('请输入 POTA 账号和密码');
       return;
     }
 
@@ -43,7 +42,7 @@ function PotaAuthForm({ onAuthSuccess, onAuthError }: PotaAuthFormProps) {
         setSuccess(null);
       }, 3000);
     } catch (e: unknown) {
-      setAuthError(getApiErrorMessage(e, 'POTA 登录失败'));
+      setError(getApiErrorMessage(e, 'POTA 登录失败'));
       setLoading(false);
       setSuccess(null);
     }

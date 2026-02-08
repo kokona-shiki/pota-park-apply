@@ -8,7 +8,6 @@ import {
   DialogTitle,
   DialogActions,
   Stack,
-  Typography,
   Alert,
   Button,
 } from '@mui/material';
@@ -95,10 +94,6 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
   const handleAuthSuccess = () => {
     setAuthDialogOpen(false);
     loadStatus();
-  };
-
-  const handleAuthError = (error: string) => {
-    setAuthError(error);
   };
 
   return (

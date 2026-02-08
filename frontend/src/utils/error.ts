@@ -43,13 +43,6 @@ export type ApiErrorLike = {
   response?: ApiErrorResponse;
 };
 
-function extractMessageFromResponseData(data: ApiErrorData | undefined): string | null {
-  if (!data) return null;
-  const msg = data.message ?? data.error;
-  if (typeof msg === 'string' && msg.trim()) return msg;
-  return null;
-}
-
 export function getApiErrorMessage(err: unknown, fallback = '请求失败') {
   const e = err as ApiErrorLike;
   const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;

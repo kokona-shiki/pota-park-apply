@@ -4,13 +4,6 @@ import type { ParkTypeMapping } from '../../../shared/schemas';
 
 const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
-const PARK_TYPE_BY_ID = new Map(
-  [
-    ...PARK_TYPE_MAPPING.chinese_to_english,
-    ...(PARK_TYPE_MAPPING.pota_only_types || []),
-  ].map((item) => [item.id, { zh: item.chineseName, en: item.englishName }])
-);
-
 const REGION_BY_ISO = new Map(
   PARK_TYPE_MAPPING.chinese_to_english
     .filter((item) => item.iso3166_2Code)
@@ -70,7 +63,7 @@ function findProvinceInParts(parts: string[]): { province: string; index: number
   return null;
 }
 
-function findCityInParts(parts: string[], provinceIndex: number): string {
+function findCityInParts(parts: string[]): string {
   for (const part of parts.slice(2, 5)) {
     if (isCityPart(part)) {
       return part.replace('市', '');
@@ -98,13 +91,13 @@ export const parseOSMDisplayName = (displayName: string): { province: string; ci
     return null;
   }
 
-  const { province, index: provinceIndex } = provinceResult;
+  const { province } = provinceResult;
   let city = '';
 
-  if (isMunicipality(parts[provinceIndex])) {
+  if (isMunicipality(parts[provinceResult.index])) {
     city = province;
   } else if (!city) {
-    city = findCityInParts(parts, provinceIndex);
+    city = findCityInParts(parts);
   }
 
   return { province, city: city || '', name };

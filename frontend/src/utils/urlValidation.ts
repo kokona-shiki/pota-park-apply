@@ -33,11 +33,7 @@ function isValidHostname(hostname: string): boolean {
   );
 }
 
-function hasValidChars(hostname: string): boolean {
-  return /[a-zA-Z0-9]/.test(hostname);
-}
-
-export const isValidUrl = (url: string): boolean => {
+export const isValidUrl = (url: string): boolean {
   const trimmedUrl = url.trim();
 
   if (!trimmedUrl) {
@@ -53,7 +49,7 @@ export const isValidUrl = (url: string): boolean => {
 
     const isHttpOrHttps = isValidProtocol(protocol);
     const hasValidHostname = isValidHostname(hostname);
-    const hasValidChars = hasValidChars(hostname);
+    const hasValidChars = /[a-zA-Z0-9]/.test(hostname);
 
     return isHttpOrHttps && hasValidHostname && hasValidChars;
   } catch {
