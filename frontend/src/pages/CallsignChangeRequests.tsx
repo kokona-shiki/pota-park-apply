@@ -14,11 +14,6 @@ import {
   Tabs,
   Tab,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Chip,
   Divider,
 } from '@mui/material';
@@ -28,6 +23,7 @@ import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { useOnceOnMountWithAbort } from '../hooks/useOnceOnMount';
 import { getApiErrorMessage } from '../utils/error';
+import ReviewDialog from './CallsignChangeRequests/ReviewDialog';
 
 interface CallsignChangeRequest {
   id: number;
@@ -54,22 +50,19 @@ function CallsignChangeRequests() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 审核对话框状态
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRequestId, setReviewRequestId] = useState<number | null>(null);
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected'>('approved');
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
 
-  // 根据标签页确定要加载的状态
   const getStatusForTab = (): 'pending' | 'approved' | 'rejected' | null => {
     if (tab === 0) return 'pending';
     if (tab === 1) return 'approved';
     if (tab === 2) return 'rejected';
-    return null; // 所有状态
+    return null;
   };
 
-  // 加载申请数据
   const loadRequests = async (statusFilter: 'pending' | 'approved' | 'rejected' | null = null) => {
     if (isAuthLoading || !currentUser) return;
 
@@ -122,7 +115,6 @@ function CallsignChangeRequests() {
         CallsignChangeRequestsDataSchema
       );
 
-      // 只有当请求未被取消时才更新状态
       if (!signal.aborted) {
         setRequests((payload.requests || []).map(req => ({
           ...req,
@@ -133,7 +125,6 @@ function CallsignChangeRequests() {
         })));
       }
     } catch (e: unknown) {
-      // 忽略被取消的请求错误
       if (axios.isCancel(e) || (e instanceof Error && (e.name === 'CanceledError' || e.name === 'AbortError'))) {
         console.debug('请求被取消:', (e as Error).message);
       } else {
@@ -166,11 +157,9 @@ function CallsignChangeRequests() {
         CallsignReviewDataSchema
       );
 
-      // 更新本地状态
       setRequests((prev) =>
         prev.map((req) => {
           if (req.id === reviewRequestId) {
-            // 检查响应结构并更新相应字段
             const requestData = payload.request;
             if (requestData) {
               return { 
@@ -182,7 +171,6 @@ function CallsignChangeRequests() {
                 reviewer_callsign: requestData.reviewer_callsign || undefined
               };
             }
-            // 如果响应结构不符合预期，至少更新状态和审核信息
             return {
               ...req,
               status: reviewStatus,
@@ -197,6 +185,7 @@ function CallsignChangeRequests() {
 
       setReviewDialogOpen(false);
       setReviewRequestId(null);
+      setReviewNotes('');
     } catch (e: unknown) {
       setError(
         getApiErrorMessage(e, `${reviewStatus === 'approved' ? '批准' : '拒绝'}呼号变更申请失败`)
@@ -206,12 +195,10 @@ function CallsignChangeRequests() {
     }
   };
 
-  // 根据标签页确定要显示的申请状态
   const getDisplayRequests = () => {
     if (tab === 0) return requests.filter((r) => r.status === 'pending');
     if (tab === 1) return requests.filter((r) => r.status === 'approved');
     if (tab === 2) return requests.filter((r) => r.status === 'rejected');
-    // tab === 3 (全部) 或其他情况，返回所有请求
     return requests;
   };
 
@@ -229,6 +216,22 @@ function CallsignChangeRequests() {
         return <Chip label={status} size="small" />;
     }
   };
+
+  const handleRefresh = () => {
+    if (tab === 0) loadRequests('pending');
+    else if (tab === 1) loadRequests('approved');
+    else if (tab === 2) loadRequests('rejected');
+    else loadRequests(null);
+  };
+
+  const getTabTitle = () => {
+    if (tab === 0) return '待审核申请';
+    if (tab === 1) return '已批准申请';
+    if (tab === 2) return '已拒绝申请';
+    return '全部申请';
+  };
+
+  const reviewRequest = requests.find((r) => r.id === reviewRequestId);
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', mt: 4 }}>
@@ -254,19 +257,11 @@ function CallsignChangeRequests() {
       <Paper>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">
-            {tab === 0 && '待审核申请'}
-            {tab === 1 && '已批准申请'}
-            {tab === 2 && '已拒绝申请'}
-            {tab === 3 && '全部申请'}
+            {getTabTitle()}
           </Typography>
           <Button
             variant="outlined"
-            onClick={() => {
-              if (tab === 0) loadRequests('pending');
-              else if (tab === 1) loadRequests('approved');
-              else if (tab === 2) loadRequests('rejected');
-              else loadRequests(null);
-            }}
+            onClick={handleRefresh}
             disabled={loading}
           >
             刷新
@@ -352,67 +347,16 @@ function CallsignChangeRequests() {
         </TableContainer>
       </Paper>
 
-      {/* 审核对话框 */}
-      <Dialog
+      <ReviewDialog
         open={reviewDialogOpen}
+        request={reviewRequest || null}
+        status={reviewStatus}
+        notes={reviewNotes}
+        loading={reviewLoading}
+        onNotesChange={setReviewNotes}
+        onSubmit={handleReviewSubmit}
         onClose={() => setReviewDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {reviewStatus === 'approved' ? '批准呼号变更申请' : '拒绝呼号变更申请'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            {reviewRequestId && (
-              <>
-                {requests
-                  .filter((r) => r.id === reviewRequestId)
-                  .map((request) => (
-                    <Box key={request.id} sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        申请人: {request.applicant_callsign || request.applicant_email}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        当前呼号: {request.current_callsign} → 申请呼号:{' '}
-                        {request.requested_callsign}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        申请原因: {request.reason}
-                      </Typography>
-                    </Box>
-                  ))}
-                <TextField
-                  fullWidth
-                  label="审核备注"
-                  multiline
-                  rows={4}
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder={
-                    reviewStatus === 'approved' ? '可选：批准原因或说明' : '必填：拒绝原因'
-                  }
-                  required={reviewStatus === 'rejected'}
-                  margin="normal"
-                />
-              </>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReviewDialogOpen(false)} disabled={reviewLoading}>
-            取消
-          </Button>
-          <Button
-            onClick={handleReviewSubmit}
-            disabled={reviewLoading || (reviewStatus === 'rejected' && !reviewNotes.trim())}
-            variant="contained"
-            color={reviewStatus === 'approved' ? 'success' : 'error'}
-          >
-            {reviewStatus === 'approved' ? '批准' : '拒绝'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
     </Box>
   );
 }

@@ -6,102 +6,54 @@ import {
   Button,
   Container,
   Divider,
-  IconButton,
-  InputAdornment,
-  Link,
-  Paper,
-  TextField,
   Typography,
-  Box,
-  CircularProgress
+  Paper,
 } from '@mui/material';
-import ClearIcon from '@mui/icons-material/Clear';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
+import RegisterFormData from './Register/RegisterForm';
 
 function Register() {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const [callsign, setCallsign] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [captchaCode, setCaptchaCode] = useState('');
-  const [captchaId, setCaptchaId] = useState('');
   const [captchaSvg, setCaptchaSvg] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
   const hasFetchedCaptcha = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const stripBlankChars = (v: string) => v.replace(/\s+/g, '');
-
   const fetchCaptcha = async () => {
     try {
       const response = await fetch('/api/captcha');
       const svg = await response.text();
-      const captchaId = response.headers.get('X-Captcha-Id');
       setCaptchaSvg(svg);
-      setCaptchaCode('');
-      if (captchaId) {
-        setCaptchaId(captchaId);
-      }
+      const captchaId = response.headers.get('X-Captcha-Id');
+      setSuccess(null);
+      setError(null);
     } catch (err) {
       console.error('获取验证码失败:', err);
     }
   };
 
-  const handleSendVerificationCode = async () => {
-    setError(null);
-    setSuccess(null);
-
-    if (!email) {
-      setError('请先输入邮箱地址');
-      return;
-    }
-
-    if (!captchaCode) {
-      setError('请输入图形验证码');
-      return;
-    }
-
-    setSendingCode(true);
-
-    try {
-      await apiClient.post('/api/send-verification-email', {
-        email,
-        captchaId,
-        captchaCode,
-      });
-
-      setSuccess('验证码已发送，请查收邮件');
-      setCooldown(60);
-      const timer = setInterval(() => {
-        setCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (err) {
-      setError(getApiErrorMessage(err, '发送验证码失败'));
+  useEffect(() => {
+    if (!hasFetchedCaptcha.current) {
+      hasFetchedCaptcha.current = true;
       fetchCaptcha();
-    } finally {
-      setSendingCode(false);
     }
-  };
+  }, []);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError(null);
     setSuccess(null);
@@ -158,12 +110,48 @@ function Register() {
       });
   };
 
-  useEffect(() => {
-    if (!hasFetchedCaptcha.current) {
-      hasFetchedCaptcha.current = true;
-      fetchCaptcha();
+  const handleSendVerificationCode = async () => {
+    setError(null);
+    setSuccess(null);
+
+    if (!email) {
+      setError('请先输入邮箱地址');
+      return;
     }
-  }, []);
+
+    if (!captchaCode) {
+      setError('请输入图形验证码');
+      return;
+    }
+
+    setSuccess(null);
+    setError(null);
+    setSendingCode(true);
+
+    try {
+      await apiClient.post('/api/send-verification-email', {
+        email,
+        captchaId: document.querySelector('input[name="captchaId"]')?.getAttribute('value') || '',
+        captchaCode,
+      });
+      setSuccess('验证码已发送，请查收邮件');
+      setCooldown(60);
+      const timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setError(getApiErrorMessage(err, '发送验证码失败'));
+      fetchCaptcha();
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   return (
     <Container
@@ -178,10 +166,10 @@ function Register() {
       <Paper elevation={3} sx={{ width: '100%', p: 4, borderRadius: 3 }}>
         <Avatar sx={{ mx: 'auto', mb: 2, bgcolor: 'primary.main' }}>P</Avatar>
         <Typography variant="h5" align="center" sx={{ fontWeight: 700 }}>
-          注册账号
+          注册
         </Typography>
         <Typography variant="body2" align="center" color="text.secondary" sx={{ mt: 1 }}>
-          注册后需登录后才能提交公园申请
+          创建您的 POTA 公园申请系统账号
         </Typography>
 
         <Divider sx={{ my: 3 }} />
@@ -198,219 +186,27 @@ function Register() {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="呼号"
-            value={callsign}
-            onKeyDown={(e) => {
-              if (e.key === ' ') e.preventDefault();
-            }}
-            onChange={(e) => setCallsign(stripBlankChars(e.target.value))}
-            helperText="建议使用大写字母 + 数字，例如：BH1ABC"
-            autoComplete="nickname"
-            InputProps={
-              callsign.length > 0
-                ? {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="清空"
-                          onClick={() => setCallsign('')}
-                          edge="end"
-                          size="small"
-                          tabIndex={-1}
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }
-                : undefined
-            }
-          />
-          <TextField
-            fullWidth
-            label="邮箱"
-            value={email}
-            onKeyDown={(e) => {
-              if (e.key === ' ') e.preventDefault();
-            }}
-            onChange={(e) => setEmail(stripBlankChars(e.target.value))}
-            sx={{ mt: 2 }}
-            autoComplete="email"
-            InputProps={
-              email.length > 0
-                ? {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="清空"
-                          onClick={() => setEmail('')}
-                          edge="end"
-                          size="small"
-                          tabIndex={-1}
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }
-                : undefined
-            }
-          />
-          <TextField
-            fullWidth
-            label="密码"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onKeyDown={(e) => {
-              if (e.key === ' ') e.preventDefault();
-            }}
-            onChange={(e) => {
-              const next = stripBlankChars(e.target.value);
-              setPassword(next);
-              if (next.length === 0) setShowPassword(false);
-            }}
-            sx={{ mt: 2 }}
-            helperText="至少 8 位，建议包含大小写字母、数字与符号"
-            autoComplete="new-password"
-            InputProps={
-              password.length > 0
-                ? {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                          onClick={() => setShowPassword((v) => !v)}
-                          edge="end"
-                          size="small"
-                          tabIndex={-1}
-                        >
-                          {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                        </IconButton>
-                        <IconButton
-                          aria-label="清空密码"
-                          onClick={() => {
-                            setPassword('');
-                            setShowPassword(false);
-                          }}
-                          edge="end"
-                          size="small"
-                          tabIndex={-1}
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }
-                : undefined
-            }
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-            <Box
-              sx={{
-                width: 120,
-                height: 40,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid #ccc',
-                borderRadius: 1,
-                cursor: 'pointer',
-              }}
-              onClick={fetchCaptcha}
-              dangerouslySetInnerHTML={{ __html: captchaSvg }}
-            />
-            <TextField
-              fullWidth
-              label="图形验证码"
-              value={captchaCode}
-              onKeyDown={(e) => {
-                if (e.key === ' ') e.preventDefault();
-              }}
-              onChange={(e) => setCaptchaCode(stripBlankChars(e.target.value))}
-              helperText="点击图片刷新"
-              autoComplete="off"
-              InputProps={
-                captchaCode.length > 0
-                  ? {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label="清空"
-                            onClick={() => setCaptchaCode('')}
-                            edge="end"
-                            size="small"
-                            tabIndex={-1}
-                          >
-                            <ClearIcon fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      )
-                    }
-                  : undefined
-              }
-            />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-            <TextField
-              fullWidth
-              label="邮箱验证码"
-              value={verificationCode}
-              onKeyDown={(e) => {
-                if (e.key === ' ') e.preventDefault();
-              }}
-              onChange={(e) => setVerificationCode(stripBlankChars(e.target.value))}
-              helperText="请输入邮箱收到的6位验证码"
-              autoComplete="one-time-code"
-              InputProps={
-                verificationCode.length > 0
-                  ? {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label="清空"
-                            onClick={() => setVerificationCode('')}
-                            edge="end"
-                            size="small"
-                            tabIndex={-1}
-                          >
-                            <ClearIcon fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      )
-                    }
-                  : undefined
-              }
-            />
-            <Button
-              variant="outlined"
-              onClick={handleSendVerificationCode}
-              disabled={sendingCode || cooldown > 0 || !email}
-              sx={{ minWidth: 100, height: 56, whiteSpace: 'nowrap' }}
-            >
-              {sendingCode ? (
-                <CircularProgress size={20} />
-              ) : cooldown > 0 ? (
-                `${cooldown}s`
-              ) : (
-                '发送验证码'
-              )}
-            </Button>
-          </Box>
-
-          <Button fullWidth variant="contained" type="submit" sx={{ mt: 3 }} disabled={submitting}>
-            {submitting ? '注册中...' : '注册'}
-          </Button>
-        </form>
-
-        <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-          已有账号？
-          <Link component={RouterLink} to="/login" underline="hover" sx={{ ml: 1 }}>
-            去登录
-          </Link>
-        </Typography>
+        <RegisterFormData
+          callsign={callsign}
+          email={email}
+          password={password}
+          showPassword={showPassword}
+          verificationCode={verificationCode}
+          captchaCode={captchaCode}
+          captchaSvg={captchaSvg}
+          sendingCode={sendingCode}
+          submitting={submitting}
+          cooldown={cooldown}
+          onCallsignChange={setCallsign}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onTogglePassword={() => setShowPassword((v) => !v)}
+          onVerificationCodeChange={setVerificationCode}
+          onCaptchaCodeChange={setCaptchaCode}
+          onSendCode={handleSendVerificationCode}
+          onSubmit={handleSubmit}
+          onClearCallsign={() => setCallsign('')}
+        />
       </Paper>
     </Container>
   );
