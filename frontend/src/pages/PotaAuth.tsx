@@ -2,9 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
   Box,
-  Button,
-  Card,
-  CardContent,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -14,12 +11,8 @@ import {
   Stack,
   Typography,
   Alert,
-  Chip,
   Divider,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LinkIcon from '@mui/icons-material/Link';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
 import { z } from 'zod';
 import { PotaAuthInitDataSchema, PotaAuthResultDataSchema, PotaStatusSchema } from '../../../shared/schemas/pota';
 import { apiClient, requestWithSchema } from '../services/apiClient';
@@ -81,7 +74,6 @@ function PotaAuth() {
   const [error, setError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const checkIntervalRef = useRef<number | null>(null);
 
