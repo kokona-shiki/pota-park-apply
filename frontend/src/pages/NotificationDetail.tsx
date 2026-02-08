@@ -46,8 +46,7 @@ export const NotificationDetail = () => {
 
         console.log('通知详情响应:', response);
 
-        // 尝试不同的数据结构
-        const notificationData = (response as any).notification || (response as any).data?.notification;
+        const notificationData = ('notification' in response ? response.notification : 'data' in response && response.data?.notification) as Notification | null | undefined;
         
         if (notificationData) {
           setNotification(notificationData);
