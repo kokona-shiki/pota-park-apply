@@ -84,10 +84,19 @@ export const useUnreadNotifications = () => {
     setLoading(true);
     try {
       const response = await fetchApi<{ unread_count: number }>('/api/notifications/unread-count');
-      console.log('[DEBUG] 获取未读数量响应:', response);
-      if (response.data?.unread_count !== undefined) {
-        console.log('[DEBUG] 设置未读数量:', response.data.unread_count);
-        setUnreadCount(response.data.unread_count);
+      
+      // 检查响应结构，处理不同的返回格式
+      let unreadCountValue: number | undefined;
+      if ('unread_count' in response) {
+        // API 直接返回了 {unread_count: number}
+        unreadCountValue = Number(response.unread_count);
+      } else if (response.data && typeof response.data === 'object' && 'unread_count' in response.data) {
+        // API 返回了标准格式 {code, message, data: {unread_count: number}}
+        unreadCountValue = Number(response.data.unread_count);
+      }
+      
+      if (unreadCountValue !== undefined) {
+        setUnreadCount(unreadCountValue);
       }
     } catch (err: any) {
       console.error('获取未读数量失败:', err);
