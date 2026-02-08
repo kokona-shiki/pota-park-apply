@@ -7,15 +7,10 @@ import {
   DialogActions,
   Button,
   Typography,
-  Box,
 } from '@mui/material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
-
-interface ParkItem {
-  id: number;
-  name: string;
-}
+import ParkList from './AlertDialog/ParkList';
 
 export type AlertDialogType = 'error' | 'warning';
 
@@ -24,7 +19,7 @@ export type AlertDialogProps = {
   type: AlertDialogType;
   title: string;
   message: string;
-  parkList?: ParkItem[];
+  parkList?: Array<{ id: number; name: string }>;
   parkListTitle?: string;
   onCancel: () => void;
   onConfirm?: () => void;
@@ -51,7 +46,7 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
   const isError = type === 'error';
   const hasConfirmButton = onConfirm !== undefined;
   const hasParkClick = onParkClick !== undefined;
-  
+
   return (
     <Dialog
       open={open}
@@ -85,49 +80,13 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
         }}>
           {message}
         </Typography>
-        
+
         {parkList && parkList.length > 0 && (
-          <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 500,
-                color: 'text.secondary',
-                mb: 1,
-              }}
-            >
-              {parkListTitle || '相关公园列表'}
-            </Typography>
-            <Box sx={{ 
-              maxHeight: 200, 
-              overflow: 'auto',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-            }}>
-              {parkList.map((park, index) => (
-                <Box key={park.id} sx={{
-                  p: 1.5,
-                  borderBottom: index < parkList.length - 1 ? '1px solid' : 'none',
-                  borderBottomColor: 'divider',
-                }}>
-                  <Typography
-                    onClick={() => onParkClick?.(park.id)}
-                    sx={{
-                      cursor: hasParkClick ? 'pointer' : 'default',
-                      color: 'primary.main',
-                      '&:hover': hasParkClick ? {
-                        textDecoration: 'underline',
-                      } : {},
-                    }}
-                  >
-                    {park.name}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
+          <ParkList
+            parkList={parkList}
+            parkListTitle={parkListTitle}
+            onParkClick={onParkClick}
+          />
         )}
       </DialogContent>
       <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
