@@ -166,7 +166,6 @@ export const getGlobalNotifications = async (filters: {
   page?: number;
   pageSize?: number;
 } = {}) => {
-  console.log('[DEBUG] getGlobalNotifications 开始执行, filters:', filters);
   const { status, page = 1, pageSize = 20 } = filters;
 
   let whereClause = 'WHERE is_global = true';
@@ -179,16 +178,11 @@ export const getGlobalNotifications = async (filters: {
     paramIndex++;
   }
 
-  console.log('[DEBUG] whereClause:', whereClause);
-  console.log('[DEBUG] params:', params);
-
   const countResult = await query(
     `SELECT COUNT(*) as total FROM (SELECT DISTINCT ON (title, description, published_at, published_by) * FROM notifications ${whereClause}) as subquery`,
     params
   );
-  console.log('[DEBUG] countResult.rows:', countResult.rows);
   const total = Number.parseInt(countResult.rows[0]?.total || '0', 10);
-  console.log('[DEBUG] total:', total);
 
   const offset = (page - 1) * pageSize;
 
@@ -205,7 +199,6 @@ export const getGlobalNotifications = async (filters: {
     `,
     [...params, pageSize, offset]
   );
-  console.log('[DEBUG] notifications count:', notifications.length);
 
   return {
     notifications,
