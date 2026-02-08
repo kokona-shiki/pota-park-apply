@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
+import { truncateMarkdown } from '../utils/markdown';
 
 export const NotificationCenter = () => {
   const navigate = useNavigate();
@@ -191,6 +192,20 @@ export const NotificationCenter = () => {
                         <Chip label="未读" size="small" color="error" />
                       )}
                     </Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        fontSize: '0.875rem',
+                        mt: 0.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {truncateMarkdown(notification.description, 100)}
+                    </Typography>
                     <Typography variant="caption" color="text.disabled">
                       {formatTime(notification.created_at)}
                     </Typography>
