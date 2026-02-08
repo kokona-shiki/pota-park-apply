@@ -16,7 +16,7 @@ import {
   Alert,
   Stack,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { fetchApi } from '../services/apiClient';
 import { usePermission } from '../hooks/usePermission';
 
@@ -31,6 +31,7 @@ export const GlobalNotificationEditor = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const scheduledAtInputRef = useRef<HTMLInputElement>(null);
 
   if (!hasPermission) {
     return (
@@ -54,25 +55,25 @@ export const GlobalNotificationEditor = () => {
       if (isDraft) {
         await fetchApi('/api/notifications/drafts', {
           method: 'POST',
-          body: JSON.stringify({
+          body: {
             title,
             description,
-            link_url: linkUrl || null,
+            link_url: linkUrl || '',
             notification_mode: notificationMode,
-            scheduled_at: publishType === 'scheduled' ? scheduledAt : null,
-          }),
+            scheduled_at: publishType === 'scheduled' ? scheduledAt : undefined,
+          },
         });
       } else {
         await fetchApi('/api/notifications', {
           method: 'POST',
-          body: JSON.stringify({
+          body: {
             type: 'global_notification',
             title,
             description,
-            link_url: linkUrl || null,
+            link_url: linkUrl || '',
             notification_mode: notificationMode,
-            scheduled_at: publishType === 'scheduled' ? scheduledAt : null,
-          }),
+            scheduled_at: publishType === 'scheduled' ? scheduledAt : undefined,
+          },
         });
       }
       setSuccess(true);
@@ -168,6 +169,8 @@ export const GlobalNotificationEditor = () => {
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
+                inputRef={scheduledAtInputRef}
+                onClick={() => scheduledAtInputRef.current?.showPicker?.()}
                 InputLabelProps={{
                   shrink: true,
                 }}

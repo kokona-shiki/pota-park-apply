@@ -48,7 +48,7 @@ export const createNotification = async (input: NotificationCreateInput) => {
     INSERT INTO notifications (
       user_id, type, title, description, link_url,
       is_global, notification_mode, metadata, scheduled_at, status
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'published')
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *
     `,
     [
@@ -61,6 +61,7 @@ export const createNotification = async (input: NotificationCreateInput) => {
       notificationMode,
       metadata ? JSON.stringify(metadata) : null,
       scheduledAt,
+      'published',
     ]
   );
 
@@ -463,9 +464,9 @@ export const publishDraft = async (
         `
         INSERT INTO notifications (
           user_id, type, title, description, link_url,
-          is_global, notification_mode, scheduled_at, status,
+          is_global, notification_mode, metadata, scheduled_at, status,
           published_at, published_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `,
         [
           null,
@@ -475,7 +476,9 @@ export const publishDraft = async (
           draft.link_url,
           true,
           draft.notification_mode,
+          null,
           draft.scheduled_at,
+          'draft',
           null,
           null,
         ]
@@ -486,9 +489,9 @@ export const publishDraft = async (
           `
           INSERT INTO notifications (
             user_id, type, title, description, link_url,
-            is_global, notification_mode, status,
+            is_global, notification_mode, metadata, status,
             published_at, published_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'published', $7, $8)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           `,
           [
             userId,
@@ -498,6 +501,8 @@ export const publishDraft = async (
             draft.link_url,
             true,
             draft.notification_mode,
+            null,
+            'published',
             new Date().toISOString(),
             publishedBy,
           ]
@@ -546,7 +551,7 @@ export const publishGlobalNotification = async (
           user_id, type, title, description, link_url,
           is_global, notification_mode, metadata, scheduled_at, status,
           published_at, published_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `,
         [
           null,
@@ -558,6 +563,7 @@ export const publishGlobalNotification = async (
           notificationMode,
           metadata ? JSON.stringify(metadata) : null,
           scheduledAt,
+          'draft',
           null,
           null,
         ]
@@ -570,7 +576,7 @@ export const publishGlobalNotification = async (
             user_id, type, title, description, link_url,
             is_global, notification_mode, metadata, status,
             published_at, published_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'published', $8, $9)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           `,
           [
             userId,
@@ -581,6 +587,7 @@ export const publishGlobalNotification = async (
             true,
             notificationMode,
             metadata ? JSON.stringify(metadata) : null,
+            'published',
             new Date().toISOString(),
             publishedBy,
           ]
@@ -651,7 +658,7 @@ export const publishScheduledNotifications = async () => {
           user_id, type, title, description, link_url,
           is_global, notification_mode, metadata, status,
           published_at, published_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'published', $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         `,
         [
           userId,
@@ -662,6 +669,7 @@ export const publishScheduledNotifications = async () => {
           true,
           notification.notification_mode,
           notification.metadata,
+          'published',
           notification.published_at,
           notification.published_by,
         ]
