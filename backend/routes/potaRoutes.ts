@@ -331,12 +331,21 @@ router.get('/api/pota/parks', async (req, res) => {
     const parksParams = [...searchParams, pageSize, offset];
     const parks = await getMany(parksQuery, parksParams);
     
+    // 处理经纬度精度，限制为4位小数
+    const processedParks = parks.map((park) => {
+      return {
+        ...park,
+        latitude: park.latitude ? parseFloat(parseFloat(park.latitude).toFixed(4)) : null,
+        longitude: park.longitude ? parseFloat(parseFloat(park.longitude).toFixed(4)) : null
+      };
+    });
+    
     // 计算总页数
     const totalPages = Math.ceil(total / pageSize);
     
     // 返回结果
     return sendOk(res, {
-      parks,
+      parks: processedParks,
       total,
       page,
       pageSize,

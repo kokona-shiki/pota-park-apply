@@ -247,8 +247,8 @@ function Home() {
                     })}
                   </Box>
                 </TableCell>
-                <TableCell>{park.longitude?.toFixed(4) || '-'}</TableCell>
-                <TableCell>{park.latitude?.toFixed(4) || '-'}</TableCell>
+                <TableCell>{park.longitude?.toFixed(6) || '-'}</TableCell>
+                <TableCell>{park.latitude?.toFixed(6) || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
