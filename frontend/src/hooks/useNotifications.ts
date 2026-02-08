@@ -11,7 +11,7 @@ interface Notification {
   is_read: boolean;
   created_at: string;
   link_url?: string | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface Pagination {
@@ -61,8 +61,8 @@ export const useNotifications = (filters: {
             setPagination(response.data.pagination);
           }
         }
-      } catch (err: any) {
-        setError(err.message || '获取通知列表失败');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '获取通知列表失败');
       } finally {
         setLoading(false);
       }
@@ -100,7 +100,7 @@ export const useUnreadNotifications = () => {
       if (unreadCountValue !== undefined) {
         setUnreadCount(unreadCountValue);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('获取未读数量失败:', err);
     } finally {
       setLoading(false);
@@ -138,7 +138,7 @@ export const usePopupNotification = () => {
         if (response.data?.notification) {
           setPopupNotification(response.data.notification);
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('获取弹窗通知失败:', err);
       } finally {
         setLoading(false);
@@ -156,7 +156,7 @@ export const usePopupNotification = () => {
         method: 'PUT',
       });
       setPopupNotification(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('关闭弹窗失败:', err);
     }
   };
