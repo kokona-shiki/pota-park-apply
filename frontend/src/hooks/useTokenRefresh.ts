@@ -1,12 +1,7 @@
 import { useCallback, useRef } from 'react';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import {
-  AUTH_DATA_KEY,
   REFRESH_LOCK_KEY,
   LOGOUT_BROADCAST_KEY,
-  TOKEN_EXP_SKEW_MS,
-  REFRESH_LOCK_TTL_MS,
-  REFRESH_WAIT_TIMEOUT_MS,
 } from '../auth/constants';
 
 interface UseTokenRefreshParams {
@@ -16,7 +11,6 @@ interface UseTokenRefreshParams {
   isLockExpired: (lock: { owner: string; ts: number }) => boolean;
   isTokenFresh: (token: string) => boolean;
   getJwtIatMs: (token: string) => number | null;
-  writeAuthData: (data: { accessToken: string; user: unknown }) => void;
   rejectAllWaiters: (err: Error) => void;
   resolveAllWaiters: (token: string | null) => void;
   waitForTokenFromOtherTab: () => Promise<string | null>;
@@ -30,7 +24,6 @@ export function useTokenRefresh({
   isLockExpired,
   isTokenFresh,
   getJwtIatMs,
-  writeAuthData,
   rejectAllWaiters,
   resolveAllWaiters,
   waitForTokenFromOtherTab,

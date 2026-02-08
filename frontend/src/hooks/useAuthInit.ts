@@ -1,9 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { apiClient } from '../services/apiClient';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import {
   AUTH_DATA_KEY,
-  REDIRECT_KEY,
 } from '../auth/constants';
 
 interface UseAuthInitParams {

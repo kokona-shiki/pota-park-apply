@@ -1,13 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
-import { safeParseJsonWithSchema } from '../utils/parseJson';
 import {
-  AUTH_DATA_KEY,
   REDIRECT_KEY,
-  LOGOUT_BROADCAST_KEY,
-  REFRESH_LOCK_KEY,
 } from '../auth/constants';
 
 interface UseAuthInterceptorsParams {
@@ -15,9 +10,6 @@ interface UseAuthInterceptorsParams {
   isTokenFresh: (token: string) => boolean;
   ensureValidAccessToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
   logout: () => void;
-  readAuthData: () => { accessToken: string; user: unknown } | null;
-  rejectAllWaiters: (err: Error) => void;
-  resolveAllWaiters: (token: string | null) => void;
 }
 
 const isAuthRequest = (url: string) => {
@@ -45,16 +37,17 @@ export function useAuthInterceptors({
   isTokenFresh,
   ensureValidAccessToken,
   logout,
-  readAuthData,
-  rejectAllWaiters,
-  resolveAllWaiters,
 }: UseAuthInterceptorsParams) {
   const navigate = useNavigate();
   const locationRef = useRef(window.location);
 
   useEffect(() => {
-    locationRef.current = window.location;
-  }, [window.location]);
+    const updateLocation = () => {
+      locationRef.current = window.location;
+    };
+    window.addEventListener('popstate', updateLocation);
+    return () => window.removeEventListener('popstate', updateLocation);
+  }, []);
 
   useEffect(() => {
     const requestInterceptor = apiClient.interceptors.request.use(async (config) => {
@@ -81,7 +74,8 @@ export function useAuthInterceptors({
             Authorization: `Bearer ${newToken}`,
           };
         }
-      } catch {
+      } catch (err) {
+        console.error('Token refresh failed:', err);
       }
 
       return config;

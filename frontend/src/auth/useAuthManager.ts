@@ -9,6 +9,7 @@ import {
   TOKEN_EXP_SKEW_MS,
   REFRESH_LOCK_TTL_MS,
   REFRESH_WAIT_TIMEOUT_MS,
+  REFRESH_LOCK_KEY,
 } from './constants';
 import type { AuthUser } from './context';
 
@@ -66,7 +67,8 @@ function decodeJwtPayload(token: string) {
     if (parts.length !== 3) return null;
     const payload = parts[1];
     const json = atob(base64UrlToBase64(payload));
-    return JwtPayloadSchema.parse(JSON.parse(json));
+    const parsed = safeParseJsonWithSchema(json, JwtPayloadSchema);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -109,11 +111,8 @@ function writeAuthData(data: AuthData) {
 function readRefreshLock(): RefreshLock | null {
   const raw = localStorage.getItem(REFRESH_LOCK_KEY);
   if (!raw) return null;
-  try {
-    return RefreshLockSchema.parse(JSON.parse(raw));
-  } catch {
-    return null;
-  }
+  const parsed = safeParseJsonWithSchema(raw, RefreshLockSchema);
+  return parsed.success ? parsed.data : null;
 }
 
 function isLockExpired(lock: RefreshLock) {
@@ -124,10 +123,10 @@ export function useAuthManager() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isTokenReady, setIsTokenReady] = useState(false);
 
   const tabIdRef = useRef<string>(getOrCreateTabId());
   const waitersRef = useRef<TokenWaiter[]>([]);
-  const isTokenReadyRef = useRef(false);
   const accessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -135,8 +134,11 @@ export function useAuthManager() {
 
     if (accessToken) {
       apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-      isTokenReadyRef.current = true;
     }
+  }, [accessToken]);
+
+  useEffect(() => {
+    setIsTokenReady(!!accessToken);
   }, [accessToken]);
 
   const rejectAllWaiters = useCallback((err: unknown) => {
@@ -216,7 +218,7 @@ export function useAuthManager() {
     setAccessToken,
     isAuthLoading,
     setIsAuthLoading,
-    isTokenReady: isTokenReadyRef.current,
+    isTokenReady,
     logout,
     getCurrentAccessToken,
     isTokenFresh,
