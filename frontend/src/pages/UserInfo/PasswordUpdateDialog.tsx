@@ -15,7 +15,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { UserUpdateDataSchema } from '../../../shared/schemas/user';
+import { UserUpdateDataSchema } from '../../../../shared/schemas/user';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { getApiErrorMessage } from '../../utils/error';
 

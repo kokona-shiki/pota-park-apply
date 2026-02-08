@@ -8,11 +8,11 @@ import {
 import { getRoleDisplayName } from '../../utils/roleDisplay';
 
 interface UserInfoListProps {
-  userId?: number;
-  callsign?: string;
-  email?: string;
-  role?: string;
-  isActive?: boolean;
+  userId?: number | null;
+  callsign?: string | null;
+  email?: string | null;
+  role?: string | null;
+  isActive?: boolean | null;
 }
 
 function UserInfoList({ userId, callsign, email, role, isActive }: UserInfoListProps) {

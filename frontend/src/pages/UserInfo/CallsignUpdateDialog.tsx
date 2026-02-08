@@ -1,13 +1,10 @@
 // src/pages/UserInfo/CallsignUpdateDialog.tsx
 import { useState } from 'react';
+import { Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from '@mui/material';
-import { CallsignChangeRequestCreateSchema, CallsignChangeRequestDataSchema } from '../../../shared/schemas/callsign';
+  CallsignChangeRequestCreateSchema,
+  CallsignChangeRequestDataSchema,
+} from '../../../../shared/schemas/callsign';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { getApiErrorMessage } from '../../utils/error';
 import { validateCallsignInput, validateCallsignReason } from './validateCallsign';
@@ -16,11 +13,17 @@ import CallsignForm from './CallsignForm';
 interface CallsignUpdateDialogProps {
   open: boolean;
   onClose: () => void;
+  userId: number;
   currentCallsign: string;
   onSuccess: () => void;
 }
 
-function CallsignUpdateDialog({ open, onClose, currentCallsign, onSuccess }: CallsignUpdateDialogProps) {
+function CallsignUpdateDialog({
+  open,
+  onClose,
+  currentCallsign,
+  onSuccess,
+}: CallsignUpdateDialogProps) {
   const [callsign, setCallsign] = useState('');
   const [callsignReason, setCallsignReason] = useState('');
   const [oldPassword, setOldPassword] = useState('');
