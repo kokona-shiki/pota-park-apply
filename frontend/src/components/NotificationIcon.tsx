@@ -11,7 +11,7 @@ export const NotificationIcon = ({ onClick }: NotificationIconProps) => {
 
   return (
     <IconButton onClick={onClick} color="inherit">
-      <Badge badgeContent={loading ? 0 : unreadCount} color="error">
+      <Badge badgeContent={loading ? 0 : unreadCount} color="error" max={99} overlap="circular">
         <NotificationsIcon />
       </Badge>
     </IconButton>
