@@ -1,4 +1,3 @@
-// src/pages/PotaAuth.tsx
 import { useState, useRef, useEffect } from 'react';
 import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
@@ -30,8 +29,145 @@ import { getApiErrorMessage } from '../utils/error';
 
 type PotaStatus = z.infer<typeof PotaStatusSchema>;
 
+function formatExpiresAt(expiresAt: string | null) {
+  if (!expiresAt) return '-';
+  const date = new Date(expiresAt);
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function PotaAuthDialog({
+  authLoading,
+  authError,
+  onClose,
+}: {
+  authLoading: boolean;
+  authError: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open={true}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle>连接 POTA</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {authLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Stack spacing={2} alignItems="center">
+                <CircularProgress />
+                <Typography variant="body2" color="text.secondary">
+                  正在打开 POTA 登录页面...
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  请在弹出的登录页面中完成登录
+                </Typography>
+              </Stack>
+            </Box>
+          )}
+          {authError && (
+            <Alert severity="error" onClose={() => onClose()}>
+              {authError}
+            </Alert>
+          )}
+          {!authLoading && !authError && <Alert severity="info">认证流程已完成</Alert>}
+        </Stack>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PotaStatusCard({
+  status,
+  loading,
+  error,
+  onDisconnect,
+  onConnect,
+  isConnecting,
+}: {
+  status: PotaStatus | null;
+  loading: boolean;
+  error: string | null;
+  onDisconnect: () => void;
+  onConnect: () => void;
+  isConnecting: boolean;
+}) {
+  const expiresAt = status?.expiresAt ? formatExpiresAt(status.expiresAt) : null;
+  const willExpireSoon = status?.willExpireSoon ?? false;
+
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Stack spacing={2}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {status?.connected ? (
+              <>
+                <CheckCircleIcon color="success" />
+                <Typography variant="h6">已连接 POTA</Typography>
+                <Chip label="已连接" color="success" size="small" />
+              </>
+            ) : (
+              <>
+                <LinkOffIcon color="disabled" />
+                <Typography variant="h6">未连接 POTA</Typography>
+                <Chip label="未连接" color="default" size="small" />
+              </>
+            )}
+          </Stack>
+          {status?.connected && status.expiresAt && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Typography variant="body2" color="text.secondary">
+                  Token 过期时间：{expiresAt}
+                </Typography>
+                {willExpireSoon && (
+                  <Alert severity="info" variant="outlined">
+                    Token 即将过期，系统会自动刷新
+                  </Alert>
+                )}
+              </Stack>
+            </>
+          )}
+          <Divider />
+          <Stack direction="row" spacing={2}>
+            {status?.connected ? (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<LinkOffIcon />}
+                onClick={onDisconnect}
+                disabled={loading}
+              >
+                断开连接
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                startIcon={<LinkIcon />}
+                onClick={onConnect}
+                disabled={loading || isConnecting}
+              >
+                连接 POTA
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PotaAuth() {
-  const { user } = useAuth(); // 保留user用于权限检查
+  const { user } = useAuth();
   const [status, setStatus] = useState<PotaStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +177,9 @@ function PotaAuth() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const checkIntervalRef = useRef<number | null>(null);
 
-  // 检查用户权限而非角色
   const { hasPermission } = usePermission('pota_import');
   const isPotaRepresentative = hasPermission === true && user != null;
 
-  // 加载状态
   const loadStatus = async () => {
     try {
       setError(null);
@@ -54,7 +188,6 @@ function PotaAuth() {
     } catch (e: unknown) {
       const errMsg = getApiErrorMessage(e, '获取 POTA 连接状态失败');
       setError(errMsg);
-      // 如果是未连接状态，不显示错误
       if (errMsg.includes('未找到')) {
         setStatus({ connected: false, expiresAt: null });
         setError(null);
@@ -68,27 +201,36 @@ function PotaAuth() {
     }
   }, [isPotaRepresentative]);
 
-  // 开始认证流程
+  const disconnect = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await requestWithSchema(apiClient.delete('/api/pota/token'), z.null());
+      await loadStatus();
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, '断开连接失败'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startAuth = async () => {
     try {
       setAuthLoading(true);
       setAuthError(null);
       setAuthDialogOpen(true);
 
-      // 1. 获取授权 URL
       const { authUrl, state } = await requestWithSchema(
         apiClient.post('/api/pota/init-auth'),
         PotaAuthInitDataSchema
       );
 
-      // 2. 创建隐藏 iframe
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       iframe.src = authUrl;
       document.body.appendChild(iframe);
       iframeRef.current = iframe;
 
-      // 3. 监听 iframe URL 变化，提取授权码
       return new Promise<void>((resolve, reject) => {
         let resolved = false;
 
@@ -116,12 +258,10 @@ function PotaAuth() {
               }
               iframeRef.current = null;
 
-              // 4. 发送授权码到后端
-              const callbackPayload = requestWithSchema(
+              requestWithSchema(
                 apiClient.post('/api/pota/callback', { code, state }),
                 PotaAuthResultDataSchema
-              );
-              callbackPayload
+              )
                 .then(() => {
                   setAuthDialogOpen(false);
                   setAuthLoading(false);
@@ -135,23 +275,21 @@ function PotaAuth() {
                 });
             }
           } catch {
-            // 跨域错误，继续等待（这是正常的，因为 iframe 加载时会触发跨域错误）
           }
         }, 500);
 
         checkIntervalRef.current = checkInterval as unknown as number;
 
-        // 超时处理
         setTimeout(() => {
           clearInterval(checkInterval);
           if (document.body.contains(iframe)) {
             document.body.removeChild(iframe);
-            iframeRef.current = null;
           }
+          iframeRef.current = null;
           setAuthError('认证超时，请重试');
           setAuthLoading(false);
           reject(new Error('认证超时'));
-        }, 300000); // 5分钟超时
+        }, 300000);
       });
     } catch (e: unknown) {
       setAuthError(getApiErrorMessage(e, '初始化认证失败'));
@@ -159,21 +297,6 @@ function PotaAuth() {
     }
   };
 
-  // 断开连接
-  const disconnect = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await requestWithSchema(apiClient.delete('/api/pota/token'), z.null());
-      await loadStatus();
-    } catch (e: unknown) {
-      setError(getApiErrorMessage(e, '断开连接失败'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 清理
   useEffect(() => {
     return () => {
       if (checkIntervalRef.current) {
@@ -184,19 +307,6 @@ function PotaAuth() {
       }
     };
   }, []);
-
-  // 格式化过期时间
-  const formatExpiresAt = (expiresAt: string | null) => {
-    if (!expiresAt) return '-';
-    const date = new Date(expiresAt);
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  };
 
   if (!isPotaRepresentative) {
     return (
@@ -213,100 +323,39 @@ function PotaAuth() {
           <Box>
             <Typography variant="h5">POTA 认证</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              连接您的 POTA 账号，以便同步公园数据到 POTA 系统
+              连接您的 POTA 呼号，以便同步公园数据到 POTA 系统
             </Typography>
           </Box>
         </Stack>
       </Box>
-
       <Divider />
-
       <Box sx={{ p: 3 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
-
         {loading && <LinearProgress sx={{ mb: 2 }} />}
-
         {status && (
-          <Card variant="outlined">
-            <CardContent>
-              <Stack spacing={2}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  {status.connected ? (
-                    <>
-                      <CheckCircleIcon color="success" />
-                      <Typography variant="h6">已连接 POTA</Typography>
-                      <Chip label="已连接" color="success" size="small" />
-                    </>
-                  ) : (
-                    <>
-                      <LinkOffIcon color="disabled" />
-                      <Typography variant="h6">未连接 POTA</Typography>
-                      <Chip label="未连接" color="default" size="small" />
-                    </>
-                  )}
-                </Stack>
-
-                {status.connected && status.expiresAt && (
-                  <>
-                    <Divider />
-                    <Stack spacing={1}>
-                      <Typography variant="body2" color="text.secondary">
-                        Token 过期时间：{formatExpiresAt(status.expiresAt)}
-                      </Typography>
-                      {status.willExpireSoon && (
-                        <Alert severity="info" variant="outlined">
-                          Token 即将过期，系统会自动刷新
-                        </Alert>
-                      )}
-                    </Stack>
-                  </>
-                )}
-
-                <Divider />
-
-                <Stack direction="row" spacing={2}>
-                  {status.connected ? (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      startIcon={<LinkOffIcon />}
-                      onClick={disconnect}
-                      disabled={loading}
-                    >
-                      断开连接
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      startIcon={<LinkIcon />}
-                      onClick={startAuth}
-                      disabled={loading || authLoading}
-                    >
-                      连接 POTA
-                    </Button>
-                  )}
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+          <PotaStatusCard
+            status={status}
+            loading={loading}
+            error={error}
+            onDisconnect={disconnect}
+            onConnect={startAuth}
+            isConnecting={authLoading}
+          />
         )}
       </Box>
-
-      {/* 认证对话框 */}
-      <Dialog
-        open={authDialogOpen}
+      <PotaAuthDialog
+        authLoading={authLoading}
+        authError={authError}
         onClose={() => {
           if (!authLoading) {
             setAuthDialogOpen(false);
             setAuthError(null);
-            // 清理 iframe
             if (iframeRef.current && document.body.contains(iframeRef.current)) {
               document.body.removeChild(iframeRef.current);
-              iframeRef.current = null;
             }
             if (checkIntervalRef.current) {
               clearInterval(checkIntervalRef.current);
@@ -314,36 +363,7 @@ function PotaAuth() {
             }
           }
         }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>连接 POTA</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {authLoading && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <Stack spacing={2} alignItems="center">
-                  <CircularProgress />
-                  <Typography variant="body2" color="text.secondary">
-                    正在打开 POTA 登录页面...
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    请在弹出的登录页面中完成登录
-                  </Typography>
-                </Stack>
-              </Box>
-            )}
-
-            {authError && (
-              <Alert severity="error" onClose={() => setAuthError(null)}>
-                {authError}
-              </Alert>
-            )}
-
-            {!authLoading && !authError && <Alert severity="info">认证流程已完成</Alert>}
-          </Stack>
-        </DialogContent>
-      </Dialog>
+      />
     </Paper>
   );
 }
