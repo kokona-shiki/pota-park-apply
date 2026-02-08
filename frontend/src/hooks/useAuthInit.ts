@@ -14,7 +14,7 @@ interface UseAuthInitParams {
   setUser: (user: unknown | null) => void;
   setAccessToken: (token: string | null) => void;
   setIsAuthLoading: (loading: boolean) => void;
-  isTokenReadyRef: React.MutableRefObject<boolean>;
+  setIsTokenReady: (ready: boolean) => void;
   hasInitializedRef: React.MutableRefObject<boolean>;
 }
 
@@ -26,7 +26,7 @@ export function useAuthInit({
   setUser,
   setAccessToken,
   setIsAuthLoading,
-  isTokenReadyRef,
+  setIsTokenReady,
   hasInitializedRef,
 }: UseAuthInitParams) {
   useEffect(() => {
@@ -42,7 +42,7 @@ export function useAuthInit({
     if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
       console.log('[App] 从 localStorage 恢复登录态（token 有效）');
       apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
-      isTokenReadyRef.current = true;
+      setIsTokenReady(true);
       setAccessToken(stored.accessToken);
       setUser(stored.user);
       setIsAuthLoading(false);
@@ -76,7 +76,7 @@ export function useAuthInit({
     setUser,
     setAccessToken,
     setIsAuthLoading,
-    isTokenReadyRef,
+    setIsTokenReady,
     hasInitializedRef,
   ]);
 }

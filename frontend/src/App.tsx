@@ -36,7 +36,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const location = useLocation();
   const hasInitializedRef = useRef(false);
-  const isTokenReadyRef = useRef(false);
+  const [isTokenReady, setIsTokenReady] = useState(false);
 
   const authManager = useAuthManager();
 
@@ -81,7 +81,7 @@ function App() {
     setUser: authManager.setUser,
     setAccessToken: authManager.setAccessToken,
     setIsAuthLoading: authManager.setIsAuthLoading,
-    isTokenReadyRef,
+    setIsTokenReady,
     hasInitializedRef,
   });
 
@@ -97,7 +97,7 @@ function App() {
         refreshSession: () => authManager.refreshSession(ensureValidAccessToken),
         logout: authManager.logout,
         isAuthLoading: authManager.isAuthLoading,
-        isTokenReady: isTokenReadyRef.current,
+        isTokenReady,
       }}
     >
       {authManager.isAuthLoading ? (
