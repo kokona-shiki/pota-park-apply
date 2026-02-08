@@ -4,8 +4,155 @@ import { useNavigate } from 'react-router-dom';
 import type { FormState } from './types';
 import { useFormState, clearFormState } from './useFormState';
 import { useSubmit } from './useSubmit';
-import { ApplicationDetailDataSchema } from '../../../../shared/schemas/parkApplication';
-import { apiClient, requestWithSchema } from '../../services/apiClient';
+
+interface SubmitResult {
+  success: boolean;
+  error?: string;
+  errorDetails?: {
+    code?: string;
+    details?: {
+      similarParks?: Array<{ id: number; name: string }>;
+      nearbyParks?: Array<{ id: number; name: string }>;
+      existingPark?: {
+        id: number;
+        name: string;
+        status: string;
+      };
+      allowRetry?: boolean;
+    };
+    existingPark?: {
+      id: number;
+      name: string;
+      status: string;
+    };
+  };
+}
+
+function isDuplicateNameError(errorCode?: string): boolean {
+  return errorCode?.startsWith('DUPLICATE_NAME');
+}
+
+function isSimilarNameError(errorCode?: string, errorMessage?: string): boolean {
+  return errorCode === 'SIMILAR_NAME' || errorMessage?.includes('公园名称相似度较高');
+}
+
+function isNearbyLocationError(errorCode?: string, errorMessage?: string): boolean {
+  return errorCode === 'NEARBY_LOCATION' || errorMessage?.includes('公园距离过近');
+}
+
+function shouldShowLink(errorCode?: string): boolean {
+  return errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
+}
+
+function getDialogType(allowRetry: boolean): 'error' | 'warning' {
+  return allowRetry ? 'warning' : 'error';
+}
+
+function getDialogTitle(allowRetry: boolean): string {
+  return allowRetry ? '警告' : '错误';
+}
+
+function getParkListTitle(existingPark?: { status: string }): string {
+  return existingPark?.status === 'pota_synced' ? '已存在的公园' : '';
+}
+
+function createDuplicateNameConfirmAction(
+  formState: FormState,
+  handleSubmit: (state: FormState) => Promise<SubmitResult>,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  navigate: ReturnType<typeof useNavigate>
+): () => Promise<void> {
+  return async () => {
+    const result = await handleSubmit({
+      ...formState,
+      confirmedRejectedPark: true,
+    });
+
+    if (result.success) {
+      clearFormState();
+      navigate('/my-uploads');
+    } else {
+      setError(result.error || '提交失败，请重试');
+    }
+  };
+}
+
+function createSimilarNameConfirmAction(
+  formState: FormState,
+  handleSubmit: (state: FormState) => Promise<SubmitResult>,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  navigate: ReturnType<typeof useNavigate>
+): () => Promise<void> {
+  return async () => {
+    const result = await handleSubmit({
+      ...formState,
+      confirmedNameSimilarity: true,
+    });
+
+    if (result.success) {
+      clearFormState();
+      navigate('/my-uploads');
+    } else {
+      setError(result.error || '提交失败，请重试');
+    }
+  };
+}
+
+function createNearbyLocationConfirmAction(
+  formState: FormState,
+  handleSubmit: (state: FormState) => Promise<SubmitResult>,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  navigate: ReturnType<typeof useNavigate>
+): () => Promise<void> {
+  return async () => {
+    const result = await handleSubmit({
+      ...formState,
+      confirmedNearbyLocation: true,
+    });
+
+    if (result.success) {
+      clearFormState();
+      navigate('/my-uploads');
+    } else {
+      setError(result.error || '提交失败，请重试');
+    }
+  };
+}
+
+function extractParkList(
+  result: SubmitResult,
+  shouldShow: boolean
+): { id: number; name: string }[] {
+  if (!shouldShow || !result.errorDetails) {
+    return [];
+  }
+
+  const existingPark = result.errorDetails.existingPark;
+  if (!existingPark) {
+    return [];
+  }
+
+  return [{ id: existingPark.id, name: existingPark.name }];
+}
+
+function extractSimilarParks(result: SubmitResult): { id: number; name: string }[] {
+  try {
+    return result.errorDetails?.details?.similarParks || [];
+  } catch {
+    return [];
+  }
+}
+
+function extractNearbyParks(result: SubmitResult): { id: number; name: string }[] {
+  try {
+    return result.errorDetails?.details?.nearbyParks || [];
+  } catch {
+    return [];
+  }
+}
 
 export const useSubmitHandler = (formState: FormState) => {
   const navigate = useNavigate();
@@ -28,121 +175,86 @@ export const useSubmitHandler = (formState: FormState) => {
       if (result.success) {
         clearFormState();
         navigate('/my-uploads');
-      } else {
-        const errorMessage = result.error || '提交失败，请重试';
-        const errorCode = result.errorDetails?.code;
-        const isDuplicateNameError = errorCode?.startsWith('DUPLICATE_NAME');
-
-        if (isDuplicateNameError) {
-          const details = result.errorDetails?.details;
-          if (details) {
-            const existingPark = details.existingPark;
-            const allowRetry = details.allowRetry;
-
-            setDialogType(allowRetry ? 'warning' : 'error');
-            setDialogTitle(allowRetry ? '警告' : '错误');
-            setDialogMessage(errorMessage);
-
-            const shouldShowLink =
-              errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
-            const parkList =
-              shouldShowLink && existingPark
-                ? [{ id: existingPark.id, name: existingPark.name }]
-                : [];
-            setDialogParkList(parkList);
-            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
-
-            if (allowRetry) {
-              const confirmAction = async () => {
-                const result = await handleSubmit({
-                  ...formState,
-                  confirmedRejectedPark: true,
-                });
-
-                if (result.success) {
-                  clearFormState();
-                  navigate('/my-uploads');
-                } else {
-                  setError(result.error || '提交失败，请重试');
-                }
-              };
-              setDialogConfirmAction(() => confirmAction);
-            } else {
-              setDialogConfirmAction(null);
-            }
-          } else if (result.errorDetails?.existingPark) {
-            const existingPark = result.errorDetails?.existingPark;
-            setDialogType('error');
-            setDialogTitle('错误');
-            setDialogMessage(errorMessage);
-
-            const shouldShowLink =
-              existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
-            const parkList = shouldShowLink
-              ? [{ id: existingPark.id, name: existingPark.name }]
-              : [];
-            setDialogParkList(parkList);
-            setDialogParkListTitle(existingPark?.status === 'pota_synced' ? '已存在的公园' : '');
-            setDialogConfirmAction(null);
-          } else if (errorCode === 'SIMILAR_NAME' || errorMessage.includes('公园名称相似度较高')) {
-            let parkList: { id: number; name: string }[] = [];
-            try {
-              parkList = result.errorDetails?.details?.similarParks || [];
-            } catch {
-              parkList = [];
-            }
-            setDialogType('warning');
-            setDialogTitle('警告');
-            setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
-            setDialogParkList(parkList);
-            setDialogParkListTitle('相似公园列表');
-
-            const confirmAction = async () => {
-              const result = await handleSubmit({
-                ...formState,
-                confirmedNameSimilarity: true,
-              });
-
-              if (result.success) {
-                clearFormState();
-                navigate('/my-uploads');
-              } else {
-                setError(result.error || '提交失败，请重试');
-              }
-            };
-            setDialogConfirmAction(() => confirmAction);
-          } else if (errorCode === 'NEARBY_LOCATION' || errorMessage.includes('公园距离过近')) {
-            let parkList: { id: number; name: string }[] = [];
-            try {
-              parkList = result.errorDetails?.details?.nearbyParks || [];
-            } catch {
-              parkList = [];
-            }
-            setDialogType('warning');
-            setDialogTitle('警告');
-            setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
-            setDialogParkList(parkList);
-            setDialogParkListTitle('附近公园列表');
-
-            const confirmAction = async () => {
-              const result = await handleSubmit({
-                ...formState,
-                confirmedNearbyLocation: true,
-              });
-
-              if (result.success) {
-                clearFormState();
-                navigate('/my-uploads');
-              } else {
-                setError(result.error || '提交失败，请重试');
-              }
-            };
-            setDialogConfirmAction(() => confirmAction);
-          } else {
-            setError(errorMessage);
-          }
-        }
+        return;
       }
+
+      const errorCode = result.errorDetails?.code;
+
+      if (isDuplicateNameError(errorCode)) {
+        const details = result.errorDetails?.details;
+        const existingPark = details?.existingPark;
+        const allowRetry = details?.allowRetry;
+
+        setDialogType(getDialogType(allowRetry));
+        setDialogTitle(getDialogTitle(allowRetry));
+        setDialogMessage(result.error || '提交失败，请重试');
+        setDialogParkList(extractParkList(result, shouldShowLink(errorCode)));
+        setDialogParkListTitle(getParkListTitle(existingPark));
+
+        if (allowRetry) {
+          setDialogConfirmAction(createDuplicateNameConfirmAction(
+            formState,
+            handleSubmit,
+            setError,
+            clearFormState,
+            navigate
+          ));
+        } else {
+          setDialogConfirmAction(null);
+        }
+        return;
+      }
+
+      if (result.errorDetails?.existingPark) {
+        const existingPark = result.errorDetails.existingPark;
+        const shouldShowLink = existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
+
+        setDialogType('error');
+        setDialogTitle('错误');
+        setDialogMessage(result.error || '提交失败，请重试');
+        setDialogParkList(extractParkList(result, shouldShowLink));
+        setDialogParkListTitle(getParkListTitle(existingPark));
+        setDialogConfirmAction(null);
+        return;
+      }
+
+      if (isSimilarNameError(errorCode, result.error)) {
+        const parkList = extractSimilarParks(result);
+
+        setDialogType('warning');
+        setDialogTitle('警告');
+        setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
+        setDialogParkList(parkList);
+        setDialogParkListTitle('相似公园列表');
+        setDialogConfirmAction(createSimilarNameConfirmAction(
+          formState,
+          handleSubmit,
+          setError,
+          clearFormState,
+          navigate
+        ));
+        return;
+      }
+
+      if (isNearbyLocationError(errorCode, result.error)) {
+        const parkList = extractNearbyParks(result);
+
+        setDialogType('warning');
+        setDialogTitle('警告');
+        setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
+        setDialogParkList(parkList);
+        setDialogParkListTitle('附近公园列表');
+        setDialogConfirmAction(createNearbyLocationConfirmAction(
+          formState,
+          handleSubmit,
+          setError,
+          clearFormState,
+          navigate
+        ));
+        return;
+      }
+
+      setError(result.error || '提交失败，请重试');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '提交失败，请检查网络后重试';
       setError(errorMessage);
