@@ -135,9 +135,6 @@ export function useAuthManager() {
     if (accessToken) {
       apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
     }
-  }, [accessToken]);
-
-  useEffect(() => {
     setIsTokenReady(!!accessToken);
   }, [accessToken]);
 
