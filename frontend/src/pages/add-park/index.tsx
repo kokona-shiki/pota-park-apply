@@ -296,19 +296,19 @@ function handleDuplicateNameError(
 
 // 辅助函数：处理相似名称错误
 function handleSimilarNameError(
-  result: any,
-  formData: any,
-  handleSubmit: any,
-  navigate: any,
-  setError: any,
-  clearFormState: any,
-  setDialogType: any,
-  setDialogTitle: any,
-  setDialogMessage: any,
-  setDialogParkList: any,
-  setDialogParkListTitle: any,
-  setDialogConfirmAction: any,
-  setDialogOpen: any
+  result: SubmitResult,
+  formData: unknown,
+  handleSubmit: (params: unknown) => Promise<SubmitResult>,
+  navigate: (path: string) => void,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void
 ) {
   const parkList = result.errorDetails?.details?.similarParks || [];
 
@@ -342,19 +342,19 @@ function handleSimilarNameError(
 
 // 辅助函数：处理附近位置错误
 function handleNearbyLocationError(
-  result: any,
-  formData: any,
-  handleSubmit: any,
-  navigate: any,
-  setError: any,
-  clearFormState: any,
-  setDialogType: any,
-  setDialogTitle: any,
-  setDialogMessage: any,
-  setDialogParkList: any,
-  setDialogParkListTitle: any,
-  setDialogConfirmAction: any,
-  setDialogOpen: any
+  result: SubmitResult,
+  formData: unknown,
+  handleSubmit: (params: unknown) => Promise<SubmitResult>,
+  navigate: (path: string) => void,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void
 ) {
   const parkList = result.errorDetails?.details?.nearbyParks || [];
 
