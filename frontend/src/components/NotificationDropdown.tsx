@@ -17,14 +17,14 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
   const navigate = useNavigate();
   const { notifications, loading, refetch } = useNotifications({ pageSize: 10 });
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: { id: number; is_read: boolean }) => {
     if (!notification.is_read) {
       try {
         await fetchApi(`/api/notifications/${notification.id}/read`, {
           method: 'PUT',
         });
         refetch();
-      } catch (err: any) {
+      } catch (err) {
         console.error('标记已读失败:', err);
       }
     }
@@ -39,7 +39,7 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
         method: 'PUT',
       });
       refetch();
-    } catch (err: any) {
+    } catch (err) {
       console.error('全部标记已读失败:', err);
     }
   };
