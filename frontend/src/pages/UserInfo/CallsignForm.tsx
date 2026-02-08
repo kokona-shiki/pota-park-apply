@@ -1,5 +1,4 @@
 // src/pages/UserInfo/CallsignForm.tsx
-import { useState } from 'react';
 import {
   Box,
   FormControl,
@@ -12,7 +11,6 @@ import {
   Alert,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { validateCallsignInput, validateCallsignReason } from './validateCallsign';
 
 interface CallsignFormProps {
   currentCallsign: string;
@@ -41,10 +39,6 @@ function CallsignForm({
   onOldPasswordChange,
   onTogglePassword,
 }: CallsignFormProps) {
-  const callsignValidation = validateCallsignInput(callsign, currentCallsign);
-  const reasonValidation = validateCallsignReason(callsignReason);
-  const passwordValidation = validateCallsignInput(oldPassword, undefined);
-
   const handleMouseDownPassword = () => {};
 
   return (

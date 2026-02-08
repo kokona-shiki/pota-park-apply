@@ -33,31 +33,25 @@ function EmailUpdateDialog({ open, onClose, userId, currentEmail, onSuccess }: E
   const [oldPassword, setOldPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   const handleEmailUpdate = async () => {
     if (!oldPassword) {
-      setErrorMessage('请输入原密码');
       return;
     }
 
     if (!email) {
-      setErrorMessage('邮箱不能为空');
       return;
     }
 
     if (email === currentEmail) {
-      setErrorMessage('新邮箱不能与当前邮箱相同');
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setErrorMessage('请输入有效的邮箱地址');
       return;
     }
 
     setLoading(true);
-    setErrorMessage('');
 
     try {
       await requestWithSchema(
@@ -75,7 +69,7 @@ function EmailUpdateDialog({ open, onClose, userId, currentEmail, onSuccess }: E
       setEmail('');
       onClose();
     } catch (error: unknown) {
-      setErrorMessage(getApiErrorMessage(error, '更新邮箱失败'));
+      console.error(getApiErrorMessage(error, '更新邮箱失败'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +77,6 @@ function EmailUpdateDialog({ open, onClose, userId, currentEmail, onSuccess }: E
 
   const handleClose = () => {
     onClose();
-    setErrorMessage('');
     setEmail('');
     setOldPassword('');
   };
