@@ -1,8 +1,8 @@
 // src/pages/add-park/ParkFormFields.tsx
-import { Box, TextField, FormControl, InputLabel, Autocomplete, Select, MenuItem, Chip, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, TextField, FormControl, InputLabel, Autocomplete, Select, MenuItem, Chip, Checkbox, FormControlLabel, Typography } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import Pinyin from 'pinyin-match';
-import type { Province, ParkTypeOption } from './types';
+import type { ParkTypeOption } from './types';
 
 interface ParkFormFieldsProps {
   parkName: string;

@@ -680,6 +680,7 @@ function AddPark() {
                         return;
                       }
                     } catch {
+                      // Ignore Pinyin matching errors and continue with other matching methods
                     }
 
                     if (en.toLowerCase().includes(inputValue.toLowerCase())) {
