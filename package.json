@@ -16,7 +16,7 @@
     "reinstall": "pnpm -r clean && pnpm install"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^9.39.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/jest": "^30.0.0",
@@ -29,7 +29,7 @@
     "jest": "^30.2.0",
     "jsdom": "^27.4.0",
     "ts-jest": "^29.4.6",
-    "typescript-eslint": "^8.46.4"
+    "typescript-eslint": "^8.52.0"
   },
   "dependencies": {
     "@mui/x-data-grid": "^7.0.0",

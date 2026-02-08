@@ -14,12 +14,28 @@ jest.mock('../../../utils/error', () => ({
   getApiErrorMessage: jest.fn((_err: unknown, defaultMessage: string) => {
     return defaultMessage;
   }),
+  getApiErrorDetails: jest.fn(() => ({} as any)),
 }));
 
 // Mock mapping utilities
 jest.mock('../../../utils/potaMapping', () => ({
   mapAccessMethodsWithBothLangs: jest.fn((access) => access),
   mapActivationMethodsWithBothLangs: jest.fn((activation) => activation),
+  REVERSE_ACCESS_METHODS_MAP: {
+    '汽车': 'Automobile',
+    '步行': 'Foot',
+    '船只': 'Boat',
+    '水上飞机/空中出租车': 'Seaplane/Airtaxi',
+    '其他': 'Other'
+  },
+  REVERSE_ACTIVATION_METHODS_MAP: {
+    '步行': 'Pedestrian',
+    '车载': 'Automobile',
+    '固定建筑': 'Cabin',
+    '露营地': 'Campground',
+    '庇护所': 'Shelter',
+    '其他': 'Other'
+  }
 }));
 
 describe('useSubmit Hook', () => {
@@ -42,8 +58,8 @@ describe('useSubmit Hook', () => {
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'not-a-valid-url', // Invalid URL
-      accessMethods: ['Car'],
-      activationMethods: ['Foot'],
+      accessMethods: ['汽车'],
+      activationMethods: ['步行'],
       confirmed: true,
     };
 
@@ -74,8 +90,8 @@ describe('useSubmit Hook', () => {
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'https://example.com',
-      accessMethods: ['Car'],
-      activationMethods: ['Foot'],
+      accessMethods: ['汽车'],
+      activationMethods: ['步行'],
       confirmed: true,
     };
 
@@ -107,8 +123,8 @@ describe('useSubmit Hook', () => {
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'example.com', // Valid URL without protocol
-      accessMethods: ['Car'],
-      activationMethods: ['Foot'],
+      accessMethods: ['汽车'],
+      activationMethods: ['步行'],
       confirmed: true,
     };
 
@@ -140,8 +156,8 @@ describe('useSubmit Hook', () => {
       latitude: '39.9042',
       longitude: '116.4074',
       website: '', // Empty website is valid
-      accessMethods: ['Car'],
-      activationMethods: ['Foot'],
+      accessMethods: ['汽车'],
+      activationMethods: ['步行'],
       confirmed: true,
     };
 
@@ -173,8 +189,8 @@ describe('useSubmit Hook', () => {
       latitude: '39.9042',
       longitude: '116.4074',
       website: 'javascript:alert("xss")', // Dangerous URL
-      accessMethods: ['Car'],
-      activationMethods: ['Foot'],
+      accessMethods: ['汽车'],
+      activationMethods: ['步行'],
       confirmed: true,
     };
 
