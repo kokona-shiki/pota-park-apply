@@ -1,9 +1,10 @@
 // src/components/ParkApplicationTable/TableRow.tsx
-import { TableCell, TableRow, Chip, Tooltip } from '@mui/material';
+import { Box, TableCell, TableRow, Tooltip } from '@mui/material';
 import type { ParkApplication } from '../../types/parkApplication';
 import { formatDateTime, getStatusMeta, truncateText } from '../../utils/parkApplication';
-import ProvinceChips from './ProvinceChips';
 import ActionButtons from './ActionButtons';
+import ParkNameCell from './ParkNameCell';
+import StatusCell from './StatusCell';
 
 interface ParkAppTableRowProps {
   app: ParkApplication;
@@ -59,34 +60,13 @@ function ParkAppTableRow({
       )}
 
       <TableCell sx={{ width: 280, maxWidth: 280, verticalAlign: 'top' }}>
-        {app.provinces && app.provinces.length > 0 ? (
-          <ProvinceChips provinces={app.provinces as string[]} />
-        ) : (
-          <Tooltip title={app.park_name} arrow>
-            <Box sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {app.park_name}
-            </Box>
-          </Tooltip>
-        )}
-      </TableCell>
-
-      <TableCell
-        sx={{
-          whiteSpace: 'nowrap',
-          width: 100,
-          backgroundColor: statusMeta.bgcolor,
-          color: statusMeta.color,
-        }}
-      >
-        <Chip
-          label={statusMeta.label}
-          size="small"
-          sx={{
-            backgroundColor: statusMeta.bgcolor,
-            color: statusMeta.color,
-          }}
+        <ParkNameCell
+          provinces={app.provinces as string[] | null}
+          parkName={app.park_name}
         />
       </TableCell>
+
+      <StatusCell statusMeta={statusMeta} />
 
       <TableCell
         sx={{
