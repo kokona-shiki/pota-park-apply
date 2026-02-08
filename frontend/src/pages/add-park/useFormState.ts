@@ -44,26 +44,34 @@ export const clearFormState = () => {
   localStorage.removeItem(FORM_STATE_KEY);
 };
 
+const getDefaultValue = <T>(saved: T | undefined, initial: T | undefined, fallback: T): T => {
+  return saved ?? initial ?? fallback;
+};
+
+const getInitialFormState = (savedState: FormState | null, initialState: Partial<FormState>): FormState => {
+  return {
+    parkName: getDefaultValue(savedState?.parkName, initialState.parkName, ''),
+    parkType: getDefaultValue(savedState?.parkType, initialState.parkType, ''),
+    province: getDefaultValue(savedState?.province, initialState.province, ''),
+    provinces: getDefaultValue(savedState?.provinces, initialState.provinces, []),
+    latitude: getDefaultValue(savedState?.latitude, initialState.latitude, ''),
+    longitude: getDefaultValue(savedState?.longitude, initialState.longitude, ''),
+    website: getDefaultValue(savedState?.website, initialState.website, ''),
+    accessMethods: getDefaultValue(savedState?.accessMethods, initialState.accessMethods, ['汽车', '步行', '其他']),
+    activationMethods: getDefaultValue(savedState?.activationMethods, initialState.activationMethods, ['步行', '车载', '其他']),
+    confirmed: getDefaultValue(savedState?.confirmed, initialState.confirmed, false),
+    isPotaPark: getDefaultValue(savedState?.isPotaPark, initialState.isPotaPark, false),
+    mapCenter: getDefaultValue(savedState?.mapCenter, initialState.mapCenter, [39.9042, 116.4074]),
+    mapZoom: getDefaultValue(savedState?.mapZoom, initialState.mapZoom, 13),
+  };
+};
+
 export const useFormState = (initialState: Partial<FormState> = {}) => {
   const savedState = loadSavedState();
 
-  const [formState, setFormState] = useState<FormState>({
-    parkName: savedState?.parkName || initialState.parkName || '',
-    parkType: savedState?.parkType || initialState.parkType || '',
-    province: savedState?.province || initialState.province || '',
-    provinces: savedState?.provinces || initialState.provinces || [],
-    latitude: savedState?.latitude || initialState.latitude || '',
-    longitude: savedState?.longitude || initialState.longitude || '',
-    website: savedState?.website || initialState.website || '',
-    accessMethods: savedState?.accessMethods ||
-      initialState.accessMethods || ['汽车', '步行', '其他'],
-    activationMethods: savedState?.activationMethods ||
-      initialState.activationMethods || ['步行', '车载', '其他'],
-    confirmed: savedState?.confirmed || initialState.confirmed || false,
-    isPotaPark: savedState?.isPotaPark || initialState.isPotaPark || false,
-    mapCenter: savedState?.mapCenter || initialState.mapCenter || [39.9042, 116.4074], // 北京
-    mapZoom: savedState?.mapZoom || initialState.mapZoom || 13,
-  });
+  const [formState, setFormState] = useState<FormState>(() =>
+    getInitialFormState(savedState, initialState)
+  );
 
   const updateFormState = useCallback((newState: Partial<FormState>) => {
     setFormState((prev) => {
@@ -93,7 +101,6 @@ export const useFormState = (initialState: Partial<FormState> = {}) => {
     clearFormState();
   }, []);
 
-  // 自动保存表单状态
   useEffect(() => {
     saveFormState(formState);
   }, [formState]);
