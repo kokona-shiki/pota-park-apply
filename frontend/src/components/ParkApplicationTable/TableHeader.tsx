@@ -1,6 +1,7 @@
 // src/components/ParkApplicationTable/TableHeader.tsx
-import { TableCell, TableRow, TableSortLabel } from '@mui/material';
-import type { Order, OrderBy } from '../ParkApplicationTable';
+import { TableCell, TableRow } from '@mui/material';
+import type { Order, OrderBy } from '../../types/parkApplication';
+import SortableHeaderCell from './SortableHeaderCell';
 
 interface TableHeaderProps {
   order: Order;
@@ -23,34 +24,18 @@ function TableHeader({
     }
   };
 
-  let colSpan = 5;
-  if (showApplicantCallsign) colSpan += 1;
-  colSpan += 1;
-  if (showActions) colSpan += 1;
+  const colSpan = 5 + (showApplicantCallsign ? 1 : 0) + (showActions ? 1 : 0);
 
   return (
     <TableRow>
-      <TableCell
-        variant="head"
-        sx={{
-          whiteSpace: 'nowrap',
-          width: 160,
-          backgroundColor: 'background.paper',
-          fontWeight: 600,
-        }}
-      >
-        {onRequestSort ? (
-          <TableSortLabel
-            active={orderBy === 'created_at'}
-            direction={orderBy === 'created_at' ? order : 'asc'}
-            onClick={(e) => handleRequestSort(e, 'created_at')}
-          >
-            申请时间
-          </TableSortLabel>
-        ) : (
-          '申请时间'
-        )}
-      </TableCell>
+      <SortableHeaderCell
+        label="申请时间"
+        orderBy="created_at"
+        currentOrderBy={orderBy}
+        order={order}
+        width={160}
+        onSort={handleRequestSort}
+      />
 
       {showApplicantCallsign && (
         <TableCell
@@ -67,70 +52,32 @@ function TableHeader({
         </TableCell>
       )}
 
-      <TableCell
-        variant="head"
-        sx={{
-          whiteSpace: 'nowrap',
-          width: 280,
-          backgroundColor: 'background.paper',
-          fontWeight: 600,
-        }}
-      >
-        {onRequestSort ? (
-          <TableSortLabel
-            active={orderBy === 'province_name'}
-            direction={orderBy === 'province_name' ? order : 'asc'}
-            onClick={(e) => handleRequestSort(e, 'province_name')}
-          >
-            省份
-          </TableSortLabel>
-        ) : (
-          '省份'
-        )}
-      </TableCell>
+      <SortableHeaderCell
+        label="省份"
+        orderBy="province_name"
+        currentOrderBy={orderBy}
+        order={order}
+        width={280}
+        onSort={handleRequestSort}
+      />
 
-      <TableCell
-        variant="head"
-        sx={{
-          minWidth: 350,
-          backgroundColor: 'background.paper',
-          fontWeight: 600,
-        }}
-      >
-        {onRequestSort ? (
-          <TableSortLabel
-            active={orderBy === 'park_name'}
-            direction={orderBy === 'park_name' ? order : 'asc'}
-            onClick={(e) => handleRequestSort(e, 'park_name')}
-          >
-            公园名称
-          </TableSortLabel>
-        ) : (
-          '公园名称'
-        )}
-      </TableCell>
+      <SortableHeaderCell
+        label="公园名称"
+        orderBy="park_name"
+        currentOrderBy={orderBy}
+        order={order}
+        minWidth={350}
+        onSort={handleRequestSort}
+      />
 
-      <TableCell
-        variant="head"
-        sx={{
-          whiteSpace: 'nowrap',
-          width: 100,
-          backgroundColor: 'background.paper',
-          fontWeight: 600,
-        }}
-      >
-        {onRequestSort ? (
-          <TableSortLabel
-            active={orderBy === 'status'}
-            direction={orderBy === 'status' ? order : 'asc'}
-            onClick={(e) => handleRequestSort(e, 'status')}
-          >
-            状态
-          </TableSortLabel>
-        ) : (
-          '状态'
-        )}
-      </TableCell>
+      <SortableHeaderCell
+        label="状态"
+        orderBy="status"
+        currentOrderBy={orderBy}
+        order={order}
+        width={100}
+        onSort={handleRequestSort}
+      />
 
       <TableCell
         variant="head"

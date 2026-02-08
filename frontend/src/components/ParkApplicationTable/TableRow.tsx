@@ -1,8 +1,9 @@
 // src/components/ParkApplicationTable/TableRow.tsx
-import { TableCell, TableRow, Chip, Box, Tooltip } from '@mui/material';
+import { TableCell, TableRow, Chip, Tooltip } from '@mui/material';
 import type { ParkApplication } from '../../types/parkApplication';
 import { formatDateTime, getStatusMeta, truncateText } from '../../utils/parkApplication';
-import regionData from '../../../../shared/region.json';
+import ProvinceChips from './ProvinceChips';
+import ActionButtons from './ActionButtons';
 
 interface ParkAppTableRowProps {
   app: ParkApplication;
@@ -58,41 +59,15 @@ function ParkAppTableRow({
       )}
 
       <TableCell sx={{ width: 280, maxWidth: 280, verticalAlign: 'top' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 0.5,
-            maxWidth: 280,
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              display: 'none',
-            },
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none',
-          }}
-        >
-          {app.provinces && app.provinces.length > 0 ? (
-            (app.provinces as string[]).map((code: string) => {
-              const province = regionData.find(
-                (p: { code: string; name: string }) => p.code === code
-              );
-              return (
-                <Chip
-                  key={code}
-                  label={`${province ? province.name : ''} (${code})`}
-                  size="small"
-                  variant="outlined"
-                />
-              );
-            })
-          ) : (
-            <Tooltip title={app.park_name} arrow>
-              <Box sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {app.park_name}
-              </Box>
-            </Tooltip>
-          )}
-        </Box>
+        {app.provinces && app.provinces.length > 0 ? (
+          <ProvinceChips provinces={app.provinces as string[]} />
+        ) : (
+          <Tooltip title={app.park_name} arrow>
+            <Box sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {app.park_name}
+            </Box>
+          </Tooltip>
+        )}
       </TableCell>
 
       <TableCell
@@ -139,66 +114,11 @@ function ParkAppTableRow({
 
       {showActions && (
         <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: 280 }}>
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Box
-              component="button"
-              onClick={() => onDetailClick(app)}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 0.5,
-                px: 1.5,
-                py: 0.75,
-                cursor: 'pointer',
-                backgroundColor: 'background.paper',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              详情
-            </Box>
-            {onFlowClick && (
-              <Box
-                component="button"
-                onClick={() => onFlowClick(app)}
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 0.5,
-                  px: 1.5,
-                  py: 0.75,
-                  cursor: 'pointer',
-                  backgroundColor: 'background.paper',
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                  },
-                }}
-              >
-                流程
-              </Box>
-            )}
-            {onReviewClick && (
-              <Box
-                component="button"
-                onClick={() => onReviewClick(app)}
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 0.5,
-                  px: 1.5,
-                  py: 0.75,
-                  cursor: 'pointer',
-                  backgroundColor: 'background.paper',
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                  },
-                }}
-              >
-                审核
-              </Box>
-            )}
-          </Box>
+          <ActionButtons
+            onDetailClick={() => onDetailClick(app)}
+            onFlowClick={onFlowClick ? () => onFlowClick(app) : undefined}
+            onReviewClick={onReviewClick ? () => onReviewClick(app) : undefined}
+          />
         </TableCell>
       )}
     </TableRow>
