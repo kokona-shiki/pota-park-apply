@@ -43,17 +43,17 @@ export function useMultiTabSync({
         }
 
         try {
-          const authData = safeParseJsonWithSchema(AuthPayloadSchema, e.newValue);
-          if (!authData) {
+          const parsed = AuthPayloadSchema.safeParse(JSON.parse(e.newValue));
+          if (!parsed.success) {
             setAccessToken(null);
             setUser(null);
             rejectAllWaiters(new Error('认证信息解析失败'));
             return;
           }
-          setAccessToken(authData.accessToken);
-          setUser(authData.user);
+          setAccessToken(parsed.data.accessToken);
+          setUser(parsed.data.user);
           console.log('[App] 从其他标签页同步 token');
-          resolveAllWaiters(authData.accessToken || null);
+          resolveAllWaiters(parsed.data.accessToken || null);
         } catch (err) {
           console.error('[App] 解析 localStorage 失败:', err);
         }
