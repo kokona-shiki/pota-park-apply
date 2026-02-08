@@ -6,14 +6,14 @@ const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
 
 const REGION_BY_ISO = new Map(
   PARK_TYPE_MAPPING.chinese_to_english
-    .filter((item) => item.iso3166_2Code)
-    .map((item) => [item.iso3166_2Code, item.chineseName])
+    .filter((item) => item.id)
+    .map((item) => [item.id, item.chineseName])
 );
 
 const ISO_BY_NAME = new Map(
   PARK_TYPE_MAPPING.chinese_to_english
-    .filter((item) => item.iso3166_2Code)
-    .map((item) => [item.chineseName, item.iso3166_2Code])
+    .filter((item) => item.id)
+    .map((item) => [item.chineseName, item.id])
 );
 
 const MUNICIPALITIES = ['北京市', '上海市', '天津市', '重庆市'];
