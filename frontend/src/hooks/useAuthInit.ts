@@ -7,7 +7,7 @@ import {
 interface UseAuthInitParams {
   isAuthPage: boolean;
   isTokenFresh: (token: string) => boolean;
-  ensureValidAccessToken: () => Promise<string | null>;
+  ensureValidAccessToken: () => Promise<{ accessToken: string; user: unknown } | null>;
   readAuthData: () => { accessToken: string; user: unknown } | null;
   setUser: (user: unknown | null) => void;
   setAccessToken: (token: string | null) => void;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient, requestWithSchema } from '../services/apiClient';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
+import { AuthPayloadSchema, AuthUserSchema } from '../../shared/schemas/auth';
 import { safeParseJsonWithSchema } from '../utils/parseJson';
 import {
   AUTH_DATA_KEY,
@@ -14,20 +14,20 @@ import {
 import type { AuthUser } from './context';
 
 const JwtPayloadSchema = {
-  parse: (data: unknown) => {
+  safeParse: (data: unknown) => {
     if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid JWT payload');
+      return { success: false, error: new Error('Invalid JWT payload') };
     }
-    return data as { exp?: number; iat?: number };
+    return { success: true, data: data as { exp?: number; iat?: number } };
   },
 };
 
 const RefreshLockSchema = {
-  parse: (data: unknown) => {
+  safeParse: (data: unknown) => {
     if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid refresh lock');
+      return { success: false, error: new Error('Invalid refresh lock') };
     }
-    return data as { owner: string; ts: number };
+    return { success: true, data: data as { owner: string; ts: number } };
   },
 };
 
@@ -98,7 +98,8 @@ function readAuthData() {
   const raw = localStorage.getItem(AUTH_DATA_KEY);
   if (!raw) return null;
   try {
-    return safeParseJsonWithSchema(AuthPayloadSchema, raw);
+    const parsed = AuthPayloadSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -111,7 +112,7 @@ function writeAuthData(data: AuthData) {
 function readRefreshLock(): RefreshLock | null {
   const raw = localStorage.getItem(REFRESH_LOCK_KEY);
   if (!raw) return null;
-  const parsed = safeParseJsonWithSchema(raw, RefreshLockSchema);
+  const parsed = RefreshLockSchema.safeParse(JSON.parse(raw));
   return parsed.success ? parsed.data : null;
 }
 
@@ -202,7 +203,7 @@ export function useAuthManager() {
     (ensureValidAccessToken: () => Promise<string | null>) => {
       return ensureValidAccessToken().then(() => {
         const stored = readAuthData();
-        return stored;
+        return stored ? { accessToken: stored.accessToken, user: stored.user } : null;
       });
     },
     []
