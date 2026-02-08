@@ -211,9 +211,6 @@ export const NotificationCenter = () => {
                     </Typography>
                   </Box>
                 </Box>
-                <Typography variant="caption" color="text.disabled">
-                  {formatTime(notification.created_at)}
-                </Typography>
               </CardContent>
             </Card>
           ))}
