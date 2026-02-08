@@ -484,6 +484,7 @@ export const publishDraft = async (
         ]
       );
     } else {
+      const publishedAt = new Date().toISOString();
       for (const userId of userIds) {
         await client.query(
           `
@@ -503,7 +504,7 @@ export const publishDraft = async (
             draft.notification_mode,
             null,
             'published',
-            new Date().toISOString(),
+            publishedAt,
             publishedBy,
           ]
         );
@@ -569,6 +570,7 @@ export const publishGlobalNotification = async (
         ]
       );
     } else {
+      const publishedAt = new Date().toISOString();
       for (const userId of userIds) {
         await client.query(
           `
@@ -588,7 +590,7 @@ export const publishGlobalNotification = async (
             notificationMode,
             metadata ? JSON.stringify(metadata) : null,
             'published',
-            new Date().toISOString(),
+            publishedAt,
             publishedBy,
           ]
         );
