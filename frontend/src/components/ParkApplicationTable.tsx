@@ -1,6 +1,5 @@
 import type { MouseEvent } from 'react';
 import {
-  Box,
   Table,
   TableBody,
   TableCell,

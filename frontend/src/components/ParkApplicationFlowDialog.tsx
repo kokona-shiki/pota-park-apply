@@ -48,7 +48,7 @@ export function ParkApplicationFlowDialog({
           ApplicationAuditLogsDataSchema
         );
         setAuditLogs(payload.logs || []);
-      } catch (e: unknown) {
+      } catch {
         setAuditLogsError('获取审核日志失败');
       } finally {
         setAuditLogsLoading(false);

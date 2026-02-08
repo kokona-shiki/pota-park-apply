@@ -119,7 +119,6 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
 }) => {
   const isError = type === 'error';
   const hasConfirmButton = onConfirm !== undefined;
-  const hasParkClick = onParkClick !== undefined;
   const showParkList = shouldShowParkList(parkList);
 
   return (

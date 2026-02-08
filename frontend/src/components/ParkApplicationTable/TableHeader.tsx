@@ -24,8 +24,6 @@ function TableHeader({
     }
   };
 
-  const colSpan = 5 + (showApplicantCallsign ? 1 : 0) + (showActions ? 1 : 0);
-
   return (
     <TableRow>
       <SortableHeaderCell

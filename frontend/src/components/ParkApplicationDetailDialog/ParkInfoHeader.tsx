@@ -5,10 +5,9 @@ import type { ParkApplicationDetail } from '../../../types/parkApplication';
 
 interface ParkInfoHeaderProps {
   application: ParkApplicationDetail;
-  mode: 'detail' | 'review';
 }
 
-function ParkInfoHeader({ application, mode }: ParkInfoHeaderProps) {
+function ParkInfoHeader({ application }: ParkInfoHeaderProps) {
   const statusMeta = getStatusMeta(application.status);
 
   return (

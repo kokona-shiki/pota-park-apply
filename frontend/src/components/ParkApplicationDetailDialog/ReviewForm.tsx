@@ -4,7 +4,6 @@ import { TextField, Box } from '@mui/material';
 interface ReviewFormProps {
   reviewNotes: string;
   reviewRejectionReason: string;
-  reviewSubmitting: boolean;
   onReviewNotesChange: (value: string) => void;
   onReviewRejectionReasonChange: (value: string) => void;
 }
@@ -12,7 +11,6 @@ interface ReviewFormProps {
 function ReviewForm({
   reviewNotes,
   reviewRejectionReason,
-  reviewSubmitting,
   onReviewNotesChange,
   onReviewRejectionReasonChange,
 }: ReviewFormProps) {
