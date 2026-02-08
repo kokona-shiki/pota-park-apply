@@ -103,26 +103,47 @@ function App() {
       {authManager.isAuthLoading ? (
         <LoadingState />
       ) : (
-        <Box sx={{ display: 'flex' }}>
-          {!currentIsAuthPage && (
-            <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-          )}
-          {!currentIsAuthPage && (
-            <SideBar
-              isOpen={isSidebarOpen}
-              isAdmin={!!authManager.user && authManager.user.permissions?.includes('review_application') === true}
-              isSysAdmin={!!authManager.user && authManager.user.permissions?.includes('view_all_users') === true}
-              isPotaRepresentative={!!authManager.user && authManager.user.permissions?.includes('pota_import') === true}
-            />
-          )}
-          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-            {!currentIsAuthPage && <Toolbar />}
-            <AppRoutes />
-          </Box>
-        </Box>
+        <AppContent
+          isAuthPage={currentIsAuthPage}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          user={authManager.user}
+        />
       )}
       <PopupNotification />
     </AuthContext.Provider>
+  );
+}
+
+function AppContent({
+  isAuthPage,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  user,
+}: {
+  isAuthPage: boolean;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  user: { permissions?: string[] } | null;
+}) {
+  return (
+    <Box sx={{ display: 'flex' }}>
+      {!isAuthPage && (
+        <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      )}
+      {!isAuthPage && (
+        <SideBar
+          isOpen={isSidebarOpen}
+          isAdmin={!!user && user.permissions?.includes('review_application') === true}
+          isSysAdmin={!!user && user.permissions?.includes('view_all_users') === true}
+          isPotaRepresentative={!!user && user.permissions?.includes('pota_import') === true}
+        />
+      )}
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        {!isAuthPage && <Toolbar />}
+        <AppRoutes />
+      </Box>
+    </Box>
   );
 }
 
