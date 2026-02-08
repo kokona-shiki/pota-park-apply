@@ -13,10 +13,12 @@ import {
   Chip,
 } from '@mui/material';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
 
 export const NotificationCenter = () => {
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [isReadFilter, setIsReadFilter] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -41,9 +43,7 @@ export const NotificationCenter = () => {
       }
     }
 
-    if (notification.link_url) {
-      window.location.href = notification.link_url;
-    }
+    navigate(`/notifications/${notification.id}`);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -191,8 +191,8 @@ export const NotificationCenter = () => {
                         <Chip label="未读" size="small" color="error" />
                       )}
                     </Box>
-                    <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                      {notification.description}
+                    <Typography variant="caption" color="text.disabled">
+                      {formatTime(notification.created_at)}
                     </Typography>
                   </Box>
                 </Box>

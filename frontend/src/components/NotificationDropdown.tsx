@@ -5,6 +5,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
 
@@ -13,6 +14,7 @@ interface NotificationDropdownProps {
 }
 
 export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
+  const navigate = useNavigate();
   const { notifications, loading, refetch } = useNotifications({ pageSize: 10 });
 
   const handleNotificationClick = async (notification: any) => {
@@ -27,9 +29,7 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
       }
     }
 
-    if (notification.link_url) {
-      window.location.href = notification.link_url;
-    }
+    navigate(`/notifications/${notification.id}`);
     onClose();
   };
 
@@ -118,9 +118,6 @@ export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => 
                 }}
               >
                 {notification.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {notification.description}
               </Typography>
               <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5 }}>
                 {formatTime(notification.created_at)}

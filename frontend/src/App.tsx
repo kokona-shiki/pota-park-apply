@@ -22,6 +22,7 @@ import PotaSyncLogs from './pages/PotaSyncLogs';
 import ParkTypeAlignment from './pages/ParkTypeAlignment';
 import ExportAuditLogs from './pages/ExportAuditLogs';
 import { NotificationCenter } from './pages/NotificationCenter';
+import { NotificationDetail } from './pages/NotificationDetail';
 import { GlobalNotificationEditor } from './pages/GlobalNotificationEditor';
 import { GlobalNotificationManager } from './pages/GlobalNotificationManager';
 import { PopupNotification } from './components/PopupNotification';
@@ -882,6 +883,14 @@ function App() {
                 element={
                   <RequireAuth>
                     <NotificationCenter />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/notifications/:id"
+                element={
+                  <RequireAuth>
+                    <NotificationDetail />
                   </RequireAuth>
                 }
               />
