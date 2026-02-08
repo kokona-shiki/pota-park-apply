@@ -3,13 +3,12 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   Avatar,
-  Button,
   Container,
   Divider,
   Paper,
   Typography,
 } from '@mui/material';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthPayloadSchema, LoginRequestSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { REDIRECT_KEY } from '../auth/context';

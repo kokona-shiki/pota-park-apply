@@ -1,4 +1,4 @@
-import { useState, useRef, useContext } from 'react';
+import { useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
@@ -11,12 +11,6 @@ import { useTokenRefresh } from './hooks/useTokenRefresh';
 import { useMultiTabSync } from './hooks/useMultiTabSync';
 import { useAuthInit } from './hooks/useAuthInit';
 import { AppRoutes } from './AppRoutes';
-
-function useAuthRequired() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('AuthContext not provided');
-  return ctx;
-}
 
 function LoadingState() {
   return (
@@ -59,9 +53,6 @@ function App() {
     isTokenFresh: authManager.isTokenFresh,
     ensureValidAccessToken,
     logout: authManager.logout,
-    readAuthData: authManager.readAuthData,
-    rejectAllWaiters: authManager.rejectAllWaiters,
-    resolveAllWaiters: authManager.resolveAllWaiters,
   });
 
   useMultiTabSync({

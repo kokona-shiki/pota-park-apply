@@ -1,6 +1,5 @@
 // src/AppRoutes.tsx
 import { Routes, Route } from 'react-router-dom';
-import type { ReactElement } from 'react';
 import Home from './pages/Home';
 import AddPark from './pages/add-park';
 import ApplicationsList from './pages/ApplicationsList';

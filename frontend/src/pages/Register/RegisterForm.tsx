@@ -19,7 +19,6 @@ interface RegisterFormData {
   onVerificationCodeChange: (value: string) => void;
   onCaptchaCodeChange: (value: string) => void;
   onSendCode: () => void;
-  onSubmit: (e?: React.FormEvent) => void;
   onClearCallsign: () => void;
 }
 
@@ -41,7 +40,6 @@ function RegisterFormData({
   onVerificationCodeChange,
   onCaptchaCodeChange,
   onSendCode,
-  onSubmit,
   onClearCallsign,
 }: RegisterFormData) {
   const canSubmit = callsign.trim().length > 0 && email.trim().length > 0 && password.trim().length >= 8 && verificationCode.length === 6 && captchaCode.length > 0;

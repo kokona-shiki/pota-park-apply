@@ -3,13 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Alert,
   Avatar,
-  Button,
   Container,
   Divider,
   Typography,
   Paper,
 } from '@mui/material';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { RegisterRequestSchema, UserInfoDataSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
@@ -38,7 +37,6 @@ function Register() {
       const response = await fetch('/api/captcha');
       const svg = await response.text();
       setCaptchaSvg(svg);
-      const captchaId = response.headers.get('X-Captcha-Id');
       setSuccess(null);
       setError(null);
     } catch (err) {
