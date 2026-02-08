@@ -9,37 +9,30 @@ import {
   LinearProgress,
   Paper,
   Stack,
-  Link,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
 import { z } from 'zod';
 import {
   ImportTaskSchema,
   PotaImportLatestTaskDataSchema,
-  PotaImportMarkReadDataSchema,
   PotaImportStatusDataSchema,
   PotaImportTriggerDataSchema,
 } from '../../../shared/schemas/potaImport';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
-import { useNavigate } from 'react-router-dom';
+import TaskStatusAlert from './PotaImport/TaskStatusAlert';
+import TaskCompleteDialog from './PotaImport/TaskCompleteDialog';
 
 type ImportTask = z.infer<typeof ImportTaskSchema>;
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [canImport, setCanImport] = useState<boolean | null>(null);
   const [task, setTask] = useState<ImportTask | null>(null);
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false);
-
   const [statusLoading, setStatusLoading] = useState(false);
 
   const statusLabel = useMemo(() => {
@@ -62,7 +55,6 @@ function PotaImport() {
     return 'info';
   }, [task]);
 
-  // 获取导入权限状态
   const loadStatus = useCallback(async () => {
     if (!user) return;
 
@@ -114,24 +106,6 @@ function PotaImport() {
     }
   }, [user]);
 
-  useOnceOnMount(() => {
-    if (!user) return;
-    loadStatus();
-    loadLatestTask();
-  }, [user, loadStatus, loadLatestTask]);
-
-  useEffect(() => {
-    if (!user || !canImport) return;
-    if (!task || (task.status !== 'pending' && task.status !== 'running')) return;
-
-    const timer = setInterval(() => {
-      loadLatestTask();
-    }, 10000);
-
-    return () => clearInterval(timer);
-  }, [user, canImport, task, loadLatestTask]);
-
-  // 触发POTA导入
   const handleImport = useCallback(async () => {
     if (!user) return;
 
@@ -147,7 +121,7 @@ function PotaImport() {
       setTask(payload.task ?? null);
       setInfo(payload.message || '已提交 POTA 导入任务');
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, 'POTA公园导入失败'));
+      setError(getApiErrorMessage(e, 'POTA 公园导入失败'));
     } finally {
       setLoading(false);
     }
@@ -167,6 +141,24 @@ function PotaImport() {
     setOpenCompleteDialog(false);
     loadLatestTask();
   }, [task, loadLatestTask]);
+
+  useOnceOnMount(() => {
+    if (!user) return;
+    loadStatus();
+    loadLatestTask();
+  }, [user, loadStatus, loadLatestTask]);
+
+  useEffect(() => {
+    if (!user || !canImport) return;
+    if (!task || (task.status !== 'pending' && task.status !== 'running')) return;
+
+    const timer = setInterval(() => {
+      loadLatestTask();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [user, canImport, task, loadLatestTask]);
+
+  if (!user) return null;
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4, mb: 4 }}>
@@ -199,27 +191,11 @@ function PotaImport() {
           </Alert>
         )}
 
-        {task && (
-          <Alert severity={taskAlertSeverity} sx={{ mb: 2 }}>
-            <Typography sx={{ fontWeight: 600 }}>
-              导入任务状态：{statusLabel || task.status}
-            </Typography>
-            {task.status === 'pending' && task.queuePosition > 0 && (
-              <Typography variant="body2">当前排队位置：{task.queuePosition}</Typography>
-            )}
-            {task.result && (
-              <Typography variant="body2">
-                总计: {task.result.total}，导入: {task.result.imported}，跳过: {task.result.skipped}
-                ，错误: {task.result.errors}，待处理: {task.result.needsManual}
-              </Typography>
-            )}
-            {task.error && (
-              <Typography variant="body2" color="error.main">
-                {task.error}
-              </Typography>
-            )}
-          </Alert>
-        )}
+        <TaskStatusAlert
+          task={task}
+          statusLabel={statusLabel}
+          taskAlertSeverity={taskAlertSeverity}
+        />
 
         <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
           <Button
@@ -254,47 +230,13 @@ function PotaImport() {
           <strong>注意:</strong> 自动导入任务会在每天凌晨 4 点（UTC+8）自动执行，无需手动操作。
         </Typography>
 
-        <Dialog open={openCompleteDialog} onClose={handleCloseCompleteDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>导入任务完成</DialogTitle>
-          <DialogContent>
-            <Stack spacing={1} sx={{ mt: 1 }}>
-              <Typography>
-                状态：{statusLabel || task?.status || '未知'}
-              </Typography>
-              {task?.result && (
-                <>
-                  <Typography>总计处理: {task.result.total} 个公园</Typography>
-                  <Typography>成功导入: {task.result.imported} 个</Typography>
-                  <Typography>跳过已存在: {task.result.skipped} 个</Typography>
-                  <Typography>导入错误: {task.result.errors} 个</Typography>
-                  <Typography>待处理公园: {task.result.needsManual || 0} 个</Typography>
-                </>
-              )}
-              {(task?.result?.needsManual || 0) > 0 && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  <Link
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate('/pota-unprocessed');
-                      handleCloseCompleteDialog();
-                    }}
-                  >
-                    前往未处理公园页面进行手动确认
-                  </Link>
-                </Typography>
-              )}
-              {task?.error && (
-                <Typography color="error.main" variant="body2">
-                  {task.error}
-                </Typography>
-              )}
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseCompleteDialog}>我知道了</Button>
-          </DialogActions>
-        </Dialog>
+        <TaskCompleteDialog
+          open={openCompleteDialog}
+          task={task}
+          statusLabel={statusLabel}
+          onClose={handleCloseCompleteDialog}
+          loadLatestTask={loadLatestTask}
+        />
       </Paper>
     </Box>
   );
