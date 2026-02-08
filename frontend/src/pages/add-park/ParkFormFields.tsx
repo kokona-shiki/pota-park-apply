@@ -137,7 +137,8 @@ function ParkFormFields({
             value={provinces.filter((p) => province.includes(p))}
             onChange={(_, newValue) => {
               const codes = newValue.map((p) => p.code);
-              onProvinceChange(codes.length > 0 ? codes[0] : '', provinces: codes);
+              onProvinceChange(codes.length > 0 ? codes[0] : '');
+              onProvincesChange(codes);
             }}
             disabled={isPotaPark}
             getOptionLabel={(option) => `(${option.code}) ${option.name}`}

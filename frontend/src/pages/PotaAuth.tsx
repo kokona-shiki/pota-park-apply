@@ -182,6 +182,8 @@ function PotaAuth() {
                   reject(err);
                 });
             }
+          } catch (e) {
+            console.error('Error checking iframe URL:', e);
           }
         }, 500);
 
