@@ -1,4 +1,3 @@
-// src/components/ParkApplicationDetailDialog.tsx
 import {
   Button,
   Dialog,
@@ -27,6 +26,65 @@ interface ParkApplicationDetailDialogProps {
   reviewSubmitting?: boolean;
 }
 
+function getDialogTitle(mode: 'detail' | 'review') {
+  return mode === 'review' ? '审核申请' : '申请详情';
+}
+
+function shouldShowReviewForm(showReviewForm: boolean, mode: 'detail' | 'review') {
+  return showReviewForm && mode === 'review';
+}
+
+function ReviewActions({
+  onApprove,
+  onReject,
+  reviewSubmitting,
+}: {
+  onApprove?: () => void;
+  onReject?: () => void;
+  reviewSubmitting?: boolean;
+}) {
+  return (
+    <>
+      <Button onClick={onReject} color="error" disabled={reviewSubmitting}>
+        拒绝
+      </Button>
+      <Button onClick={onApprove} variant="contained" disabled={reviewSubmitting}>
+        通过
+      </Button>
+    </>
+  );
+}
+
+function ReviewDialogContent({
+  showForm,
+  reviewNotes,
+  reviewRejectionReason,
+  reviewSubmitting,
+  onReviewNotesChange,
+  onReviewRejectionReasonChange,
+}: {
+  showForm: boolean;
+  reviewNotes: string;
+  reviewRejectionReason: string;
+  reviewSubmitting: boolean;
+  onReviewNotesChange?: (value: string) => void;
+  onReviewRejectionReasonChange?: (value: string) => void;
+}) {
+  return (
+    <>
+      {showForm && (
+        <ReviewForm
+          reviewNotes={reviewNotes}
+          reviewRejectionReason={reviewRejectionReason}
+          reviewSubmitting={reviewSubmitting}
+          onReviewNotesChange={(value) => onReviewNotesChange?.(value)}
+          onReviewRejectionReasonChange={(value) => onReviewRejectionReasonChange?.(value)}
+        />
+      )}
+    </>
+  );
+}
+
 export function ParkApplicationDetailDialog({
   open,
   onClose,
@@ -45,9 +103,12 @@ export function ParkApplicationDetailDialog({
 }: ParkApplicationDetailDialogProps) {
   if (!application) return null;
 
+  const title = getDialogTitle(mode);
+  const showForm = shouldShowReviewForm(showReviewForm, mode);
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>{mode === 'review' ? '审核申请' : '申请详情'}</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers>
         <DialogContent
           application={application}
@@ -55,30 +116,26 @@ export function ParkApplicationDetailDialog({
           loading={loading}
           error={error}
         />
-        {showReviewForm && mode === 'review' && (
-          <ReviewForm
-            reviewNotes={reviewNotes}
-            reviewRejectionReason={reviewRejectionReason}
-            reviewSubmitting={reviewSubmitting}
-            onReviewNotesChange={(value) => onReviewNotesChange?.(value)}
-            onReviewRejectionReasonChange={(value) => onReviewRejectionReasonChange?.(value)}
-          />
-        )}
+        <ReviewDialogContent
+          showForm={showForm}
+          reviewNotes={reviewNotes}
+          reviewRejectionReason={reviewRejectionReason}
+          reviewSubmitting={reviewSubmitting}
+          onReviewNotesChange={onReviewNotesChange}
+          onReviewRejectionReasonChange={onReviewRejectionReasonChange}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={reviewSubmitting}>
           关闭
         </Button>
 
-        {mode === 'review' && showReviewForm && (
-          <>
-            <Button onClick={onReject} color="error" disabled={reviewSubmitting}>
-              拒绝
-            </Button>
-            <Button onClick={onApprove} variant="contained" disabled={reviewSubmitting}>
-              通过
-            </Button>
-          </>
+        {showForm && (
+          <ReviewActions
+            onApprove={onApprove}
+            onReject={onReject}
+            reviewSubmitting={reviewSubmitting}
+          />
         )}
       </DialogActions>
     </Dialog>
