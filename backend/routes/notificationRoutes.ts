@@ -89,6 +89,9 @@ router.get(
   authenticateToken,
   requirePermission('view_global_notifications'),
   async (req, res) => {
+    console.log('[DEBUG] /api/notifications/global 路由被调用');
+    console.log('[DEBUG] req.user:', req.user);
+    console.log('[DEBUG] req.query:', req.query);
     try {
       const { status, page, pageSize } = req.query;
       const filters: {
@@ -111,7 +114,9 @@ router.get(
         }
       }
 
+      console.log('[DEBUG] 调用 getGlobalNotifications, filters:', filters);
       const result = await notificationService.getGlobalNotifications(filters);
+      console.log('[DEBUG] getGlobalNotifications 返回结果:', result);
 
       return sendOk(res, result, '获取全局通知列表成功');
     } catch (error) {
