@@ -5,26 +5,6 @@ import type { ReactElement } from 'react';
 import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
-import Home from './pages/Home';
-import AddPark from './pages/add-park';
-import ApplicationsList from './pages/ApplicationsList';
-import MyUploads from './pages/MyUploads';
-import ExportPage from './pages/ExportPage';
-import About from './pages/About';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import UserInfo from './pages/UserInfo';
-import AdminPanel from './pages/AdminPanel';
-import CallsignChangeRequests from './pages/CallsignChangeRequests';
-import PotaImport from './pages/PotaImport';
-import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
-import PotaSyncLogs from './pages/PotaSyncLogs';
-import ParkTypeAlignment from './pages/ParkTypeAlignment';
-import ExportAuditLogs from './pages/ExportAuditLogs';
-import { NotificationCenter } from './pages/NotificationCenter';
-import { NotificationDetail } from './pages/NotificationDetail';
-import { GlobalNotificationEditor } from './pages/GlobalNotificationEditor';
-import { GlobalNotificationManager } from './pages/GlobalNotificationManager';
 import { PopupNotification } from './components/PopupNotification';
 import { z } from 'zod';
 import { AuthPayloadSchema } from '../../shared/schemas/auth';
@@ -33,6 +13,7 @@ import { usePermission } from './hooks/usePermission';
 import { AuthContext, AUTH_DATA_KEY, LOGOUT_BROADCAST_KEY, REDIRECT_KEY } from './auth/context';
 import type { AuthUser } from './auth/context';
 import { safeParseJsonWithSchema } from './utils/parseJson';
+import { AppRoutes } from './AppRoutes';
 
 const TOKEN_EXP_SKEW_MS = 60 * 1000; // exp 提前 60 秒视为“即将过期”
 const REFRESH_LOCK_KEY = 'pota_is_refreshing';
@@ -769,148 +750,7 @@ function App() {
           )}
           <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
             {!isAuthPage && <Toolbar />}
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <Home />
-                }
-              />
-              <Route
-                path="/add-park"
-                element={
-                  <RequireNotSysAdmin>
-                    <AddPark />
-                  </RequireNotSysAdmin>
-                }
-              />
-              <Route
-                path="/applications"
-                element={
-                  <RequireNotSysAdmin>
-                    <ApplicationsList />
-                  </RequireNotSysAdmin>
-                }
-              />
-              <Route
-                path="/my-uploads"
-                element={
-                  <RequireNotSysAdmin>
-                    <MyUploads />
-                  </RequireNotSysAdmin>
-                }
-              />
-              <Route
-                path="/export"
-                element={
-                  <RequireNotSysAdmin>
-                    <ExportPage />
-                  </RequireNotSysAdmin>
-                }
-              />
-              <Route path="/about" element={<About />} />
-              <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-              <Route
-                path="/register"
-                element={!user ? <Register /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/user-info"
-                element={
-                  <RequireAuth>
-                    <UserInfo />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin-panel"
-                element={
-                  <RequireSysAdmin>
-                    <AdminPanel />
-                  </RequireSysAdmin>
-                }
-              />
-              <Route
-                path="/callsign-change-requests"
-                element={
-                  <RequireSysAdmin>
-                    <CallsignChangeRequests />
-                  </RequireSysAdmin>
-                }
-              />
-              <Route
-                path="/pota-import"
-                element={
-                  <RequirePotaPermission>
-                    <PotaImport />
-                  </RequirePotaPermission>
-                }
-              />
-              <Route
-                path="/pota-unprocessed"
-                element={
-                  <RequirePotaPermission>
-                    <PotaUnprocessedParks />
-                  </RequirePotaPermission>
-                }
-              />
-              <Route
-                path="/pota-sync-logs"
-                element={
-                  <RequirePotaPermission>
-                    <PotaSyncLogs />
-                  </RequirePotaPermission>
-                }
-              />
-              <Route
-                path="/park-type-alignment"
-                element={
-                  <RequirePotaPermission>
-                    <ParkTypeAlignment />
-                  </RequirePotaPermission>
-                }
-              />
-              <Route
-                path="/export-audit-logs"
-                element={
-                  <RequireSysAdmin>
-                    <ExportAuditLogs />
-                  </RequireSysAdmin>
-                }
-              />
-              <Route
-                path="/notifications"
-                element={
-                  <RequireAuth>
-                    <NotificationCenter />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/notifications/:id"
-                element={
-                  <RequireAuth>
-                    <NotificationDetail />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/global-notification-editor"
-                element={
-                  <RequireSysAdmin>
-                    <GlobalNotificationEditor />
-                  </RequireSysAdmin>
-                }
-              />
-              <Route
-                path="/global-notification-manager"
-                element={
-                  <RequireSysAdmin>
-                    <GlobalNotificationManager />
-                  </RequireSysAdmin>
-                }
-              />
-            </Routes>
+            <AppRoutes />
           </Box>
         </Box>
       )}
