@@ -23,14 +23,23 @@ import { useState, useEffect } from 'react';
 import { fetchApi } from '../services/apiClient';
 import { usePermission } from '../hooks/usePermission';
 
+interface GlobalNotification {
+  id: number;
+  title: string;
+  notification_mode: string;
+  status: string;
+  published_at?: string;
+  published_by_email?: string;
+}
+
 export const GlobalNotificationManager = () => {
   const { hasPermission } = usePermission('view_global_notifications');
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawDialog, setWithdrawDialog] = useState<{
     open: boolean;
-    notification: any;
+    notification: GlobalNotification | null;
   }>({
     open: false,
     notification: null,
@@ -45,10 +54,10 @@ export const GlobalNotificationManager = () => {
     try {
       const response = await fetchApi('/api/notifications/global');
       if (response.data && typeof response.data === 'object' && 'notifications' in response.data) {
-        setNotifications((response.data as { notifications: any[] }).notifications);
+        setNotifications((response.data as { notifications: GlobalNotification[] }).notifications);
       }
-    } catch (err: any) {
-      setError(err.message || '获取通知列表失败');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '获取通知列表失败');
     } finally {
       setLoading(false);
     }
@@ -85,8 +94,8 @@ export const GlobalNotificationManager = () => {
       setWithdrawDialog({ open: false, notification: null });
       setWithdrawReason('');
       fetchNotifications();
-    } catch (err: any) {
-      setError(err.message || '撤回通知失败');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '撤回通知失败');
     }
   };
 
@@ -102,7 +111,7 @@ export const GlobalNotificationManager = () => {
   };
 
   const getStatusLabel = (status: string) => {
-    const statusMap: Record<string, { label: string; color: any }> = {
+    const statusMap: Record<string, { label: string; color: 'default' | 'success' | 'error' }> = {
       draft: { label: '草稿', color: 'default' },
       published: { label: '已发布', color: 'success' },
       withdrawn: { label: '已撤回', color: 'error' },
