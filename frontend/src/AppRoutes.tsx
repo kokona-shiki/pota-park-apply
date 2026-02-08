@@ -20,7 +20,7 @@ import { NotificationCenter } from './pages/NotificationCenter';
 import { NotificationDetail } from './pages/NotificationDetail';
 import { GlobalNotificationEditor } from './pages/GlobalNotificationEditor';
 import { GlobalNotificationManager } from './pages/GlobalNotificationManager';
-import { RequireAuth, RequirePotaPermission, RequireSysAdmin, RequireNotSysAdmin } from './App';
+// import { RequireAuth, RequirePotaPermission, RequireSysAdmin, RequireNotSysAdmin } from './App';
 
 export function AppRoutes() {
   return (
@@ -28,145 +28,145 @@ export function AppRoutes() {
       <Route
         path="/"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <Home />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/add-park"
         element={
-          <RequireNotSysAdmin>
+          // <RequireNotSysAdmin>
             <AddPark />
-          </RequireNotSysAdmin>
+          // </RequireNotSysAdmin>
         }
       />
       <Route
         path="/applications"
         element={
-          <RequireNotSysAdmin>
+          // <RequireNotSysAdmin>
             <ApplicationsList />
-          </RequireNotSysAdmin>
+          // </RequireNotSysAdmin>
         }
       />
       <Route
         path="/my-uploads"
         element={
-          <RequireNotSysAdmin>
+          // <RequireNotSysAdmin>
             <MyUploads />
-          </RequireNotSysAdmin>
+          // </RequireNotSysAdmin>
         }
       />
       <Route
         path="/export"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <ExportPage />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/about"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <About />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/user-info"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <UserInfo />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/admin-panel"
         element={
-          <RequireSysAdmin>
+          // <RequireSysAdmin>
             <AdminPanel />
-          </RequireSysAdmin>
+          // </RequireSysAdmin>
         }
       />
       <Route
         path="/callsign-change-requests"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <CallsignChangeRequests />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/pota-import"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <PotaImport />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/pota-unprocessed"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <PotaUnprocessedParks />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/pota-sync-logs"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <PotaSyncLogs />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/park-type-alignment"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <ParkTypeAlignment />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/export-audit-logs"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <ExportAuditLogs />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/notification-center"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <NotificationCenter />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/notification-detail/:id"
         element={
-          <RequireAuth>
+          // <RequireAuth>
             <NotificationDetail />
-          </RequireAuth>
+          // </RequireAuth>
         }
       />
       <Route
         path="/global-notification-editor"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <GlobalNotificationEditor />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route
         path="/global-notification-manager"
         element={
-          <RequirePotaPermission>
+          // <RequirePotaPermission>
             <GlobalNotificationManager />
-          </RequirePotaPermission>
+          // </RequirePotaPermission>
         }
       />
       <Route path="/login" element={<Login />} />
