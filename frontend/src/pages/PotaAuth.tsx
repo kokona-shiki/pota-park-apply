@@ -26,20 +26,9 @@ import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { getApiErrorMessage } from '../utils/error';
+import PotaStatusCard from '../components/PotaAuthDialog/PotaStatusCard';
 
 type PotaStatus = z.infer<typeof PotaStatusSchema>;
-
-function formatExpiresAt(expiresAt: string | null) {
-  if (!expiresAt) return '-';
-  const date = new Date(expiresAt);
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
 
 function PotaAuthDialog({
   authLoading,
@@ -85,95 +74,14 @@ function PotaAuthDialog({
   );
 }
 
-function PotaStatusCard({
-  status,
-  loading,
-  error,
-  onDisconnect,
-  onConnect,
-  isConnecting,
-}: {
-  status: PotaStatus | null;
-  loading: boolean;
-  error: string | null;
-  onDisconnect: () => void;
-  onConnect: () => void;
-  isConnecting: boolean;
-}) {
-  const expiresAt = status?.expiresAt ? formatExpiresAt(status.expiresAt) : null;
-  const willExpireSoon = status?.willExpireSoon ?? false;
-
-  return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            {status?.connected ? (
-              <>
-                <CheckCircleIcon color="success" />
-                <Typography variant="h6">已连接 POTA</Typography>
-                <Chip label="已连接" color="success" size="small" />
-              </>
-            ) : (
-              <>
-                <LinkOffIcon color="disabled" />
-                <Typography variant="h6">未连接 POTA</Typography>
-                <Chip label="未连接" color="default" size="small" />
-              </>
-            )}
-          </Stack>
-          {status?.connected && status.expiresAt && (
-            <>
-              <Divider />
-              <Stack spacing={1}>
-                <Typography variant="body2" color="text.secondary">
-                  Token 过期时间：{expiresAt}
-                </Typography>
-                {willExpireSoon && (
-                  <Alert severity="info" variant="outlined">
-                    Token 即将过期，系统会自动刷新
-                  </Alert>
-                )}
-              </Stack>
-            </>
-          )}
-          <Divider />
-          <Stack direction="row" spacing={2}>
-            {status?.connected ? (
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<LinkOffIcon />}
-                onClick={onDisconnect}
-                disabled={loading}
-              >
-                断开连接
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                startIcon={<LinkIcon />}
-                onClick={onConnect}
-                disabled={loading || isConnecting}
-              >
-                连接 POTA
-              </Button>
-            )}
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
-
 function PotaAuth() {
   const { user } = useAuth();
   const [status, setStatus] = useState<PotaStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const checkIntervalRef = useRef<number | null>(null);
 
@@ -274,7 +182,6 @@ function PotaAuth() {
                   reject(err);
                 });
             }
-          } catch {
           }
         }, 500);
 
@@ -340,10 +247,8 @@ function PotaAuth() {
           <PotaStatusCard
             status={status}
             loading={loading}
-            error={error}
             onDisconnect={disconnect}
             onConnect={startAuth}
-            isConnecting={authLoading}
           />
         )}
       </Box>
