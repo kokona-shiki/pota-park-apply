@@ -30,8 +30,18 @@ router.get('/api/notifications', authenticateToken, async (req, res) => {
 
     if (type) filters.type = String(type);
     if (isRead !== undefined) filters.isRead = isRead === 'true';
-    if (page) filters.page = Number.parseInt(String(page), 10);
-    if (pageSize) filters.pageSize = Number.parseInt(String(pageSize), 10);
+    if (page) {
+      const parsedPage = Number.parseInt(String(page), 10);
+      if (!Number.isNaN(parsedPage) && parsedPage > 0) {
+        filters.page = parsedPage;
+      }
+    }
+    if (pageSize) {
+      const parsedPageSize = Number.parseInt(String(pageSize), 10);
+      if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
+        filters.pageSize = parsedPageSize;
+      }
+    }
 
     const result = await notificationService.getNotifications(userId, filters);
 
@@ -84,6 +94,10 @@ router.get('/api/notifications/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const notificationId = Number.parseInt(id, 10);
 
+    if (Number.isNaN(notificationId)) {
+      return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
+    }
+
     const notification = await notificationService.getNotificationById(notificationId);
 
     if (!notification) {
@@ -110,6 +124,10 @@ router.put('/api/notifications/:id/read', authenticateToken, async (req, res) =>
 
     const { id } = req.params;
     const notificationId = Number.parseInt(id, 10);
+
+    if (Number.isNaN(notificationId)) {
+      return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
+    }
 
     const notification = await notificationService.markAsRead(notificationId, userId);
 
@@ -145,6 +163,10 @@ router.put('/api/notifications/:id/dismiss-popup', authenticateToken, async (req
 
     const { id } = req.params;
     const notificationId = Number.parseInt(id, 10);
+
+    if (Number.isNaN(notificationId)) {
+      return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
+    }
 
     const notification = await notificationService.dismissPopup(notificationId, userId);
 
@@ -268,6 +290,10 @@ router.get(
       const { id } = req.params;
       const draftId = Number.parseInt(id, 10);
 
+      if (Number.isNaN(draftId)) {
+        return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
+      }
+
       const draft = await notificationService.getDraftById(draftId, userId);
 
       if (!draft) {
@@ -295,6 +321,10 @@ router.put(
 
       const { id } = req.params;
       const draftId = Number.parseInt(id, 10);
+
+      if (Number.isNaN(draftId)) {
+        return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
+      }
 
       const parsed = NotificationDraftUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -331,6 +361,10 @@ router.delete(
       const { id } = req.params;
       const draftId = Number.parseInt(id, 10);
 
+      if (Number.isNaN(draftId)) {
+        return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
+      }
+
       await notificationService.deleteDraft(draftId, userId);
 
       return sendOk(res, { success: true }, '删除草稿成功');
@@ -355,6 +389,10 @@ router.post(
       const { id } = req.params;
       const draftId = Number.parseInt(id, 10);
 
+      if (Number.isNaN(draftId)) {
+        return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
+      }
+
       const result = await notificationService.publishDraft(draftId, userId, userId);
 
       return sendOk(res, result, '发布草稿成功');
@@ -373,6 +411,10 @@ router.post(
     try {
       const { id } = req.params;
       const notificationId = Number.parseInt(id, 10);
+
+      if (Number.isNaN(notificationId)) {
+        return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
+      }
 
       const { reason } = req.body;
 
@@ -400,8 +442,18 @@ router.get(
       } = {};
 
       if (status) filters.status = String(status);
-      if (page) filters.page = Number.parseInt(String(page), 10);
-      if (pageSize) filters.pageSize = Number.parseInt(String(pageSize), 10);
+      if (page) {
+        const parsedPage = Number.parseInt(String(page), 10);
+        if (!Number.isNaN(parsedPage) && parsedPage > 0) {
+          filters.page = parsedPage;
+        }
+      }
+      if (pageSize) {
+        const parsedPageSize = Number.parseInt(String(pageSize), 10);
+        if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
+          filters.pageSize = parsedPageSize;
+        }
+      }
 
       const result = await notificationService.getGlobalNotifications(filters);
 
