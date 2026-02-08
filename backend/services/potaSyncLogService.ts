@@ -55,8 +55,7 @@ export const logPotaSync = async (
           'pota_data_sync',
           'POTA 数据同步完成',
           `POTA 数据同步任务已完成，共导入 ${parksImported.length} 个公园`,
-          `/pota-sync-logs`,
-          { log_id: logEntry.id }
+          `/pota-sync-logs`
         );
       }
     }

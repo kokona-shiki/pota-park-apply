@@ -64,7 +64,16 @@ const backendConfig = {
 
 export default defineConfig([
   {
-    ignores: ['node_modules/', 'dist/', 'build/', 'pnpm-lock.yaml'],
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'build/',
+      'pnpm-lock.yaml',
+      'frontend/.sonar/',
+      'frontend/.sonar-temp/',
+      'frontend/coverage/',
+      'backend/coverage/',
+    ],
   },
   frontendConfig,
   backendConfig,

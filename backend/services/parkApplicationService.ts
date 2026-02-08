@@ -302,8 +302,7 @@ export const notifyReviewersOnNewApplication = async (applicationId: number, par
         'park_application_status_change',
         '新的公园申请待审核',
         `有新的公园申请"${parkName}"需要您审核`,
-        null,
-        { application_id: applicationId }
+        null
       );
     }
   } catch (error) {
@@ -534,8 +533,7 @@ export const reviewApplication = async (
             'park_application_status_change',
             '公园申请审核通过',
             `公园申请"${currentApplication.park_name}"已通过审核`,
-            `/park-applications/${applicationId}`,
-            { application_id: applicationId }
+            `/park-applications/${applicationId}`
           );
         }
       }

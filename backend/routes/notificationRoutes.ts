@@ -1,5 +1,4 @@
 import express from 'express';
-import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as notificationService from '../services/notificationService.js';
@@ -8,7 +7,6 @@ import {
   NotificationCreateSchema,
   NotificationDraftCreateSchema,
   NotificationDraftUpdateSchema,
-  NotificationUpdateSchema,
 } from '../../shared/schemas/notification.js';
 
 const router = express.Router();

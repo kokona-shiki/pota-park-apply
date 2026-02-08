@@ -37,7 +37,7 @@ const getTransporter = () => {
 };
 
 const generateEmailTemplate = (data: EmailVerificationData): string => {
-  const { email, code, callsign } = data;
+  const { code, callsign } = data;
 
   return `
     <!DOCTYPE html>

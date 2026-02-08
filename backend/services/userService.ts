@@ -234,8 +234,7 @@ export const requestCallsignChange = async (userId: number, newCallsign: string,
       'callsign_change_request',
       '新的呼号变更申请',
       `用户"${currentUser.callsign}"申请将呼号变更为"${normalized}"`,
-      `/callsign-change-requests`,
-      { request_id: request.id }
+      `/callsign-change-requests`
     );
   }
 

@@ -1,5 +1,4 @@
 import { insert, update, getOne, getMany, query, transaction } from '../config/database.js';
-import { checkUserPermission } from '../utils/auth.js';
 
 type NotificationCreateInput = {
   type: string;
@@ -73,8 +72,7 @@ export const createNotificationForUsers = async (
   type: string,
   title: string,
   description: string,
-  linkUrl?: string | null,
-  metadata?: Record<string, unknown> | null
+  linkUrl?: string | null
 ) => {
   if (userIds.length === 0) return [];
 
@@ -95,7 +93,7 @@ export const createNotificationForUsers = async (
   const notifications = await query(
     `
     INSERT INTO notifications (
-      user_id, type, title, description, link_url, metadata
+      user_id, type, title, description, link_url
     ) VALUES ${values}
     RETURNING *
     `,

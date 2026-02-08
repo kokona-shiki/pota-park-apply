@@ -1,0 +1,13 @@
+{
+    "reports": [],
+    "adjacencyMatrix": [],
+    "firstOrderDensity": 0,
+    "visibilityMatrix": [],
+    "changeCost": 0,
+    "coreSize": 0,
+    "loc": 0,
+    "cyclomatic": 0,
+    "effort": 0,
+    "params": 0,
+    "maintainability": 0
+}
