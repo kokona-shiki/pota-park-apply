@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FormState } from './types';
-import { useFormState, clearFormState } from './useFormState';
+import { clearFormState } from './useFormState';
 import { useSubmit } from './useSubmit';
 
 interface SubmitResult {
