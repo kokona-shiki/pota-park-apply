@@ -11,7 +11,7 @@ interface UseTokenRefreshParams {
   isLockExpired: (lock: { owner: string; ts: number }) => boolean;
   isTokenFresh: (token: string) => boolean;
   getJwtIatMs: (token: string) => number | null;
-  writeAuthData: (data: { accessToken: string; user: unknown }) => void;
+  writeAuthData: (data: unknown) => void;
   rejectAllWaiters: (err: Error) => void;
   resolveAllWaiters: (token: string | null) => void;
   waitForTokenFromOtherTab: () => Promise<string | null>;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient, requestWithSchema } from '../services/apiClient';
-import { AuthPayloadSchema, AuthUserSchema } from '../../shared/schemas/auth';
+import { AuthPayloadSchema } from '../../shared/schemas/auth';
 import { safeParseJsonWithSchema } from '../utils/parseJson';
 import {
   AUTH_DATA_KEY,
@@ -67,7 +67,7 @@ function decodeJwtPayload(token: string) {
     if (parts.length !== 3) return null;
     const payload = parts[1];
     const json = atob(base64UrlToBase64(payload));
-    const parsed = safeParseJsonWithSchema(json, JwtPayloadSchema);
+    const parsed = JwtPayloadSchema.safeParse(JSON.parse(json));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -113,7 +113,7 @@ function readRefreshLock(): RefreshLock | null {
   const raw = localStorage.getItem(REFRESH_LOCK_KEY);
   if (!raw) return null;
   const parsed = RefreshLockSchema.safeParse(JSON.parse(raw));
-  return parsed.success ? parsed.data : null;
+  return parsed.success && parsed.data ? parsed.data : null;
 }
 
 function isLockExpired(lock: RefreshLock) {
@@ -172,7 +172,7 @@ export function useAuthManager() {
     setAccessToken(null);
     localStorage.removeItem(AUTH_DATA_KEY);
     localStorage.setItem(LOGOUT_BROADCAST_KEY, String(Date.now()));
-    requestWithSchema(apiClient.post('/api/logout'), { parse: () => null }).catch((e) => {
+    apiClient.post('/api/logout').catch((e) => {
       console.warn('退出登录请求失败（忽略）:', e?.message || e);
     });
     rejectAllWaiters(new Error('已登出'));
@@ -184,19 +184,19 @@ export function useAuthManager() {
   }, []);
 
   const performRefreshAsLeader = useCallback(async () => {
-    const { accessToken: newAccessToken, user: newUser } = await requestWithSchema(
+    const response = await requestWithSchema(
       apiClient.post('/api/refresh-token', {}, { headers: { 'X-Tab-Id': tabIdRef.current } }),
       AuthPayloadSchema
     );
 
-    if (!newAccessToken || !newUser) {
+    if (!response.accessToken || !response.user) {
       throw new Error('刷新 token 返回数据不完整');
     }
 
-    setAccessToken(newAccessToken);
-    setUser(newUser as AuthUser);
-    writeAuthData({ accessToken: newAccessToken, user: newUser });
-    return newAccessToken as string;
+    setAccessToken(response.accessToken);
+    setUser(response.user);
+    writeAuthData({ accessToken: response.accessToken, user: response.user });
+    return response.accessToken;
   }, []);
 
   const refreshSession = useCallback(
