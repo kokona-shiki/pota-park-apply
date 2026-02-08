@@ -35,6 +35,7 @@ import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 import type { ParkApplicationDetail } from '../../types/parkApplication';
+import type { SubmitResult } from './useSubmit';
 
 import AlertDialog from '../../components/AlertDialog';
 import { ParkApplicationDetailDialog } from '../../components/ParkApplicationDetailDialog';
@@ -169,11 +170,11 @@ function getParkListTitle(status: string | undefined) {
 
 // 辅助函数：处理带确认字段的提交
 async function handleSubmitWithConfirmation(
-  handleSubmit: any,
-  formData: any,
-  navigate: any,
-  setError: any,
-  clearFormState: any,
+  handleSubmit: (params: unknown) => Promise<SubmitResult>,
+  formData: unknown,
+  navigate: (path: string) => void,
+  setError: (error: string) => void,
+  clearFormState: () => void,
   confirmationField: string
 ) {
   const result = await handleSubmit({
@@ -191,17 +192,17 @@ async function handleSubmitWithConfirmation(
 
 // 辅助函数：设置对话框状态
 function setDialogState(
-  setDialogType: any,
-  setDialogTitle: any,
-  setDialogMessage: any,
-  setDialogParkList: any,
-  setDialogParkListTitle: any,
-  setDialogConfirmAction: any,
-  setDialogOpen: any,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void,
   type: 'error' | 'warning',
   title: string,
   message: string,
-  parkList: any[],
+  parkList: { id: number; name: string }[],
   parkListTitle: string,
   confirmAction: (() => void) | null
 ) {
@@ -216,19 +217,19 @@ function setDialogState(
 
 // 辅助函数：处理重复名称错误
 function handleDuplicateNameError(
-  result: any,
-  formData: any,
-  handleSubmit: any,
-  navigate: any,
-  setError: any,
-  clearFormState: any,
-  setDialogType: any,
-  setDialogTitle: any,
-  setDialogMessage: any,
-  setDialogParkList: any,
-  setDialogParkListTitle: any,
-  setDialogConfirmAction: any,
-  setDialogOpen: any
+  result: SubmitResult,
+  formData: unknown,
+  handleSubmit: (params: unknown) => Promise<SubmitResult>,
+  navigate: (path: string) => void,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void
 ) {
   const errorMessage = result.error || '提交失败，请重试';
   const errorCode = result.errorDetails?.code;
