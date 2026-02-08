@@ -14,7 +14,7 @@ jest.mock('../../../utils/error', () => ({
   getApiErrorMessage: jest.fn((_err: unknown, defaultMessage: string) => {
     return defaultMessage;
   }),
-  getApiErrorDetails: jest.fn(() => ({} as any)),
+  getApiErrorDetails: jest.fn(() => ({} as Record<string, unknown>)),
 }));
 
 // Mock mapping utilities
