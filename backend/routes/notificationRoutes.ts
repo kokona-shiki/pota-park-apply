@@ -84,6 +84,43 @@ router.get('/api/notifications/popup', authenticateToken, async (req, res) => {
   }
 });
 
+router.get(
+  '/api/notifications/global',
+  authenticateToken,
+  requirePermission('view_global_notifications'),
+  async (req, res) => {
+    try {
+      const { status, page, pageSize } = req.query;
+      const filters: {
+        status?: string;
+        page?: number;
+        pageSize?: number;
+      } = {};
+
+      if (status) filters.status = String(status);
+      if (page) {
+        const parsedPage = Number.parseInt(String(page), 10);
+        if (!Number.isNaN(parsedPage) && parsedPage > 0) {
+          filters.page = parsedPage;
+        }
+      }
+      if (pageSize) {
+        const parsedPageSize = Number.parseInt(String(pageSize), 10);
+        if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
+          filters.pageSize = parsedPageSize;
+        }
+      }
+
+      const result = await notificationService.getGlobalNotifications(filters);
+
+      return sendOk(res, result, '获取全局通知列表成功');
+    } catch (error) {
+      console.error('获取全局通知列表失败:', error);
+      return sendError(res, error, { bizMessage: '获取全局通知列表失败' });
+    }
+  }
+);
+
 router.get('/api/notifications/:id', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -424,43 +461,6 @@ router.post(
     } catch (error) {
       console.error('撤回通知失败:', error);
       return sendError(res, error, { bizMessage: '撤回通知失败' });
-    }
-  }
-);
-
-router.get(
-  '/api/notifications/global',
-  authenticateToken,
-  requirePermission('view_global_notifications'),
-  async (req, res) => {
-    try {
-      const { status, page, pageSize } = req.query;
-      const filters: {
-        status?: string;
-        page?: number;
-        pageSize?: number;
-      } = {};
-
-      if (status) filters.status = String(status);
-      if (page) {
-        const parsedPage = Number.parseInt(String(page), 10);
-        if (!Number.isNaN(parsedPage) && parsedPage > 0) {
-          filters.page = parsedPage;
-        }
-      }
-      if (pageSize) {
-        const parsedPageSize = Number.parseInt(String(pageSize), 10);
-        if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
-          filters.pageSize = parsedPageSize;
-        }
-      }
-
-      const result = await notificationService.getGlobalNotifications(filters);
-
-      return sendOk(res, result, '获取全局通知列表成功');
-    } catch (error) {
-      console.error('获取全局通知列表失败:', error);
-      return sendError(res, error, { bizMessage: '获取全局通知列表失败' });
     }
   }
 );
