@@ -136,7 +136,7 @@ export const getNotifications = async (
     `SELECT COUNT(*) as total FROM notifications ${whereClause}`,
     params
   );
-  const total = Number.parseInt(countResult.rows[0].total, 10);
+  const total = Number.parseInt(countResult.rows[0]?.total || '0', 10);
 
   const offset = (page - 1) * pageSize;
 
@@ -182,7 +182,7 @@ export const getGlobalNotifications = async (filters: {
     `SELECT COUNT(DISTINCT title, description, published_at, published_by) as total FROM notifications ${whereClause}`,
     params
   );
-  const total = Number.parseInt(countResult.rows[0].total, 10);
+  const total = Number.parseInt(countResult.rows[0]?.total || '0', 10);
 
   const offset = (page - 1) * pageSize;
 
@@ -232,7 +232,7 @@ export const getUnreadCount = async (userId: number) => {
     [userId]
   );
 
-  return Number.parseInt(result.rows[0].unread_count, 10);
+  return Number.parseInt(result.rows[0]?.unread_count || '0', 10);
 };
 
 export const markAsRead = async (notificationId: number, userId: number) => {

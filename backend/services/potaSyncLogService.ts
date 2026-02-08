@@ -129,10 +129,10 @@ export const getPotaSyncLogs = async (
       `SELECT COUNT(*) as total FROM pota_sync_logs ${whereClause}`,
       params
     );
-    const total = Number.parseInt(countResult.rows[0].total, 10);
+    const total = Number.parseInt(countResult.rows[0]?.total || '0', 10);
 
     // 计算偏移量
-    const offset = (Number(page) - 1) * Number(pageSize);
+    const offset = (Number(page || 1) - 1) * Number(pageSize || 10);
 
     // 添加分页和排序
     const orderBy = 'ORDER BY sync_date DESC';
@@ -237,7 +237,7 @@ export const hasPotaSyncLogPermission = async (userId: number) => {
       [userId]
     );
 
-    return Number.parseInt(result.rows[0].count, 10) > 0;
+    return Number.parseInt(result.rows[0]?.count || '0', 10) > 0;
   } catch (error) {
     console.error('检查POTA同步日志权限失败:', error.message);
     return false;
