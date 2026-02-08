@@ -616,13 +616,13 @@ export const withdrawNotification = async (
     throw new Error('通知不存在或不是全局通知');
   }
 
-  await update(
+  await query(
     `
     UPDATE notifications 
-    SET status = 'withdrawn', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), ARRAY['withdraw_reason'], to_jsonb(COALESCE($2, ''::text)))
-    WHERE id = $1
+    SET status = 'withdrawn', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), ARRAY['withdraw_reason'], to_jsonb(COALESCE($1, ''::text)))
+    WHERE title = $2 AND description = $3 AND published_at = $4 AND published_by = $5 AND is_global = true
     `,
-    [notificationId, reason]
+    [reason, notification.title, notification.description, notification.published_at, notification.published_by]
   );
 
   return notification;
