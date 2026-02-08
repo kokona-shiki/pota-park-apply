@@ -8,7 +8,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthPayloadSchema, LoginRequestSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { REDIRECT_KEY } from '../auth/context';
