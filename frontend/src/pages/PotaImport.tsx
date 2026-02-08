@@ -1,4 +1,3 @@
-// src/pages/PotaImport.tsx
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useOnceOnMount } from '../hooks/useOnceOnMount';
 import {
@@ -17,6 +16,7 @@ import {
   PotaImportLatestTaskDataSchema,
   PotaImportStatusDataSchema,
   PotaImportTriggerDataSchema,
+  PotaImportMarkReadDataSchema,
 } from '../../../shared/schemas/potaImport';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { getApiErrorMessage } from '../utils/error';
@@ -24,6 +24,61 @@ import TaskStatusAlert from './PotaImport/TaskStatusAlert';
 import TaskCompleteDialog from './PotaImport/TaskCompleteDialog';
 
 type ImportTask = z.infer<typeof ImportTaskSchema>;
+
+function getStatusLabel(task: ImportTask | null) {
+  if (!task) return '';
+  const map: Record<ImportTask['status'], string> = {
+    pending: '等待执行',
+    running: '执行中',
+    success: '已完成',
+    partial_success: '部分完成',
+    failed: '失败',
+  };
+  return map[task.status];
+}
+
+function getTaskAlertSeverity(task: ImportTask | null) {
+  if (!task) return 'info';
+  if (task.status === 'failed') return 'error';
+  if (task.status === 'partial_success') return 'warning';
+  if (task.status === 'success') return 'success';
+  return 'info';
+}
+
+function shouldShowTaskCompleteDialog(task: ImportTask | null) {
+  return !!task &&
+    ['success', 'partial_success', 'failed'].includes(task.status) &&
+    !task.readAt;
+}
+
+function isClientError(error: unknown) {
+  const errorObj = error as { response?: { status: number } };
+  return errorObj.response?.status && errorObj.response.status >= 400 && errorObj.response.status < 500;
+}
+
+function shouldShowNoPermissionAlert(user: unknown, canImport: boolean | null) {
+  return !user || canImport === false;
+}
+
+function shouldShowTaskStatusAlert(user: unknown, canImport: boolean | null, task: ImportTask | null) {
+  if (!user || !canImport) return false;
+  if (!task) return false;
+  return task.status === 'pending' || task.status === 'running';
+}
+
+function getImportButtonState(loading: boolean, canImport: boolean | null, isAuthLoading: boolean, user: unknown) {
+  return {
+    disabled: !canImport || loading || isAuthLoading || !user,
+    text: loading ? '导入中...' : '开始导入',
+  };
+}
+
+function getRefreshButtonState(statusLoading: boolean) {
+  return {
+    disabled: statusLoading,
+    text: statusLoading ? '加载中...' : '刷新状态',
+  };
+}
 
 function PotaImport() {
   const { user, isAuthLoading } = useAuth();
@@ -35,25 +90,8 @@ function PotaImport() {
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
 
-  const statusLabel = useMemo(() => {
-    if (!task) return '';
-    const map: Record<ImportTask['status'], string> = {
-      pending: '等待执行',
-      running: '执行中',
-      success: '已完成',
-      partial_success: '部分完成',
-      failed: '失败',
-    };
-    return map[task.status];
-  }, [task]);
-
-  const taskAlertSeverity = useMemo(() => {
-    if (!task) return 'info';
-    if (task.status === 'failed') return 'error';
-    if (task.status === 'partial_success') return 'warning';
-    if (task.status === 'success') return 'success';
-    return 'info';
-  }, [task]);
+  const statusLabel = useMemo(() => getStatusLabel(task), [task]);
+  const taskAlertSeverity = useMemo(() => getTaskAlertSeverity(task), [task]);
 
   const loadStatus = useCallback(async () => {
     if (!user) return;
@@ -67,11 +105,7 @@ function PotaImport() {
       );
       setCanImport(Boolean(payload.canImport));
     } catch (e: unknown) {
-      const error = e as { response?: { status: number } };
-      setCanImport(false);
-      if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
-        return;
-      }
+      if (isClientError(e)) return;
       setError(getApiErrorMessage(e, '获取导入权限状态失败'));
     } finally {
       setStatusLoading(false);
@@ -87,18 +121,11 @@ function PotaImport() {
         PotaImportLatestTaskDataSchema
       );
       setTask(latestTask);
-      if (
-        latestTask &&
-        ['success', 'partial_success', 'failed'].includes(latestTask.status) &&
-        !latestTask.readAt
-      ) {
+      if (shouldShowTaskCompleteDialog(latestTask)) {
         setOpenCompleteDialog(true);
       }
     } catch (e: unknown) {
-      const error = e as { response?: { status: number } };
-      if (error.response?.status && error.response.status >= 400 && error.response.status < 500) {
-        return;
-      }
+      if (isClientError(e)) return;
       const message = getApiErrorMessage(e, '');
       if (message) {
         setError(message);
@@ -128,15 +155,15 @@ function PotaImport() {
   }, [user]);
 
   const handleCloseCompleteDialog = useCallback(async () => {
-    if (task?.id) {
-      try {
-        await requestWithSchema(
-          apiClient.post(`/api/pota/import-task/${task.id}/read`),
-          PotaImportMarkReadDataSchema
-        );
-      } catch (e) {
-        console.warn('标记导入任务已读失败', e);
-      }
+    if (!task?.id) return;
+
+    try {
+      await requestWithSchema(
+        apiClient.post(`/api/pota/import-task/${task.id}/read`),
+        PotaImportMarkReadDataSchema
+      );
+    } catch (e) {
+      console.warn('标记导入任务已读失败', e);
     }
     setOpenCompleteDialog(false);
     loadLatestTask();
@@ -159,6 +186,11 @@ function PotaImport() {
   }, [user, canImport, task, loadLatestTask]);
 
   if (!user) return null;
+
+  const importButtonState = getImportButtonState(loading, canImport, isAuthLoading, user);
+  const refreshButtonState = getRefreshButtonState(statusLoading);
+  const showNoPermissionAlert = shouldShowNoPermissionAlert(user, canImport);
+  const showTaskStatusAlert = shouldShowTaskStatusAlert(user, canImport, task);
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4, mb: 4 }}>
@@ -185,35 +217,37 @@ function PotaImport() {
 
         {statusLoading && <LinearProgress />}
 
-        {!isAuthLoading && user && canImport === false && (
+        {showNoPermissionAlert && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             您没有权限执行 POTA 公园导入操作。
           </Alert>
         )}
 
-        <TaskStatusAlert
-          task={task}
-          statusLabel={statusLabel}
-          taskAlertSeverity={taskAlertSeverity}
-        />
+        {showTaskStatusAlert && (
+          <TaskStatusAlert
+            task={task}
+            statusLabel={statusLabel}
+            taskAlertSeverity={taskAlertSeverity}
+          />
+        )}
 
         <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
           <Button
             variant="contained"
             onClick={handleImport}
-            disabled={!canImport || loading || isAuthLoading || !user}
+            disabled={importButtonState.disabled}
             sx={{ minWidth: 120 }}
           >
-            {loading ? '导入中...' : '开始导入'}
+            {importButtonState.text}
           </Button>
 
           <Button
             variant="outlined"
             onClick={loadStatus}
-            disabled={statusLoading}
+            disabled={refreshButtonState.disabled}
             sx={{ minWidth: 120 }}
           >
-            {statusLoading ? '加载中...' : '刷新状态'}
+            {refreshButtonState.text}
           </Button>
         </Stack>
 
