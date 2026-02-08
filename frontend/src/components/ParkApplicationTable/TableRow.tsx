@@ -1,4 +1,3 @@
-// src/components/ParkApplicationTable/TableRow.tsx
 import { Box, TableCell, TableRow, Tooltip } from '@mui/material';
 import type { ParkApplication } from '../../types/parkApplication';
 import { formatDateTime, getStatusMeta, truncateText } from '../../utils/parkApplication';
@@ -15,6 +14,22 @@ interface ParkAppTableRowProps {
   onReviewClick?: (app: ParkApplication) => void;
 }
 
+function getNotes(app: ParkApplication) {
+  return app.rejection_reason || app.pota_notes || '';
+}
+
+function getNotesPreview(notes: string) {
+  return truncateText(notes, 24);
+}
+
+function shouldShowNotesTooltip(notes: string, notesPreview: string) {
+  return !!notes && notesPreview !== notes;
+}
+
+function getPotaSyncedStatus(app: ParkApplication) {
+  return app.pota_synced_at ? '已同步' : '-';
+}
+
 function ParkAppTableRow({
   app,
   showApplicantCallsign,
@@ -24,9 +39,10 @@ function ParkAppTableRow({
   onReviewClick,
 }: ParkAppTableRowProps) {
   const statusMeta = getStatusMeta(app.status);
-  const notes = app.rejection_reason || app.pota_notes || '';
-  const notesPreview = truncateText(notes, 24);
-  const showNotesTooltip = !!notes && notesPreview !== notes;
+  const notes = getNotes(app);
+  const notesPreview = getNotesPreview(notes);
+  const showNotesTooltip = shouldShowNotesTooltip(notes, notesPreview);
+  const potaSyncedStatus = getPotaSyncedStatus(app);
 
   return (
     <TableRow
@@ -75,7 +91,7 @@ function ParkAppTableRow({
           display: { xs: 'none', md: 'table-cell' },
         }}
       >
-        {app.pota_synced_at ? '已同步' : '-'}
+        {potaSyncedStatus}
       </TableCell>
 
       <TableCell
