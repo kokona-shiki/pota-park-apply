@@ -1,6 +1,9 @@
 // src/pages/PotaImport/TaskStatusAlert.tsx
 import { Alert, Typography } from '@mui/material';
-import type { ImportTask } from '../PotaImport';
+import { z } from 'zod';
+import { ImportTaskSchema } from '../../../../shared/schemas/potaImport';
+
+type ImportTask = z.infer<typeof ImportTaskSchema>;
 
 interface TaskStatusAlertProps {
   task: ImportTask | null;

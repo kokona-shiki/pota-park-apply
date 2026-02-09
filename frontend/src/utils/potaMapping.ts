@@ -19,6 +19,33 @@ const ISO_BY_NAME = new Map(
 const MUNICIPALITIES = ['北京市', '上海市', '天津市', '重庆市'];
 const AUTONOMOUS_REGIONS = ['自治区'];
 
+// 访问方法映射
+const ACCESS_METHODS_MAP: Record<string, string> = {
+  '汽车': 'Automobile',
+  '步行': 'Foot',
+  '船只': 'Boat',
+  '水上飞机/空中出租车': 'Seaplane/Air Taxi',
+  '其他': 'Other',
+};
+
+const REVERSE_ACCESS_METHODS_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(ACCESS_METHODS_MAP).map(([k, v]) => [v, k])
+);
+
+// 激活方法映射
+const ACTIVATION_METHODS_MAP: Record<string, string> = {
+  '步行': 'Foot',
+  '车载': 'Mobile',
+  '固定建筑': 'Fixed',
+  '露营地': 'Camp',
+  '庇护所': 'Shelter',
+  '其他': 'Other',
+};
+
+const REVERSE_ACTIVATION_METHODS_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(ACTIVATION_METHODS_MAP).map(([k, v]) => [v, k])
+);
+
 function normalizeProvinceName(name: string): string {
   return name.trim().replace(/省|市/g, '');
 }
@@ -111,3 +138,17 @@ export const getProvinceCodeFromNames = (provinceName: string): string => {
 export const getProvinceNameFromCode = (isoCode: string): string => {
   return REGION_BY_ISO.get(isoCode) || '';
 };
+
+export const mapAccessMethods = (accessMethods: string): string[] => {
+  if (!accessMethods) return [];
+  const methods = accessMethods.split(',').map(m => m.trim()).filter(Boolean);
+  return methods.map(m => REVERSE_ACCESS_METHODS_MAP[m] || m);
+};
+
+export const mapActivationMethods = (activationMethods: string): string[] => {
+  if (!activationMethods) return [];
+  const methods = activationMethods.split(',').map(m => m.trim()).filter(Boolean);
+  return methods.map(m => REVERSE_ACTIVATION_METHODS_MAP[m] || m);
+};
+
+export { REVERSE_ACCESS_METHODS_MAP, REVERSE_ACTIVATION_METHODS_MAP };

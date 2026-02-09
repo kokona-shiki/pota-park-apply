@@ -44,6 +44,17 @@ export function truncateText(input: string, maxLen: number): string {
 }
 
 /**
+ * 将值转换为有限数字，如果无法转换则返回 null
+ */
+export function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
  * 状态排序权重
  */
 const STATUS_RANK: Record<ApplicationStatus, number> = {

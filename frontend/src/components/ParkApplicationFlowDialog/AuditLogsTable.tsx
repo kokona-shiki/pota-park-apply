@@ -10,8 +10,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import type { AuditLog } from '../../../types/parkApplication';
-import { formatDateTime } from '../../../utils/parkApplication';
+import type { AuditLog } from '../../types/parkApplication';
+import { formatDateTime } from '../../utils/parkApplication';
 
 const ACTION_LABELS: Record<string, string> = {
   submitted: '提交申请',

@@ -52,7 +52,7 @@ function About() {
           </Box>
           <Grid container spacing={3}>
             {developers.map((dev, index) => (
-              <Grid item xs={12} sm={4} key={index}>
+              <Grid size={{ xs: 12, sm: 4 }} key={index}>
                 <Card elevation={1} sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <CardContent sx={{ textAlign: 'center' }}>
                     <Avatar sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: 'primary.light' }}>

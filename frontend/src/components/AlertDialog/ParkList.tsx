@@ -1,19 +1,20 @@
 // src/components/AlertDialog/ParkList.tsx
 import { Box, Typography } from '@mui/material';
 
-interface ParkItem {
+export interface ParkItem {
   id: number;
   name: string;
 }
 
 interface ParkListProps {
-  parkList: ParkItem[];
+  parkList?: ParkItem[];
   parkListTitle?: string;
   onParkClick?: (parkId: number) => void;
 }
 
 function ParkList({ parkList, parkListTitle, onParkClick }: ParkListProps) {
   const hasParkClick = onParkClick !== undefined;
+  const parks = parkList || [];
 
   return (
     <Box>
@@ -35,10 +36,10 @@ function ParkList({ parkList, parkListTitle, onParkClick }: ParkListProps) {
         borderColor: 'divider',
         bgcolor: 'background.paper',
       }}>
-        {parkList.map((park, index) => (
+        {parks.map((park, index) => (
           <Box key={park.id} sx={{
             p: 1.5,
-            borderBottom: index < parkList.length - 1 ? '1px solid' : 'none',
+            borderBottom: index < parks.length - 1 ? '1px solid' : 'none',
             borderBottomColor: 'divider',
           }}>
             <Typography

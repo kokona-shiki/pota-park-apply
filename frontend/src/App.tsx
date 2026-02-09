@@ -5,6 +5,7 @@ import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
 import { PopupNotification } from './components/PopupNotification';
 import { AuthContext } from './auth/context';
+import type { AuthUser } from './auth/context';
 import { useAuthManager } from './auth/useAuthManager';
 import { useAuthInterceptors } from './hooks/useAuthInterceptors';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
@@ -30,7 +31,6 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const location = useLocation();
   const hasInitializedRef = useRef(false);
-  const [isTokenReady, setIsTokenReady] = useState(false);
 
   const authManager = useAuthManager();
 
@@ -41,7 +41,7 @@ function App() {
     isLockExpired: authManager.isLockExpired,
     isTokenFresh: authManager.isTokenFresh,
     getJwtIatMs: authManager.getJwtIatMs,
-    writeAuthData: authManager.writeAuthData,
+    writeAuthData: authManager.writeAuthData as (data: unknown) => void,
     rejectAllWaiters: authManager.rejectAllWaiters,
     resolveAllWaiters: authManager.resolveAllWaiters,
     waitForTokenFromOtherTab: authManager.waitForTokenFromOtherTab,
@@ -56,7 +56,7 @@ function App() {
   });
 
   useMultiTabSync({
-    setUser: authManager.setUser,
+    setUser: (user) => authManager.setUser(user as AuthUser | null),
     setAccessToken: authManager.setAccessToken,
     rejectAllWaiters: authManager.rejectAllWaiters,
     resolveAllWaiters: authManager.resolveAllWaiters,
@@ -69,10 +69,10 @@ function App() {
     isTokenFresh: authManager.isTokenFresh,
     ensureValidAccessToken,
     readAuthData: authManager.readAuthData,
-    setUser: authManager.setUser,
+    setUser: authManager.setUser as (user: unknown | null) => void,
     setAccessToken: authManager.setAccessToken,
     setIsAuthLoading: authManager.setIsAuthLoading,
-    setIsTokenReady,
+    setIsTokenReady: () => {},
     hasInitializedRef,
   });
 
@@ -88,7 +88,7 @@ function App() {
         refreshSession: () => authManager.refreshSession(ensureValidAccessToken),
         logout: authManager.logout,
         isAuthLoading: authManager.isAuthLoading,
-        isTokenReady,
+        isTokenReady: authManager.isTokenReady,
       }}
     >
       {authManager.isAuthLoading ? (

@@ -16,3 +16,13 @@ export const safeParseJsonWithSchema = <T>(schema: z.ZodType<T>, raw: string): T
     return null;
   }
 };
+
+export const safeParseJson = <T>(raw: string, validator: (data: unknown) => data is T): T | null => {
+  try {
+    // eslint-disable-next-line no-restricted-properties
+    const parsed = JSON.parse(raw);
+    return validator(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};

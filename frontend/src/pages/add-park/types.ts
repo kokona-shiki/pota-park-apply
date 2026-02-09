@@ -69,4 +69,7 @@ export type FormState = {
   isPotaPark: boolean;
   mapCenter: LatLngTuple;
   mapZoom: number;
+  confirmedRejectedPark?: boolean;
+  confirmedNameSimilarity?: boolean;
+  confirmedNearbyLocation?: boolean;
 };

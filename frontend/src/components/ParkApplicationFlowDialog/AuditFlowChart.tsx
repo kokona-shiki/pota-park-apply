@@ -1,5 +1,6 @@
 // src/components/ParkApplicationFlowDialog/AuditFlowChart.tsx
 import { useTheme, alpha } from '@mui/material/styles';
+import { Box } from '@mui/material';
 import type { ApplicationStatus } from '../../types/parkApplication';
 
 type AuditFlowNodeId = 'submitted' | 'pending' | 'approved' | 'pota_synced' | 'rejected';

@@ -184,27 +184,28 @@ function Register() {
           </Alert>
         )}
 
-        <RegisterFormData
-          callsign={callsign}
-          email={email}
-          password={password}
-          showPassword={showPassword}
-          verificationCode={verificationCode}
-          captchaCode={captchaCode}
-          captchaSvg={captchaSvg}
-          sendingCode={sendingCode}
-          submitting={submitting}
-          cooldown={cooldown}
-          onCallsignChange={setCallsign}
-          onEmailChange={setEmail}
-          onPasswordChange={setPassword}
-          onTogglePassword={() => setShowPassword((v) => !v)}
-          onVerificationCodeChange={setVerificationCode}
-          onCaptchaCodeChange={setCaptchaCode}
-          onSendCode={handleSendVerificationCode}
-          onSubmit={handleSubmit}
-          onClearCallsign={() => setCallsign('')}
-        />
+        <form onSubmit={handleSubmit}>
+          <RegisterFormData
+            callsign={callsign}
+            email={email}
+            password={password}
+            showPassword={showPassword}
+            verificationCode={verificationCode}
+            captchaCode={captchaCode}
+            captchaSvg={captchaSvg}
+            sendingCode={sendingCode}
+            submitting={submitting}
+            cooldown={cooldown}
+            onCallsignChange={setCallsign}
+            onEmailChange={setEmail}
+            onPasswordChange={setPassword}
+            onTogglePassword={() => setShowPassword((v) => !v)}
+            onVerificationCodeChange={setVerificationCode}
+            onCaptchaCodeChange={setCaptchaCode}
+            onSendCode={handleSendVerificationCode}
+            onClearCallsign={() => setCallsign('')}
+          />
+        </form>
       </Paper>
     </Container>
   );

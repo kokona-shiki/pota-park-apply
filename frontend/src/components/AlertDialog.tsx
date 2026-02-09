@@ -10,6 +10,7 @@ import {
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
 import ParkList from './AlertDialog/ParkList';
+import type { ParkItem } from './AlertDialog/ParkList';
 
 export type AlertDialogType = 'error' | 'warning';
 
@@ -18,7 +19,7 @@ export type AlertDialogProps = {
   type: AlertDialogType;
   title: string;
   message: string;
-  parkList?: Array<{ id: number; name: string }>;
+  parkList?: ParkItem[];
   parkListTitle?: string;
   onCancel: () => void;
   onConfirm?: () => void;

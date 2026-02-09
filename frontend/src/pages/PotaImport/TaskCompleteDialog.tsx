@@ -1,7 +1,9 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, Typography, Link } from '@mui/material';
+import { z } from 'zod';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
-import { PotaImportMarkReadDataSchema } from '../../../shared/schemas/potaImport';
-import type { ImportTask } from '../PotaImport';
+import { PotaImportMarkReadDataSchema, ImportTaskSchema } from '../../../../shared/schemas/potaImport';
+
+type ImportTask = z.infer<typeof ImportTaskSchema>;
 
 interface TaskCompleteDialogProps {
   open: boolean;
@@ -11,7 +13,7 @@ interface TaskCompleteDialogProps {
   loadLatestTask: () => void;
 }
 
-function markTaskAsRead(taskId: number) {
+function markTaskAsRead(taskId: string) {
   return requestWithSchema(
     apiClient.post(`/api/pota/import-task/${taskId}/read`),
     PotaImportMarkReadDataSchema
@@ -19,6 +21,7 @@ function markTaskAsRead(taskId: number) {
 }
 
 function TaskResultSummary({ result }: { result: ImportTask['result'] }) {
+  if (!result) return null;
   return (
     <>
       <Typography>总计处理: {result.total} 个公园</Typography>

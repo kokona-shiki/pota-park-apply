@@ -29,6 +29,16 @@ export type ParkApplicationDetail = z.infer<typeof ParkApplicationDetailSchema>;
 export type AuditLog = z.infer<typeof AuditLogSchema>;
 
 /**
+ * 排序方向
+ */
+export type Order = 'asc' | 'desc';
+
+/**
+ * 排序字段
+ */
+export type OrderBy = 'created_at' | 'park_name' | 'province_name' | 'status';
+
+/**
  * 表格列配置
  */
 export type TableColumnConfig = {
