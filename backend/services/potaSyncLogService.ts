@@ -20,6 +20,17 @@ type PotaSyncLogPagination = {
   pageSize?: number;
 };
 
+type SyncLogEntry = {
+  id: number;
+  operator: string;
+  operationType: string;
+  syncDate: string;
+  parksImported: PotaSyncLogPark[] | string;
+  status: string;
+  details?: string;
+  createdAt: string;
+};
+
 /**
  * 记录POTA同步日志
  */
@@ -84,86 +95,11 @@ export const getPotaSyncLogs = async (
       search,
     } = { ...pagination, ...filters };
 
-    let whereClause = '';
-    const params: Array<string | number> = [];
-    let paramIndex = 1;
-
-    // 构建过滤条件
-    if (startDate || endDate || operationType || search) {
-      whereClause = 'WHERE ';
-      
-      // 日期范围过滤
-      if (startDate) {
-        whereClause += `sync_date >= $${paramIndex} `;
-        params.push(startDate);
-        paramIndex++;
-      }
-
-      if (endDate) {
-        if (startDate) whereClause += 'AND ';
-        whereClause += `sync_date <= $${paramIndex} `;
-        params.push(endDate);
-        paramIndex++;
-      }
-
-      // 操作类型过滤
-      if (operationType) {
-        if (startDate || endDate) whereClause += 'AND ';
-        whereClause += `operation_type = $${paramIndex} `;
-        params.push(operationType);
-        paramIndex++;
-      }
-
-      // 搜索过滤
-      if (search) {
-        if (startDate || endDate || operationType) whereClause += 'AND ';
-        whereClause += `(operator ILIKE $${paramIndex} OR details ILIKE $${paramIndex}) `;
-        params.push(`%${search}%`);
-        paramIndex++;
-      }
-    }
-
-    // 获取总数用于分页
-    const countResult = await query(
-      `SELECT COUNT(*) as total FROM pota_sync_logs ${whereClause}`,
-      params
-    );
-    const total = Number.parseInt(countResult.rows[0]?.total || '0', 10);
-
-    // 计算偏移量
-    const offset = (Number(page || 1) - 1) * Number(pageSize || 10);
-
-    // 添加分页和排序
-    const orderBy = 'ORDER BY sync_date DESC';
-    const limitClause = `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(pageSize, offset);
-
-    const logs = await getMany(
-      `
-      SELECT 
-        id,
-        operator,
-        operation_type as "operationType",
-        sync_date as "syncDate",
-        parks_imported as "parksImported",
-        status,
-        details,
-        created_at as "createdAt"
-      FROM pota_sync_logs
-      ${whereClause}
-      ${orderBy}
-      ${limitClause}
-      `,
-      params
-    );
-
-    // 确保 parksImported 字段是数组类型
-    const parsedLogs = logs.map(log => ({
-      ...log,
-      parksImported: typeof log.parksImported === 'string' 
-        ? JSON.parse(log.parksImported) 
-        : log.parksImported || []
-    }));
+    const { whereClause, params, paramIndex } = buildWhereClause(startDate, endDate, operationType, search);
+    const total = await getSyncLogsTotal(whereClause, params);
+    const offset = calculateOffset(page, pageSize);
+    const logs = await getSyncLogsData(whereClause, params, paramIndex, pageSize, offset);
+    const parsedLogs = parseSyncLogs(logs);
 
     return {
       logs: parsedLogs,
@@ -178,6 +114,182 @@ export const getPotaSyncLogs = async (
     console.error('获取POTA同步日志失败:', error.message);
     throw error;
   }
+};
+
+/**
+ * 构建 WHERE 子句
+ */
+const buildWhereClause = (
+  startDate?: string,
+  endDate?: string,
+  operationType?: string,
+  search?: string
+) => {
+  let whereClause = '';
+  const params: Array<string | number> = [];
+  let paramIndex = 1;
+
+  if (startDate || endDate || operationType || search) {
+    whereClause = 'WHERE ';
+    
+    // 添加日期范围过滤
+    const { dateClause, dateParams, newParamIndex } = buildDateClause(startDate, endDate, paramIndex);
+    whereClause += dateClause;
+    params.push(...dateParams);
+    paramIndex = newParamIndex;
+
+    // 添加操作类型过滤
+    const { typeClause, typeParams, updatedParamIndex } = buildOperationTypeClause(operationType, startDate || endDate, paramIndex);
+    whereClause += typeClause;
+    params.push(...typeParams);
+    paramIndex = updatedParamIndex;
+
+    // 添加搜索过滤
+    const { searchClause, searchParams, finalParamIndex } = buildSearchClause(search, startDate || endDate || operationType, paramIndex);
+    whereClause += searchClause;
+    params.push(...searchParams);
+    paramIndex = finalParamIndex;
+  }
+
+  return { whereClause, params, paramIndex };
+};
+
+/**
+ * 构建日期范围过滤子句
+ */
+const buildDateClause = (
+  startDate?: string,
+  endDate?: string,
+  paramIndex: number
+) => {
+  let clause = '';
+  const params: Array<string | number> = [];
+  let currentIndex = paramIndex;
+
+  // 开始日期过滤
+  if (startDate) {
+    clause += `sync_date >= $${currentIndex} `;
+    params.push(startDate);
+    currentIndex++;
+  }
+
+  // 结束日期过滤
+  if (endDate) {
+    if (startDate) clause += 'AND ';
+    clause += `sync_date <= $${currentIndex} `;
+    params.push(endDate);
+    currentIndex++;
+  }
+
+  return { dateClause: clause, dateParams: params, newParamIndex: currentIndex };
+};
+
+/**
+ * 构建操作类型过滤子句
+ */
+const buildOperationTypeClause = (
+  operationType?: string,
+  hasDateFilter: boolean,
+  paramIndex: number
+) => {
+  let clause = '';
+  const params: Array<string | number> = [];
+  let currentIndex = paramIndex;
+
+  if (operationType) {
+    if (hasDateFilter) clause += 'AND ';
+    clause += `operation_type = $${currentIndex} `;
+    params.push(operationType);
+    currentIndex++;
+  }
+
+  return { typeClause: clause, typeParams: params, updatedParamIndex: currentIndex };
+};
+
+/**
+ * 构建搜索过滤子句
+ */
+const buildSearchClause = (
+  search?: string,
+  hasOtherFilters: boolean,
+  paramIndex: number
+) => {
+  let clause = '';
+  const params: Array<string | number> = [];
+  let currentIndex = paramIndex;
+
+  if (search) {
+    if (hasOtherFilters) clause += 'AND ';
+    clause += `(operator ILIKE $${currentIndex} OR details ILIKE $${currentIndex}) `;
+    params.push(`%${search}%`);
+    currentIndex++;
+  }
+
+  return { searchClause: clause, searchParams: params, finalParamIndex: currentIndex };
+};
+
+/**
+ * 获取同步日志总数
+ */
+const getSyncLogsTotal = async (whereClause: string, params: Array<string | number>): Promise<number> => {
+  const countResult = await query(
+    `SELECT COUNT(*) as total FROM pota_sync_logs ${whereClause}`,
+    params
+  );
+  return Number.parseInt(countResult.rows[0]?.total || '0', 10);
+};
+
+/**
+ * 计算分页偏移量
+ */
+const calculateOffset = (page: number, pageSize: number): number => {
+  return (Number(page || 1) - 1) * Number(pageSize || 10);
+};
+
+/**
+ * 获取同步日志数据
+ */
+const getSyncLogsData = async (
+  whereClause: string,
+  params: Array<string | number>,
+  paramIndex: number,
+  pageSize: number,
+  offset: number
+): Promise<SyncLogEntry[]> => {
+  const orderBy = 'ORDER BY sync_date DESC';
+  const limitClause = `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  const queryParams = [...params, pageSize, offset];
+
+  return await getMany(
+    `
+    SELECT 
+      id,
+      operator,
+      operation_type as "operationType",
+      sync_date as "syncDate",
+      parks_imported as "parksImported",
+      status,
+      details,
+      created_at as "createdAt"
+    FROM pota_sync_logs
+    ${whereClause}
+    ${orderBy}
+    ${limitClause}
+    `,
+    queryParams
+  );
+};
+
+/**
+ * 解析同步日志数据
+ */
+const parseSyncLogs = (logs: SyncLogEntry[]): SyncLogEntry[] => {
+  return logs.map(log => ({
+    ...log,
+    parksImported: typeof log.parksImported === 'string' 
+      ? JSON.parse(log.parksImported) 
+      : log.parksImported || []
+  }));
 };
 
 /**
