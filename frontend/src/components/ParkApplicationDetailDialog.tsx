@@ -2,7 +2,7 @@ import {
   Button,
   Dialog,
   DialogActions,
-  DialogContent,
+  DialogContent as MuiDialogContent,
   DialogTitle,
 } from '@mui/material';
 import type { ParkApplicationDetail } from '../types/parkApplication';
@@ -109,7 +109,7 @@ export function ParkApplicationDetailDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>{title}</DialogTitle>
-      <DialogContent dividers>
+      <MuiDialogContent dividers>
         <DialogContent
           application={application}
           mode={mode}
@@ -124,7 +124,7 @@ export function ParkApplicationDetailDialog({
           onReviewNotesChange={onReviewNotesChange}
           onReviewRejectionReasonChange={onReviewRejectionReasonChange}
         />
-      </DialogContent>
+      </MuiDialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={reviewSubmitting}>
           关闭

@@ -2,7 +2,7 @@
 import { MapContainer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { UnifiedTileLayer } from '../UnifiedTileLayer';
-import { ResetViewControl } from '../ParkApplicationDetailDialog';
+import ResetViewControl from '../ResetViewControl';
 
 interface ParkMapProps {
   center: [number, number] | null;

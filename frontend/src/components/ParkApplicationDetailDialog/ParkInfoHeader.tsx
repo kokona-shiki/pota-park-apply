@@ -1,10 +1,11 @@
 // src/components/ParkApplicationDetailDialog/ParkInfoHeader.tsx
 import { Stack, Typography, Chip } from '@mui/material';
-import { getStatusMeta } from '../../../utils/parkApplication';
-import type { ParkApplicationDetail } from '../../../types/parkApplication';
+import { getStatusMeta } from '../../utils/parkApplication';
+import type { ParkApplicationDetail } from '../../types/parkApplication';
 
 interface ParkInfoHeaderProps {
   application: ParkApplicationDetail;
+  mode?: 'detail' | 'review';
 }
 
 function ParkInfoHeader({ application }: ParkInfoHeaderProps) {

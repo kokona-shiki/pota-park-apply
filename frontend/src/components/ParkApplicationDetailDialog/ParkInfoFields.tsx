@@ -1,8 +1,8 @@
 // src/components/ParkApplicationDetailDialog/ParkInfoFields.tsx
 import { Box, TextField, Chip } from '@mui/material';
-import type { ParkApplicationDetail } from '../../../types/parkApplication';
+import type { ParkApplicationDetail } from '../../types/parkApplication';
 import regionData from '../../../../shared/region.json';
-import { getParkTypeWithEnglish } from '../ParkApplicationDetailDialog';
+import { getParkTypeWithEnglish } from '../../utils/parkTypeMapping';
 
 interface ParkInfoFieldsProps {
   application: ParkApplicationDetail;

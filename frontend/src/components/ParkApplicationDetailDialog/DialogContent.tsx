@@ -1,7 +1,7 @@
 // src/components/ParkApplicationDetailDialog/DialogContent.tsx
 import { Box, Divider, Alert, Typography, LinearProgress } from '@mui/material';
 import { MapContainer, Marker } from 'react-leaflet';
-import UnifiedTileLayer from '../UnifiedTileLayer';
+import { UnifiedTileLayer } from '../UnifiedTileLayer';
 import ResetViewControl from '../ResetViewControl';
 import ParkInfoHeader from './ParkInfoHeader';
 import ParkInfoFields from './ParkInfoFields';
