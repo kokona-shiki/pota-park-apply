@@ -2,16 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, checkUserPermission, findUserById } from '../utils/auth.js';
 
 // 扩展 Request 接口，添加 user 属性
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: number;
-        email: string;
-        hasPotaImportPermission?: boolean;
-        hasReviewPermission?: boolean;
-      };
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: {
+      id: number;
+      email: string;
+      hasPotaImportPermission?: boolean;
+      hasReviewPermission?: boolean;
+    };
   }
 }
 

@@ -40,7 +40,7 @@ const DB_LOG_SQL = String(process.env.DB_LOG_SQL || '').toLowerCase();
 const SHOULD_LOG_SQL = DB_LOG_SQL === '1' || DB_LOG_SQL === 'true' || DB_LOG_SQL === 'yes';
 
 // 执行查询的辅助函数
-export const query = async <T = any>(text: string, params?: any[]): Promise<QueryResult<T>> => {
+export const query = async <T>(text: string, params?: unknown[]): Promise<QueryResult<T>> => {
   const start = Date.now();
   try {
     const result = await pool.query<T>(text, params);
@@ -64,39 +64,37 @@ export const query = async <T = any>(text: string, params?: any[]): Promise<Quer
 };
 
 // 获取单个记录
-export const getOne = async <T = any>(text: string, params?: any[]): Promise<T | null> => {
+export const getOne = async <T>(text: string, params?: unknown[]): Promise<T | null> => {
   const result = await query<T>(text, params);
   return result.rows[0] || null;
 };
 
 // 获取多个记录
-export const getMany = async <T = any>(text: string, params?: any[]): Promise<T[]> => {
+export const getMany = async <T>(text: string, params?: unknown[]): Promise<T[]> => {
   const result = await query<T>(text, params);
   return result.rows;
 };
 
 // 插入记录并返回插入的记录
-export const insert = async <T = any>(text: string, params?: any[]): Promise<T> => {
+export const insert = async <T>(text: string, params?: unknown[]): Promise<T> => {
   const result = await query<T>(text + ' RETURNING *', params);
-  return result.rows[0];
+  return result.rows[0] as T;
 };
 
 // 更新记录并返回更新后的记录
-export const update = async <T = any>(text: string, params?: any[]): Promise<T> => {
+export const update = async <T>(text: string, params?: unknown[]): Promise<T> => {
   const result = await query<T>(text + ' RETURNING *', params);
-  return result.rows[0];
+  return result.rows[0] as T;
 };
 
 // 删除记录并返回删除的记录
-export const deleteRecord = async <T = any>(text: string, params?: any[]): Promise<T> => {
+export const deleteRecord = async <T>(text: string, params?: unknown[]): Promise<T> => {
   const result = await query<T>(text + ' RETURNING *', params);
-  return result.rows[0];
+  return result.rows[0] as T;
 };
 
 // 事务处理
-export const transaction = async <T = any>(
-  callback: (client: PoolClient) => Promise<T>
-): Promise<T> => {
+export const transaction = async <T>(callback: (client: PoolClient) => Promise<T>): Promise<T> => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
