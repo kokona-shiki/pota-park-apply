@@ -41,6 +41,26 @@ function CallsignForm({
 }: CallsignFormProps) {
   const handleMouseDownPassword = () => {};
 
+  const formatCallsign = (value: string) => {
+    return value.toUpperCase();
+  };
+
+  const isValidCallsign = (value: string) => {
+    return /^[A-Z0-9]{3,}$/.test(value);
+  };
+
+  const shouldValidateCallsign = () => {
+    return callsign !== '' && callsign.toUpperCase() !== currentCallsign?.toUpperCase();
+  };
+
+  const isCallsignError = () => {
+    return shouldValidateCallsign() && !isValidCallsign(formatCallsign(callsign));
+  };
+
+  const handleCallsignChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onCallsignChange(formatCallsign(e.target.value));
+  };
+
   return (
     <Box sx={{ pt: 2 }}>
       <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
@@ -52,18 +72,12 @@ function CallsignForm({
           id="callsign-new-callsign"
           label="新呼号"
           value={callsign}
-          onChange={(e) => onCallsignChange(e.target.value.toUpperCase())}
-          error={
-            callsign !== '' &&
-            callsign.toUpperCase() !== currentCallsign?.toUpperCase() &&
-            !/^[A-Z0-9]{3,}$/.test(callsign.toUpperCase())
-          }
+          onChange={handleCallsignChange}
+          error={isCallsignError()}
         />
-        {callsign !== '' &&
-          callsign.toUpperCase() !== currentCallsign?.toUpperCase() &&
-          !/^[A-Z0-9]{3,}$/.test(callsign.toUpperCase()) && (
-            <FormHelperText error>呼号格式不正确，应为字母和数字组合，至少3位</FormHelperText>
-          )}
+        {isCallsignError() && (
+          <FormHelperText error>呼号格式不正确，应为字母和数字组合，至少3位</FormHelperText>
+        )}
       </FormControl>
       <FormControl fullWidth variant="outlined" disabled={loading} sx={{ mb: 2 }}>
         <InputLabel htmlFor="callsign-reason">变更原因</InputLabel>
