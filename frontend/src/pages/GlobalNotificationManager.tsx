@@ -224,7 +224,7 @@ export const GlobalNotificationManager = () => {
         <DialogTitle>撤回通知</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>
-            确定要撤回通知"{withdrawDialog.notification?.title}"吗？
+            确定要撤回通知&quot;{withdrawDialog.notification?.title}&quot;吗？
           </Typography>
           <TextField
             fullWidth

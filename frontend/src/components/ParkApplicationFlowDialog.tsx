@@ -83,7 +83,7 @@ export function ParkApplicationFlowDialog({
               </Typography>
               {application.status === 'rejected' && (
                 <Alert severity="info" variant="outlined">
-                  该申请当前处于"未通过"，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传
+                  该申请当前处于&quot;未通过&quot;，不在正常流程（提交申请 → 待审核 → 已通过 → 已上传
                   POTA）上，因此不会高亮当前/下一节点。
                 </Alert>
               )}

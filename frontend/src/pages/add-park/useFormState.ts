@@ -63,25 +63,11 @@ const DEFAULT_FORM_STATE: FormState = {
 
 // 生成初始表单状态
 const getInitialFormState = (savedState: FormState | null, initialState: Partial<FormState>): FormState => {
-  const result = { ...DEFAULT_FORM_STATE };
-  
-  // 更新每个字段的值
-  Object.keys(DEFAULT_FORM_STATE).forEach((key) => {
-    const typedKey = key as keyof FormState;
-    const savedValue = savedState?.[typedKey];
-    const initialValue = initialState[typedKey];
-    const defaultValue = DEFAULT_FORM_STATE[typedKey];
-    
-    if (savedValue !== undefined) {
-      result[typedKey] = savedValue;
-    } else if (initialValue !== undefined) {
-      result[typedKey] = initialValue;
-    } else {
-      result[typedKey] = defaultValue;
-    }
-  });
-  
-  return result;
+  return {
+    ...DEFAULT_FORM_STATE,
+    ...initialState,
+    ...savedState,
+  };
 };
 
 export const useFormState = (initialState: Partial<FormState> = {}) => {

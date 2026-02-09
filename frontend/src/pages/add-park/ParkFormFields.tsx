@@ -159,6 +159,7 @@ function ParkFormFields({
             )}
             renderTags={(value, getTagProps) =>
               value.map((option, index) => (
+                // eslint-disable-next-line react/jsx-key
                 <Chip
                   variant="outlined"
                   label={`${option.name} (${option.code})`}
