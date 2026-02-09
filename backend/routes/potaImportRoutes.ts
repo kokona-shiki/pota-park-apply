@@ -181,6 +181,35 @@ router.post(
 );
 
 /**
+ * 定义批量处理的公园数据类型
+ */
+type BulkProcessParkData = {
+  reference: string;
+  manualType: string;
+};
+
+/**
+ * 验证批量处理的公园数据
+ */
+const validateBulkProcessParksData = (parksData: BulkProcessParkData[]) => {
+  if (!parksData || !Array.isArray(parksData) || parksData.length === 0) {
+    return { valid: false, error: '公园数据列表不能为空' };
+  }
+
+  // 验证每个公园数据
+  for (const parkData of parksData) {
+    if (!parkData.reference || !parkData.manualType) {
+      return { 
+        valid: false, 
+        error: `公园 ${parkData.reference || 'unknown'} 的数据不完整` 
+      };
+    }
+  }
+
+  return { valid: true, error: null };
+};
+
+/**
  * 批量处理未处理的公园
  */
 router.post(
@@ -195,20 +224,10 @@ router.post(
       }
       const { parksData } = parsed.data;
 
-      if (!parksData || !Array.isArray(parksData) || parksData.length === 0) {
-        return sendBizError(res, 'MISSING_PARAMS', '公园数据列表不能为空', null);
-      }
-
-      // 验证每个公园数据
-      for (const parkData of parksData) {
-        if (!parkData.reference || !parkData.manualType) {
-          return sendBizError(
-            res,
-            'MISSING_PARAMS',
-            `公园 ${parkData.reference || 'unknown'} 的数据不完整`,
-            null
-          );
-        }
+      // 验证公园数据
+      const validationResult = validateBulkProcessParksData(parksData);
+      if (!validationResult.valid) {
+        return sendBizError(res, 'MISSING_PARAMS', validationResult.error, null);
       }
 
       // 获取用户信息

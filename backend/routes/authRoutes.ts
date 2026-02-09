@@ -16,6 +16,26 @@ import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/
 import { generateCaptcha, verifyCaptcha } from '../services/captchaService.js';
 import * as emailVerificationService from '../services/emailVerificationService.js';
 
+// 定义用户类型
+type User = {
+  id: number;
+  email: string;
+  callsign?: string;
+  role: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+// 定义刷新令牌结果类型
+type RefreshTokenResult = {
+  status: 'valid' | 'invalid' | 'expired' | 'user_disabled' | 'replay';
+  userId?: number;
+  user?: User;
+  refreshToken?: string;
+  familyId?: string;
+};
+
 const router = express.Router();
 
 const REFRESH_COOKIE_NAME = 'pota_refresh_token';
@@ -212,6 +232,61 @@ router.post('/api/login', authLimiter, async (req, res) => {
   }
 });
 
+// 处理刷新令牌结果
+const handleRefreshTokenResult = async (req: express.Request, res: express.Response, result: RefreshTokenResult) => {
+  if (result.status === 'invalid' || result.status === 'expired') {
+    clearRefreshCookie(res);
+    return sendHttpError(res, 401, 'UNAUTHORIZED', '无效或过期的刷新令牌', null);
+  }
+
+  if (result.status === 'user_disabled') {
+    // 被封禁：吊销其所有 refresh token
+    await revokeAllRefreshTokensForUser(result.userId);
+    clearRefreshCookie(res);
+    return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
+  }
+
+  if (result.status === 'replay') {
+    // 重放检测：吊销该用户所有 refresh token
+    await revokeAllRefreshTokensForUser(result.userId);
+    clearRefreshCookie(res);
+
+    // 记录审计日志（不强依赖；失败不影响主流程）
+    try {
+      await userService.logUserAdminAudit({
+        action: 'refresh_token_reuse_detected',
+        operatorId: null,
+        targetUserId: result.userId,
+        reason: null,
+        metadata: { familyId: result.familyId },
+      });
+    } catch (e) {
+      console.warn('写入 refresh token 重放审计失败:', (e as Error)?.message);
+    }
+
+    return sendHttpError(res, 403, 'SESSION_INVALID', '检测到异常登录状态，请重新登录', null);
+  }
+
+  // 处理成功的情况
+  const user = result.user;
+  const accessToken = generateAccessToken({
+    id: user.id,
+    email: user.email,
+  });
+
+  // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
+  setRefreshCookie(req, res, result.refreshToken);
+
+  // 获取用户权限
+  const permissions = await getUserPermissions(user.id);
+  const userWithPermissions = {
+    ...user,
+    permissions: permissions.map((p: { permission_code: string }) => p.permission_code),
+  };
+
+  return sendOk(res, { accessToken, user: userWithPermissions }, 'ok');
+};
+
 // 刷新 token（refreshToken 重放检测 + rotation）
 router.post('/api/refresh-token', authLimiter, async (req, res) => {
   try {
@@ -231,57 +306,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
       ip: req.ip || null,
     });
 
-    if (result.status === 'invalid' || result.status === 'expired') {
-      clearRefreshCookie(res);
-      return sendHttpError(res, 401, 'UNAUTHORIZED', '无效或过期的刷新令牌', null);
-    }
-
-    if (result.status === 'user_disabled') {
-      // 被封禁：吊销其所有 refresh token（强制登出只能做到“无法续期”，accessToken 仍会自然过期）
-      await revokeAllRefreshTokensForUser(result.userId);
-      clearRefreshCookie(res);
-      return sendHttpError(res, 403, 'FORBIDDEN', '用户已被禁用', null);
-    }
-
-    if (result.status === 'replay') {
-      // 重放检测：吊销该用户所有 refresh token
-      await revokeAllRefreshTokensForUser(result.userId);
-      clearRefreshCookie(res);
-
-      // 记录审计日志（不强依赖；失败不影响主流程）
-      try {
-        await userService.logUserAdminAudit({
-          action: 'refresh_token_reuse_detected',
-          operatorId: null,
-          targetUserId: result.userId,
-          reason: null,
-          metadata: { familyId: result.familyId },
-        });
-      } catch (e) {
-        console.warn('写入 refresh token 重放审计失败:', (e as Error)?.message);
-      }
-
-      return sendHttpError(res, 403, 'SESSION_INVALID', '检测到异常登录状态，请重新登录', null);
-    }
-
-    // ok
-    const user = result.user;
-    const accessToken = generateAccessToken({
-      id: user.id,
-      email: user.email,
-    });
-
-    // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
-    setRefreshCookie(req, res, result.refreshToken);
-
-    // 获取用户权限
-    const permissions = await getUserPermissions(user.id);
-    const userWithPermissions = {
-      ...user,
-      permissions: permissions.map((p) => p.permission_code),
-    };
-
-    return sendOk(res, { accessToken, user: userWithPermissions }, 'ok');
+    return await handleRefreshTokenResult(req, res, result);
   } catch (error) {
     console.error('刷新 token 失败:', error);
     return sendError(res, error, { httpMessage: '刷新 token 失败' });

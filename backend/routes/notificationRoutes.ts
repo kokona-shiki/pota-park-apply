@@ -11,6 +11,34 @@ import {
 
 const router = express.Router();
 
+// 解析通知列表查询参数
+const parseNotificationListFilters = (query: express.RequestQuery) => {
+  const { type, isRead, page, pageSize } = query;
+  const filters: {
+    type?: string;
+    isRead?: boolean;
+    page?: number;
+    pageSize?: number;
+  } = {};
+
+  if (type) filters.type = String(type);
+  if (isRead !== undefined) filters.isRead = isRead === 'true';
+  if (page) {
+    const parsedPage = Number.parseInt(String(page), 10);
+    if (!Number.isNaN(parsedPage) && parsedPage > 0) {
+      filters.page = parsedPage;
+    }
+  }
+  if (pageSize) {
+    const parsedPageSize = Number.parseInt(String(pageSize), 10);
+    if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
+      filters.pageSize = parsedPageSize;
+    }
+  }
+
+  return filters;
+};
+
 router.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -18,29 +46,7 @@ router.get('/api/notifications', authenticateToken, async (req, res) => {
       return sendBizError(res, 'UNAUTHORIZED', '未登录', null);
     }
 
-    const { type, isRead, page, pageSize } = req.query;
-    const filters: {
-      type?: string;
-      isRead?: boolean;
-      page?: number;
-      pageSize?: number;
-    } = {};
-
-    if (type) filters.type = String(type);
-    if (isRead !== undefined) filters.isRead = isRead === 'true';
-    if (page) {
-      const parsedPage = Number.parseInt(String(page), 10);
-      if (!Number.isNaN(parsedPage) && parsedPage > 0) {
-        filters.page = parsedPage;
-      }
-    }
-    if (pageSize) {
-      const parsedPageSize = Number.parseInt(String(pageSize), 10);
-      if (!Number.isNaN(parsedPageSize) && parsedPageSize > 0) {
-        filters.pageSize = parsedPageSize;
-      }
-    }
-
+    const filters = parseNotificationListFilters(req.query);
     const result = await notificationService.getNotifications(userId, filters);
 
     return sendOk(res, result, '获取通知列表成功');
