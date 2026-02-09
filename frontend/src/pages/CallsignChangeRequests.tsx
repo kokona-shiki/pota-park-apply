@@ -81,18 +81,42 @@ function CallsignChangeRequests() {
         CallsignChangeRequestsDataSchema
       );
 
-      setRequests((payload.requests || []).map(req => ({
-        ...req,
-        applicant_email: req.applicant_email || undefined,
-        applicant_callsign: req.applicant_callsign || undefined,
-        reviewer_email: req.reviewer_email || undefined,
-        reviewer_callsign: req.reviewer_callsign || undefined
-      })));
+      setRequests(processRequestsData(payload.requests));
     } catch (e: unknown) {
       setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const processRequestsData = (requests: Array<{
+    id: number;
+    user_id: number;
+    current_callsign: string;
+    requested_callsign: string;
+    reason: string;
+    status: 'pending' | 'approved' | 'rejected';
+    reviewer_id?: number | null;
+    review_notes?: string | null;
+    reviewed_at?: string | null;
+    created_at: string;
+    updated_at: string;
+    applicant_email?: string;
+    applicant_callsign?: string;
+    reviewer_email?: string;
+    reviewer_callsign?: string;
+  }>): CallsignChangeRequest[] => {
+    return (requests || []).map(req => ({
+      ...req,
+      applicant_email: req.applicant_email || undefined,
+      applicant_callsign: req.applicant_callsign || undefined,
+      reviewer_email: req.reviewer_email || undefined,
+      reviewer_callsign: req.reviewer_callsign || undefined
+    }));
+  };
+
+  const isCanceledError = (e: unknown): boolean => {
+    return axios.isCancel(e) || (e instanceof Error && (e.name === 'CanceledError' || e.name === 'AbortError'));
   };
 
   useOnceOnMountWithAbort(async (signal) => {
@@ -116,16 +140,10 @@ function CallsignChangeRequests() {
       );
 
       if (!signal.aborted) {
-        setRequests((payload.requests || []).map(req => ({
-          ...req,
-          applicant_email: req.applicant_email || undefined,
-          applicant_callsign: req.applicant_callsign || undefined,
-          reviewer_email: req.reviewer_email || undefined,
-          reviewer_callsign: req.reviewer_callsign || undefined
-        })));
+        setRequests(processRequestsData(payload.requests));
       }
     } catch (e: unknown) {
-      if (axios.isCancel(e) || (e instanceof Error && (e.name === 'CanceledError' || e.name === 'AbortError'))) {
+      if (isCanceledError(e)) {
         console.debug('请求被取消:', (e as Error).message);
       } else {
         setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
