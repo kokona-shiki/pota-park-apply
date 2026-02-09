@@ -152,30 +152,47 @@ function ApplicationsList() {
     setDetailOpen(false);
   };
 
-  const handleReview = async (status: 'approved' | 'rejected') => {
-    if (!selected) return;
+  const validateReviewRequest = (status: 'approved' | 'rejected'): boolean => {
+    if (!selected) return false;
 
     if (!isReviewer) {
       setDetailError('你没有审核权限');
-      return;
+      return false;
     }
 
     if (selected.status !== 'pending') {
       setDetailError('该申请不处于待审核状态');
-      return;
+      return false;
     }
 
     if (!reviewNotes.trim()) {
       setDetailError('请填写审核备注');
-      return;
+      return false;
     }
 
     if (status === 'rejected' && !rejectionReason.trim()) {
       setDetailError('拒绝时必须填写拒绝原因');
-      return;
+      return false;
     }
 
-    if (reviewRequestRef.current[selected.id]) return;
+    if (reviewRequestRef.current[selected.id]) return false;
+
+    return true;
+  };
+
+  const updateApplicationState = (updated: Partial<ParkApplication>) => {
+    if (updated) {
+      setApplications((prev) =>
+        prev.map((a) => (a.id === selected?.id ? { ...a, ...updated } : a))
+      );
+      setSelected((prev) => (prev ? { ...prev, ...updated } : prev));
+    }
+  };
+
+  const handleReview = async (status: 'approved' | 'rejected') => {
+    if (!validateReviewRequest(status)) return;
+    if (!selected) return;
+
     reviewRequestRef.current[selected.id] = true;
 
     try {
@@ -193,14 +210,7 @@ function ApplicationsList() {
         })
       );
 
-      const updated = payload.application;
-      if (updated) {
-        setApplications((prev) =>
-          prev.map((a) => (a.id === selected.id ? { ...a, ...updated } : a))
-        );
-        setSelected((prev) => (prev ? { ...prev, ...updated } : prev));
-      }
-
+      updateApplicationState(payload.application);
       setDetailOpen(false);
     } catch (e: unknown) {
       setDetailError(getApiErrorMessage(e, '审核失败'));
