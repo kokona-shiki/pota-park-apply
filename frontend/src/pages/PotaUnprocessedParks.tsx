@@ -168,10 +168,28 @@ const PotaUnprocessedParks: React.FC = () => {
     }
   }, [user]);
 
+  const initializeSelectedTypes = (parks: UnprocessedPark[]): { [key: string]: string } => {
+    const initialSelected: { [key: string]: string } = {};
+    parks.forEach((park: UnprocessedPark) => {
+      initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
+    });
+    return initialSelected;
+  };
+
+  const handleFetchError = (err: unknown): void => {
+    const error = err as { response?: { status: number } };
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      setHasPermission(false);
+    } else {
+      setError(getApiErrorMessage(err, '获取未处理公园列表失败'));
+    }
+  };
+
   const fetchUnprocessedParks = async () => {
     try {
       setLoading(true);
       setError(null);
+      
       const parks = await requestWithSchema(
         apiClient.get('/api/pota/unprocessed-parks', {
           headers: {
@@ -180,22 +198,15 @@ const PotaUnprocessedParks: React.FC = () => {
         }),
         PotaUnprocessedParksDataSchema
       );
+      
       setUnprocessedParks(parks);
       setHasPermission(true);
 
       // 初始化选中的类型
-      const initialSelected: { [key: string]: string } = {};
-      parks.forEach((park: UnprocessedPark) => {
-        initialSelected[park.reference] = park.manualType ? resolveTypeId(park.manualType) : '';
-      });
+      const initialSelected = initializeSelectedTypes(parks);
       setSelectedType(initialSelected);
     } catch (err) {
-      const error = err as { response?: { status: number } };
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        setHasPermission(false);
-      } else {
-        setError(getApiErrorMessage(err, '获取未处理公园列表失败'));
-      }
+      handleFetchError(err);
     } finally {
       setLoading(false);
     }
