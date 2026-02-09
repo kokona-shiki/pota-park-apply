@@ -10,8 +10,8 @@ import {
   revokeAllRefreshTokensForUser,
 } from '../utils/auth.js';
 import * as notificationService from './notificationService.js';
+import { PrismaClient } from '@prisma/client';
 
-const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 type UserAdminAuditPayload = {
@@ -23,7 +23,7 @@ type UserAdminAuditPayload = {
   oldIsActive?: boolean | null;
   newIsActive?: boolean | null;
   reason?: string | null;
-  metadata?: any;
+  metadata?: unknown;
 };
 
 type RegisterUserPayload = {
@@ -106,8 +106,16 @@ export const registerUser = async (userData: RegisterUserPayload) => {
     },
   });
 
-  const { password_hash, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
+  return {
+    id: newUser.id,
+    email: newUser.email,
+    callsign: newUser.callsign,
+    role: newUser.role,
+    is_active: newUser.is_active,
+    last_login: newUser.last_login,
+    created_at: newUser.created_at,
+    updated_at: newUser.updated_at,
+  };
 };
 
 // 用户登录
@@ -138,8 +146,16 @@ export const loginUser = async (identifier: string, password: string) => {
     },
   });
 
-  const { password_hash, ...userWithoutPassword } = user;
-  return userWithoutPassword;
+  return {
+    id: user.id,
+    email: user.email,
+    callsign: user.callsign,
+    role: user.role,
+    is_active: user.is_active,
+    last_login: user.last_login,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+  };
 };
 
 // 更新用户信息
@@ -148,7 +164,7 @@ export const updateUserInfo = async (
   targetUserId: number,
   field: string,
   newValue: string,
-  reason: string,
+  _reason: string,
   oldPassword: string | null = null
 ) => {
   const canModify = await checkUserModificationPermission(operatorId, targetUserId, field);
@@ -211,7 +227,7 @@ export const updateUserInfo = async (
 };
 
 // 申请呼号变更
-export const requestCallsignChange = async (userId: number, newCallsign: string, reason: string) => {
+export const requestCallsignChange = async (userId: number, newCallsign: string, _reason: string) => {
   const normalized = normalizeCallsign(newCallsign);
 
   const existingUser = await prisma.user.findFirst({
@@ -383,56 +399,25 @@ export const getCallsignChangeRequests = async (status: string | null) => {
   });
 };
 
-// 构建审计日志查询条件
-const buildAuditLogConditions = (action: string | null, targetUserId: number | null, operatorId: number | null) => {
-  const conditions = [];
-  const params: Array<string | number> = [];
 
-  if (action) {
-    params.push(action);
-    conditions.push(`l.action = $${params.length}`);
-  }
 
-  if (targetUserId) {
-    params.push(Number(targetUserId));
-    conditions.push(`l.target_user_id = $${params.length}`);
-  }
-
-  if (operatorId) {
-    params.push(Number(operatorId));
-    conditions.push(`l.operator_id = $${params.length}`);
-  }
-
-  return { conditions, params };
-};
-
-// 获取用户管理审计日志（仅系统管理员）
-export const getUserAdminAuditLogs = async ({
-  action = null,
-  targetUserId = null,
-  operatorId = null,
-  limit = 200,
-  offset = 0,
-}: {
+// 定义 getUserAdminAuditLogs 的参数类型
+interface GetUserAdminAuditLogsParams {
   action?: string | null;
   targetUserId?: number | null;
   operatorId?: number | null;
   limit?: number;
   offset?: number;
-} = {}) => {
+}
+
+// 获取用户管理审计日志（仅系统管理员）
+export const getUserAdminAuditLogs = async (params: GetUserAdminAuditLogsParams = {}) => {
+  const { action = null, targetUserId = null, operatorId = null, limit = 200, offset = 0 } = params;
+  
   const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
   const safeOffset = Math.max(0, Number(offset) || 0);
 
-  const whereConditions: any = {};
-  if (action) {
-    whereConditions.action = action;
-  }
-  if (targetUserId) {
-    whereConditions.target_user_id = targetUserId;
-  }
-  if (operatorId) {
-    whereConditions.operator_id = operatorId;
-  }
+  const whereConditions = buildAuditLogWhereConditions(action, targetUserId, operatorId);
 
   return await prisma.userAdminAuditLog.findMany({
     where: whereConditions,
@@ -458,9 +443,31 @@ export const getUserAdminAuditLogs = async ({
   });
 };
 
+// 构建审计日志查询条件
+function buildAuditLogWhereConditions(action: string | null, targetUserId: number | null, operatorId: number | null) {
+  const whereConditions: {
+    action?: string;
+    target_user_id?: number;
+    operator_id?: number;
+  } = {};
+  if (action) {
+    whereConditions.action = action;
+  }
+  if (targetUserId) {
+    whereConditions.target_user_id = targetUserId;
+  }
+  if (operatorId) {
+    whereConditions.operator_id = operatorId;
+  }
+  return whereConditions;
+}
+
 // 获取用户列表
 export const getUsers = async (role: string | null = null, isActive: boolean | null = null) => {
-  const whereConditions: any = {};
+  const whereConditions: {
+    is_active?: boolean;
+    role?: string;
+  } = {};
   if (isActive === true || isActive === false) {
     whereConditions.is_active = isActive;
   }
