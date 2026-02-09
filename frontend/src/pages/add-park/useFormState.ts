@@ -44,10 +44,6 @@ export const clearFormState = () => {
   localStorage.removeItem(FORM_STATE_KEY);
 };
 
-const getDefaultValue = <T>(saved: T | undefined, initial: T | undefined, fallback: T): T => {
-  return saved ?? initial ?? fallback;
-};
-
 // 默认值配置
 const DEFAULT_FORM_STATE: FormState = {
   parkName: '',
@@ -72,11 +68,17 @@ const getInitialFormState = (savedState: FormState | null, initialState: Partial
   // 更新每个字段的值
   Object.keys(DEFAULT_FORM_STATE).forEach((key) => {
     const typedKey = key as keyof FormState;
-    result[typedKey] = getDefaultValue(
-      savedState?.[typedKey],
-      initialState[typedKey],
-      DEFAULT_FORM_STATE[typedKey]
-    );
+    const savedValue = savedState?.[typedKey];
+    const initialValue = initialState[typedKey];
+    const defaultValue = DEFAULT_FORM_STATE[typedKey];
+    
+    if (savedValue !== undefined) {
+      result[typedKey] = savedValue;
+    } else if (initialValue !== undefined) {
+      result[typedKey] = initialValue;
+    } else {
+      result[typedKey] = defaultValue;
+    }
   });
   
   return result;
