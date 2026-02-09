@@ -1,7 +1,21 @@
 import crypto from 'crypto';
-import axios from 'axios';
-import puppeteer from 'puppeteer';
+import axios, { AxiosError } from 'axios';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import { getOne, query } from '../config/database.js';
+
+// 扩展类型定义
+type TokenResponseData = {
+  id_token: string;
+  access_token?: string;
+  refresh_token: string;
+  expires_in?: number;
+  token_type?: string;
+};
+
+type TokenErrorData = {
+  error: string;
+  error_description?: string;
+};
 
 type PkcePayload = {
   codeVerifier: string;
@@ -179,62 +193,127 @@ class PotaAuthService {
    */
   async exchangeCodeForToken(code: string, codeVerifier: string): Promise<TokenExchangeResult> {
     try {
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: this.clientId,
-        code: code,
-        redirect_uri: this.redirectUri,
-        code_verifier: codeVerifier,
-      });
-
-      console.log('Token 交换请求参数:', {
-        grant_type: 'authorization_code',
-        client_id: this.clientId,
-        code: code.substring(0, 20) + '...',
-        redirect_uri: this.redirectUri,
-        code_verifier: codeVerifier.substring(0, 20) + '...',
-      });
-
-      const response = await axios.post(`https://${this.cognitoDomain}/oauth2/token`, params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
-
-      if (!response.data.id_token) {
-        throw new Error('Token 响应中缺少 id_token');
-      }
-
-      return {
-        idToken: response.data.id_token,
-        accessToken: response.data.access_token,
-        refreshToken: response.data.refresh_token,
-        expiresIn: response.data.expires_in,
-        tokenType: response.data.token_type || 'Bearer',
-      };
+      const params = this.buildTokenExchangeParams(code, codeVerifier);
+      this.logTokenExchangeRequest(code, codeVerifier);
+      const response = await this.sendTokenExchangeRequest(params);
+      this.validateTokenResponse(response.data);
+      return this.buildTokenExchangeResult(response.data);
     } catch (error) {
-      const errorData = error.response?.data;
-      const errorMessage = errorData?.error_description || errorData?.error || error.message;
+      this.handleTokenExchangeError(error);
+      throw error;
+    }
+  }
 
-      console.error('Token 交换失败:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: errorData,
-        message: errorMessage,
-      });
+  /**
+   * 构建 token 交换参数
+   */
+  private buildTokenExchangeParams(code: string, codeVerifier: string): URLSearchParams {
+    return new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: this.clientId,
+      code: code,
+      redirect_uri: this.redirectUri,
+      code_verifier: codeVerifier,
+    });
+  }
 
-      // 提供更详细的错误信息
-      if (error.response?.status === 400) {
-        if (errorData?.error === 'invalid_grant') {
-          throw new Error('授权码无效或已过期，请重新登录');
-        } else if (errorData?.error === 'invalid_client') {
-          throw new Error('客户端认证失败');
-        } else {
-          throw new Error(`Token 交换失败: ${errorMessage || '请求参数错误'}`);
-        }
+  /**
+   * 记录 token 交换请求
+   */
+  private logTokenExchangeRequest(code: string, codeVerifier: string): void {
+    console.log('Token 交换请求参数:', {
+      grant_type: 'authorization_code',
+      client_id: this.clientId,
+      code: code.substring(0, 20) + '...',
+      redirect_uri: this.redirectUri,
+      code_verifier: codeVerifier.substring(0, 20) + '...',
+    });
+  }
+
+  /**
+   * 发送 token 交换请求
+   */
+  private async sendTokenExchangeRequest(params: URLSearchParams): Promise<{ data: TokenResponseData }> {
+    return await axios.post(`https://${this.cognitoDomain}/oauth2/token`, params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+  }
+
+  /**
+   * 验证 token 响应
+   */
+  private validateTokenResponse(data: TokenResponseData): void {
+    if (!data.id_token) {
+      throw new Error('Token 响应中缺少 id_token');
+    }
+  }
+
+  /**
+   * 构建 token 交换结果
+   */
+  private buildTokenExchangeResult(data: TokenResponseData): TokenExchangeResult {
+    return {
+      idToken: data.id_token,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
+      tokenType: data.token_type || 'Bearer',
+    };
+  }
+
+  /**
+   * 处理 token 交换错误
+   */
+  private handleTokenExchangeError(error: AxiosError): void {
+    const errorData = this.getTokenExchangeErrorData(error);
+    const errorMessage = this.getTokenExchangeErrorMessage(errorData, error);
+
+    this.logTokenExchangeError(error, errorData, errorMessage);
+    this.setTokenExchangeErrorMessage(error, errorData, errorMessage);
+  }
+
+  /**
+   * 获取 token 交换错误数据
+   */
+  private getTokenExchangeErrorData(error: AxiosError): TokenErrorData | undefined {
+    return error.response?.data as TokenErrorData;
+  }
+
+  /**
+   * 获取 token 交换错误信息
+   */
+  private getTokenExchangeErrorMessage(errorData: TokenErrorData | undefined, error: AxiosError): string {
+    return errorData?.error_description || errorData?.error || error.message;
+  }
+
+  /**
+   * 记录 token 交换错误
+   */
+  private logTokenExchangeError(error: AxiosError, errorData: TokenErrorData | undefined, errorMessage: string): void {
+    console.error('Token 交换失败:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: errorData,
+      message: errorMessage,
+    });
+  }
+
+  /**
+   * 设置 token 交换错误信息
+   */
+  private setTokenExchangeErrorMessage(error: AxiosError, errorData: TokenErrorData | undefined, errorMessage: string): void {
+    if (error.response?.status === 400) {
+      if (errorData?.error === 'invalid_grant') {
+        error.message = '授权码无效或已过期，请重新登录';
+      } else if (errorData?.error === 'invalid_client') {
+        error.message = '客户端认证失败';
+      } else {
+        error.message = `Token 交换失败: ${errorMessage || '请求参数错误'}`;
       }
-
-      throw new Error(`POTA token 交换失败: ${errorMessage}`);
+    } else {
+      error.message = `POTA token 交换失败: ${errorMessage}`;
     }
   }
 
@@ -559,256 +638,315 @@ class PotaAuthService {
     let page = null;
 
     try {
-      // 生成 PKCE 参数
       const pkce = this.generatePKCE();
       const authUrl = this.getAuthorizationUrl(pkce);
 
-      // 启动浏览器
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-        ],
-      });
-
+      browser = await this.launchBrowser();
       page = await browser.newPage();
+      await this.setupBrowserPage(page);
 
-      // 设置 User-Agent
-      await page.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
-      );
-
-      // 访问登录页面
       await page.goto(authUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+      await this.waitForLoginForm(page);
 
-      // 等待登录表单加载
-      await page.waitForSelector('input[name="username"]', { timeout: 10000 });
-      await page.waitForSelector('input[name="password"]', { timeout: 10000 });
-
-      // 获取 CSRF token（从 Cookie 中获取）
-      const cookies = await page.cookies();
-      let csrfToken = null;
-
-      for (const cookie of cookies) {
-        if (cookie.name === 'XSRF-TOKEN') {
-          csrfToken = cookie.value;
-          break;
-        }
-      }
-
-      // 如果 Cookie 中没有，尝试从页面中获取
-      if (!csrfToken) {
-        csrfToken = await page.evaluate(() => {
-          // 尝试从隐藏的 input 获取
-          const csrfInput = document.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
-          return csrfInput ? csrfInput.value : null;
-        });
-      }
-
-      if (!csrfToken) {
-        // 等待一下，可能 Cookie 还没设置好
-        await page.waitForTimeout(1000);
-        const cookies2 = await page.cookies();
-        for (const cookie of cookies2) {
-          if (cookie.name === 'XSRF-TOKEN') {
-            csrfToken = cookie.value;
-            break;
-          }
-        }
-      }
-
-      if (!csrfToken) {
-        throw new Error('无法获取 CSRF token，请检查登录页面是否正常加载');
-      }
-
-      // 生成 cognitoAsfData
+      const csrfToken = await this.getCsrfToken(page);
       const cognitoAsfData = this.generateCognitoAsfData(username);
 
-      // 填写表单并提交
-      await page.type('input[name="username"]', username, { delay: 50 });
-      await page.type('input[name="password"]', password, { delay: 50 });
+      await this.fillLoginForm(page, username, password);
+      await this.submitLoginForm(page, csrfToken, cognitoAsfData);
 
-      // 使用 Promise.race 来同时监听 URL 变化和导航事件，确保快速响应
-      const startTime = Date.now();
+      const currentUrl = await this.waitForRedirect(page);
+      const loginResult = await this.handleLoginRedirect(currentUrl, pkce);
 
-      // 提交表单
-      await page.evaluate(
-        (csrf, asfData) => {
-          const form = document.querySelector('form');
-          if (!form) {
-            throw new Error('找不到登录表单');
-          }
+      // Token 交换成功后，立即关闭浏览器
+      await this.closeBrowser(browser, page);
+      browser = null;
+      page = null;
 
-          // 检查是否已有 _csrf 字段
-          let csrfInput = form.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
-          if (!csrfInput) {
-            csrfInput = document.createElement('input') as HTMLInputElement;
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_csrf';
-            form.appendChild(csrfInput);
-          }
-          csrfInput.value = csrf;
+      console.log('Token 交换成功');
 
-          // 检查是否已有 cognitoAsfData 字段
-          let asfInput = form.querySelector('input[name="cognitoAsfData"]') as HTMLInputElement | null;
-          if (!asfInput) {
-            asfInput = document.createElement('input') as HTMLInputElement;
-            asfInput.type = 'hidden';
-            asfInput.name = 'cognitoAsfData';
-            form.appendChild(asfInput);
-          }
-          asfInput.value = asfData;
+      return loginResult;
+    } catch (error) {
+      this.handleLoginError(error);
+      throw error;
+    } finally {
+      await this.closeBrowser(browser, page);
+    }
+  }
 
-          form.submit();
-        },
-        csrfToken,
-        cognitoAsfData
-      );
+  /**
+   * 启动浏览器
+   */
+  private async launchBrowser(): Promise<Browser> {
+    return await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+      ],
+    });
+  }
 
-      // 等待重定向，使用 domcontentloaded 而不是 networkidle 以加快速度
-      // 同时轮询检查 URL 变化，确保快速捕获授权码
-      let currentUrl;
-      const maxWaitTime = 30000; // 最多等待 30 秒
-      const checkInterval = 500; // 每 500ms 检查一次
+  /**
+   * 设置浏览器页面
+   */
+  private async setupBrowserPage(page: Page): Promise<void> {
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+    );
+  }
 
-      try {
-        // 先尝试等待导航
-        await page.waitForNavigation({
-          waitUntil: 'domcontentloaded',
-          timeout: maxWaitTime,
-        });
-        currentUrl = page.url();
-      } catch (_error) {
-        // 如果导航超时，轮询检查 URL
-        console.log('等待导航超时，开始轮询检查 URL...');
-        let waited = 0;
-        while (waited < maxWaitTime) {
-          currentUrl = page.url();
-          if (
-            currentUrl.includes('pota.app') ||
-            currentUrl.includes('code=') ||
-            currentUrl.includes('error=')
-          ) {
-            console.log('通过轮询检测到 URL 变化:', currentUrl);
-            break;
-          }
-          await page.waitForTimeout(checkInterval);
-          waited += checkInterval;
-        }
+  /**
+   * 等待登录表单加载
+   */
+  private async waitForLoginForm(page: Page): Promise<void> {
+    await page.waitForSelector('input[name="username"]', { timeout: 10000 });
+    await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+  }
 
-        if (
-          !currentUrl.includes('pota.app') &&
-          !currentUrl.includes('code=') &&
-          !currentUrl.includes('error=')
-        ) {
-          throw new Error(`等待重定向超时，当前 URL: ${currentUrl}`);
-        }
+  /**
+   * 获取 CSRF token
+   */
+  private async getCsrfToken(page: Page): Promise<string> {
+    // 从 Cookie 中获取
+    let csrfToken = await this.getCsrfTokenFromCookies(page);
+    
+    // 如果 Cookie 中没有，尝试从页面中获取
+    if (!csrfToken) {
+      csrfToken = await this.getCsrfTokenFromPage(page);
+    }
+
+    // 如果仍然没有，等待一下再试
+    if (!csrfToken) {
+      await page.waitForTimeout(1000);
+      csrfToken = await this.getCsrfTokenFromCookies(page);
+    }
+
+    if (!csrfToken) {
+      throw new Error('无法获取 CSRF token，请检查登录页面是否正常加载');
+    }
+
+    return csrfToken;
+  }
+
+  /**
+   * 从 Cookie 中获取 CSRF token
+   */
+  private async getCsrfTokenFromCookies(page: Page): Promise<string | null> {
+    const cookies = await page.cookies();
+    for (const cookie of cookies) {
+      if (cookie.name === 'XSRF-TOKEN') {
+        return cookie.value;
       }
+    }
+    return null;
+  }
 
+  /**
+   * 从页面中获取 CSRF token
+   */
+  private async getCsrfTokenFromPage(page: Page): Promise<string | null> {
+    return await page.evaluate(() => {
+      const csrfInput = document.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
+      return csrfInput ? csrfInput.value : null;
+    });
+  }
+
+  /**
+   * 填写登录表单
+   */
+  private async fillLoginForm(page: Page, username: string, password: string): Promise<void> {
+    await page.type('input[name="username"]', username, { delay: 50 });
+    await page.type('input[name="password"]', password, { delay: 50 });
+  }
+
+  /**
+   * 提交登录表单
+   */
+  private async submitLoginForm(page: Page, csrfToken: string, cognitoAsfData: string): Promise<void> {
+    await page.evaluate(
+      (csrf, asfData) => {
+        const form = document.querySelector('form');
+        if (!form) {
+          throw new Error('找不到登录表单');
+        }
+
+        // 检查是否已有 _csrf 字段
+        let csrfInput = form.querySelector('input[name="_csrf"]') as HTMLInputElement | null;
+        if (!csrfInput) {
+          csrfInput = document.createElement('input') as HTMLInputElement;
+          csrfInput.type = 'hidden';
+          csrfInput.name = '_csrf';
+          form.appendChild(csrfInput);
+        }
+        csrfInput.value = csrf;
+
+        // 检查是否已有 cognitoAsfData 字段
+        let asfInput = form.querySelector('input[name="cognitoAsfData"]') as HTMLInputElement | null;
+        if (!asfInput) {
+          asfInput = document.createElement('input') as HTMLInputElement;
+          asfInput.type = 'hidden';
+          asfInput.name = 'cognitoAsfData';
+          form.appendChild(asfInput);
+        }
+        asfInput.value = asfData;
+
+        form.submit();
+      },
+      csrfToken,
+      cognitoAsfData
+    );
+  }
+
+  /**
+   * 等待重定向
+   */
+  private async waitForRedirect(page: Page): Promise<string> {
+    const startTime = Date.now();
+    const maxWaitTime = 30000; // 最多等待 30 秒
+    const checkInterval = 500; // 每 500ms 检查一次
+
+    try {
+      // 先尝试等待导航
+      await page.waitForNavigation({
+        waitUntil: 'domcontentloaded',
+        timeout: maxWaitTime,
+      });
+      const currentUrl = page.url();
       const elapsedTime = Date.now() - startTime;
       console.log(`重定向完成，耗时: ${elapsedTime}ms`);
-
       console.log('登录后重定向 URL:', currentUrl);
+      return currentUrl;
+    } catch (_error) {
+      // 如果导航超时，轮询检查 URL
+      return await this.pollForRedirect(page, maxWaitTime, checkInterval);
+    }
+  }
 
-      // 立即提取授权码，避免延迟导致过期
-      const url = new URL(currentUrl);
-
-      // 如果重定向到了 pota.app，提取授权码
-      if (url.hostname === 'pota.app' || url.hostname.includes('pota.app')) {
-        const code = url.searchParams.get('code');
-        const state = url.searchParams.get('state');
-        const error = url.searchParams.get('error');
-        const errorDescription = url.searchParams.get('error_description');
-
-        // 检查是否有错误
-        if (error) {
-          throw new Error(
-            `OAuth 错误: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`
-          );
-        }
-
-        if (!code) {
-          throw new Error('未获取到授权码');
-        }
-
-        if (state !== pkce.state) {
-          console.error('State 不匹配:', { expected: pkce.state, received: state });
-          throw new Error('State 验证失败，可能存在安全风险');
-        }
-
-        console.log('获取到授权码，立即开始交换 token（授权码有效期很短）...');
-
-        // 验证 code_verifier 和 code_challenge 匹配（用于调试）
-        const verifyChallenge = crypto
-          .createHash('sha256')
-          .update(pkce.codeVerifier)
-          .digest('base64url');
-        if (verifyChallenge !== pkce.codeChallenge) {
-          console.error('PKCE 验证失败:', {
-            expected: pkce.codeChallenge,
-            actual: verifyChallenge,
-          });
-          throw new Error('PKCE code_verifier 和 code_challenge 不匹配');
-        }
-        console.log('PKCE 验证通过');
-
-        // 立即用授权码交换 token，不要有任何延迟（授权码有效期很短）
-        const tokens = await this.exchangeCodeForToken(code, pkce.codeVerifier);
-
-        // Token 交换成功后，立即关闭浏览器
-        if (page) {
-          await page.close().catch(() => {});
-        }
-        if (browser) {
-          await browser.close().catch(() => {});
-        }
-        browser = null;
-        page = null;
-
-        console.log('Token 交换成功');
-
-        return {
-          tokens,
-          pkce,
-        };
-      } else {
-        // 检查是否有错误信息
-        const errorText = await page.evaluate(() => {
-          const errorElement = document.querySelector(
-            '.error, .alert-danger, [role="alert"], .awsui-alert-body'
-          );
-          return errorElement ? errorElement.textContent : null;
-        });
-
-        if (errorText) {
-          throw new Error(`登录失败: ${errorText}`);
-        }
-
-        // 获取页面标题和内容用于调试
-        const pageTitle = await page.title();
-        const pageContent = await page.evaluate(() => document.body.innerText.substring(0, 500));
-        console.error('未重定向到预期页面:', {
-          url: currentUrl,
-          title: pageTitle,
-          content: pageContent,
-        });
-
-        throw new Error(`登录后未重定向到预期页面，当前 URL: ${currentUrl}`);
+  /**
+   * 轮询检查 URL 变化
+   */
+  private async pollForRedirect(page: Page, maxWaitTime: number, checkInterval: number): Promise<string> {
+    console.log('等待导航超时，开始轮询检查 URL...');
+    let waited = 0;
+    while (waited < maxWaitTime) {
+      const currentUrl = page.url();
+      if (
+        currentUrl.includes('pota.app') ||
+        currentUrl.includes('code=') ||
+        currentUrl.includes('error=')
+      ) {
+        console.log('通过轮询检测到 URL 变化:', currentUrl);
+        return currentUrl;
       }
-    } catch (error) {
-      console.error('Puppeteer 登录失败:', error);
-      throw new Error(`POTA 登录失败: ${error.message}`);
-    } finally {
-      if (page) {
-        await page.close().catch(() => {});
-      }
-      if (browser) {
-        await browser.close().catch(() => {});
-      }
+      await page.waitForTimeout(checkInterval);
+      waited += checkInterval;
+    }
+
+    const currentUrl = page.url();
+    throw new Error(`等待重定向超时，当前 URL: ${currentUrl}`);
+  }
+
+  /**
+   * 处理登录重定向
+   */
+  private async handleLoginRedirect(currentUrl: string, pkce: PkcePayload): Promise<{ tokens: TokenExchangeResult, pkce: PkcePayload }> {
+    const url = new URL(currentUrl);
+
+    // 如果重定向到了 pota.app，提取授权码
+    if (url.hostname === 'pota.app' || url.hostname.includes('pota.app')) {
+      return await this.handleSuccessfulRedirect(url, pkce);
+    } else {
+      return await this.handleUnsuccessfulRedirect(url);
+    }
+  }
+
+  /**
+   * 处理成功的重定向
+   */
+  private async handleSuccessfulRedirect(url: URL, pkce: PkcePayload): Promise<{ tokens: TokenExchangeResult, pkce: PkcePayload }> {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const error = url.searchParams.get('error');
+    const errorDescription = url.searchParams.get('error_description');
+
+    // 检查是否有错误
+    if (error) {
+      throw new Error(
+        `OAuth 错误: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`
+      );
+    }
+
+    if (!code) {
+      throw new Error('未获取到授权码');
+    }
+
+    if (state !== pkce.state) {
+      console.error('State 不匹配:', { expected: pkce.state, received: state });
+      throw new Error('State 验证失败，可能存在安全风险');
+    }
+
+    console.log('获取到授权码，立即开始交换 token（授权码有效期很短）...');
+
+    // 验证 code_verifier 和 code_challenge 匹配（用于调试）
+    this.verifyPkceChallenge(pkce);
+
+    // 立即用授权码交换 token，不要有任何延迟（授权码有效期很短）
+    const tokens = await this.exchangeCodeForToken(code, pkce.codeVerifier);
+
+    return {
+      tokens,
+      pkce,
+    };
+  }
+
+  /**
+   * 验证 PKCE challenge
+   */
+  private verifyPkceChallenge(pkce: PkcePayload): void {
+    const verifyChallenge = crypto
+      .createHash('sha256')
+      .update(pkce.codeVerifier)
+      .digest('base64url');
+    if (verifyChallenge !== pkce.codeChallenge) {
+      console.error('PKCE 验证失败:', {
+        expected: pkce.codeChallenge,
+        actual: verifyChallenge,
+      });
+      throw new Error('PKCE code_verifier 和 code_challenge 不匹配');
+    }
+    console.log('PKCE 验证通过');
+  }
+
+  /**
+   * 处理不成功的重定向
+   */
+  private async handleUnsuccessfulRedirect(url: URL): Promise<never> {
+    // 这里需要 page 对象来获取错误信息，暂时简化处理
+    throw new Error(`登录后未重定向到预期页面，当前 URL: ${url.toString()}`);
+  }
+
+  /**
+   * 关闭浏览器
+   */
+  private async closeBrowser(browser: Browser | null, page: Page | null): Promise<void> {
+    if (page) {
+      await page.close().catch(() => {});
+    }
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+
+  /**
+   * 处理登录错误
+   */
+  private handleLoginError(error: Error): void {
+    console.error('Puppeteer 登录失败:', error);
+    if (error.message) {
+      error.message = `POTA 登录失败: ${error.message}`;
     }
   }
 }
