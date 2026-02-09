@@ -136,22 +136,37 @@ const PotaSyncLogs: React.FC = () => {
     setOpenParksDialog(true);
   };
 
+  // 生成公园详情ID
+  const generateParkDetailId = (reference: string): number => {
+    return parseInt(reference.replace(/[^0-9]/g, ''), 10) || 0;
+  };
+
+  // 生成公园详情状态
+  const getParkDetailStatus = (status: string): ParkApplicationDetail['status'] => {
+    return status === 'success' ? 'approved' : 'pending';
+  };
+
+  // 生成POTA备注
+  const generatePotaNotes = (status: string, reason?: string): string => {
+    return `状态: ${status}${reason ? `, 原因: ${reason}` : ''}`;
+  };
+
   // 处理查看公园详情
   const handleViewParkDetail = (park: PotaSyncLog['parksImported'][number]) => {
     const parkDetail: ParkApplicationDetail = {
-      id: parseInt(park.reference.replace(/[^0-9]/g, ''), 10) || 0,
+      id: generateParkDetailId(park.reference),
       park_name: park.name,
       park_type: null,
       province_name: 'CN',
       provinces: [],
-      status: park.status === 'success' ? 'approved' : 'pending',
+      status: getParkDetailStatus(park.status),
       created_at: selectedLog?.createdAt || '',
       latitude: park.latitude ?? undefined,
       longitude: park.longitude ?? undefined,
       website: undefined,
       description: park.reason || '无描述',
       rejection_reason: park.reason || null,
-      pota_notes: `状态: ${park.status}${park.reason ? `, 原因: ${park.reason}` : ''}`,
+      pota_notes: generatePotaNotes(park.status, park.reason),
       pota_synced_at: selectedLog?.syncDate || null,
     };
 
