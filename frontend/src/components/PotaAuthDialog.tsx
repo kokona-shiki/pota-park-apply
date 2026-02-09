@@ -11,6 +11,7 @@ import {
   Alert,
   Button,
 } from '@mui/material';
+import { z } from 'zod';
 import { PotaStatusSchema } from '../../../shared/schemas/pota';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
@@ -96,6 +97,10 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
     loadStatus();
   };
 
+  const handleAuthError = (error: string) => {
+    setError(error);
+  };
+
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -113,7 +118,6 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
               loading={loading}
               onDisconnect={disconnect}
               onConnect={() => setAuthDialogOpen(true)}
-              onDisconnect={() => setAuthDialogOpen(false)}
             />
           </Stack>
         </DialogContent>

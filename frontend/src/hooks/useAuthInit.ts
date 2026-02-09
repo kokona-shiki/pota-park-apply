@@ -7,12 +7,11 @@ import {
 interface UseAuthInitParams {
   isAuthPage: boolean;
   isTokenFresh: (token: string) => boolean;
-  ensureValidAccessToken: () => Promise<{ accessToken: string; user: unknown } | null>;
+  ensureValidAccessToken: () => Promise<string | null>;
   readAuthData: () => { accessToken: string; user: unknown } | null;
   setUser: (user: unknown | null) => void;
   setAccessToken: (token: string | null) => void;
   setIsAuthLoading: (loading: boolean) => void;
-  setIsTokenReady: (ready: boolean) => void;
   hasInitializedRef: React.MutableRefObject<boolean>;
 }
 
@@ -24,7 +23,6 @@ export function useAuthInit({
   setUser,
   setAccessToken,
   setIsAuthLoading,
-  setIsTokenReady,
   hasInitializedRef,
 }: UseAuthInitParams) {
   useEffect(() => {
@@ -40,7 +38,6 @@ export function useAuthInit({
     if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
       console.log('[App] 从 localStorage 恢复登录态（token 有效）');
       apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
-      setIsTokenReady(true);
       setAccessToken(stored.accessToken);
       setUser(stored.user);
       setIsAuthLoading(false);
@@ -50,11 +47,13 @@ export function useAuthInit({
     console.log('[App] localStorage 无有效 token，尝试 refresh-token（带跨标签页锁）');
 
     ensureValidAccessToken()
-      .then(() => {
-        const latest = readAuthData();
-        if (latest?.accessToken) {
-          setAccessToken(latest.accessToken);
-          setUser(latest.user);
+      .then((token) => {
+        if (token) {
+          const latest = readAuthData();
+          if (latest?.accessToken) {
+            setAccessToken(latest.accessToken);
+            setUser(latest.user);
+          }
         }
       })
       .catch((err) => {
@@ -74,7 +73,6 @@ export function useAuthInit({
     setUser,
     setAccessToken,
     setIsAuthLoading,
-    setIsTokenReady,
     hasInitializedRef,
   ]);
 }

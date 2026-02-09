@@ -1,7 +1,7 @@
 import { Card, CardContent, Stack, Typography, Chip, Divider, Button, Alert } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
-import type { PotaStatus } from '../../../shared/schemas/pota';
+import type { PotaStatus } from '../../../../shared/schemas/pota';
 
 interface PotaStatusCardProps {
   status: PotaStatus | null;

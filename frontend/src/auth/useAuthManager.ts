@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiClient, requestWithSchema } from '../services/apiClient';
-import { AuthPayloadSchema } from '../../shared/schemas/auth';
-import { safeParseJsonWithSchema } from '../utils/parseJson';
+import { AuthPayloadSchema } from '../../../shared/schemas/auth';
 import {
   AUTH_DATA_KEY,
   LOGOUT_BROADCAST_KEY,
@@ -12,23 +11,21 @@ import {
   REFRESH_LOCK_KEY,
 } from './constants';
 import type { AuthUser } from './context';
+import { safeParseJson, safeParseJsonWithSchema } from '../utils/parseJson';
 
-const JwtPayloadSchema = {
-  safeParse: (data: unknown) => {
-    if (typeof data !== 'object' || data === null) {
-      return { success: false, error: new Error('Invalid JWT payload') };
-    }
-    return { success: true, data: data as { exp?: number; iat?: number } };
-  },
+const isJwtPayload = (data: unknown): data is { exp?: number; iat?: number } => {
+  return typeof data === 'object' && data !== null && 'exp' in data;
 };
 
-const RefreshLockSchema = {
-  safeParse: (data: unknown) => {
-    if (typeof data !== 'object' || data === null) {
-      return { success: false, error: new Error('Invalid refresh lock') };
-    }
-    return { success: true, data: data as { owner: string; ts: number } };
-  },
+const isRefreshLock = (data: unknown): data is { owner: string; ts: number } => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'owner' in data &&
+    typeof (data as { owner: string }).owner === 'string' &&
+    'ts' in data &&
+    typeof (data as { ts: number }).ts === 'number'
+  );
 };
 
 type AuthData = {
@@ -67,8 +64,7 @@ function decodeJwtPayload(token: string) {
     if (parts.length !== 3) return null;
     const payload = parts[1];
     const json = atob(base64UrlToBase64(payload));
-    const parsed = JwtPayloadSchema.safeParse(JSON.parse(json));
-    return parsed.success ? parsed.data : null;
+    return safeParseJson(json, isJwtPayload);
   } catch {
     return null;
   }
@@ -97,12 +93,7 @@ function isTokenFresh(token: string) {
 function readAuthData() {
   const raw = localStorage.getItem(AUTH_DATA_KEY);
   if (!raw) return null;
-  try {
-    const parsed = AuthPayloadSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
+  return safeParseJsonWithSchema(AuthPayloadSchema, raw);
 }
 
 function writeAuthData(data: AuthData) {
@@ -112,8 +103,7 @@ function writeAuthData(data: AuthData) {
 function readRefreshLock(): RefreshLock | null {
   const raw = localStorage.getItem(REFRESH_LOCK_KEY);
   if (!raw) return null;
-  const parsed = RefreshLockSchema.safeParse(JSON.parse(raw));
-  return parsed.success && parsed.data ? parsed.data : null;
+  return safeParseJson(raw, isRefreshLock);
 }
 
 function isLockExpired(lock: RefreshLock) {
@@ -124,11 +114,12 @@ export function useAuthManager() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isTokenReady, setIsTokenReady] = useState(false);
 
   const tabIdRef = useRef<string>(getOrCreateTabId());
   const waitersRef = useRef<TokenWaiter[]>([]);
   const accessTokenRef = useRef<string | null>(null);
+
+  const isTokenReady = !!accessToken;
 
   useEffect(() => {
     accessTokenRef.current = accessToken;
@@ -136,7 +127,6 @@ export function useAuthManager() {
     if (accessToken) {
       apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
     }
-    setIsTokenReady(!!accessToken);
   }, [accessToken]);
 
   const rejectAllWaiters = useCallback((err: unknown) => {

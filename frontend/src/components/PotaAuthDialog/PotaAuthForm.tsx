@@ -1,15 +1,16 @@
 // src/components/PotaAuthDialog/PotaAuthForm.tsx
 import { useState } from 'react';
 import { Stack, TextField, Button, Alert, Typography, Box, CircularProgress } from '@mui/material';
-import { PotaAuthResultDataSchema } from '../../../shared/schemas/pota';
+import { PotaAuthResultDataSchema } from '../../../../shared/schemas/pota';
 import { apiClient, requestWithSchema } from '../../services/apiClient';
 import { getApiErrorMessage } from '../../utils/error';
 
 interface PotaAuthFormProps {
   onAuthSuccess: () => void;
+  onAuthError?: (error: string) => void;
 }
 
-function PotaAuthForm({ onAuthSuccess }: PotaAuthFormProps) {
+function PotaAuthForm({ onAuthSuccess, onAuthError }: PotaAuthFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,9 +43,13 @@ function PotaAuthForm({ onAuthSuccess }: PotaAuthFormProps) {
         setSuccess(null);
       }, 3000);
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, 'POTA 登录失败'));
+      const errorMessage = getApiErrorMessage(e, 'POTA 登录失败');
+      setError(errorMessage);
       setLoading(false);
       setSuccess(null);
+      if (onAuthError) {
+        onAuthError(errorMessage);
+      }
     }
   };
 

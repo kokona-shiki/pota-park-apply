@@ -14,7 +14,7 @@ import {
   Divider,
 } from '@mui/material';
 import { z } from 'zod';
-import { PotaAuthInitDataSchema, PotaAuthResultDataSchema, PotaStatusSchema } from '../../../shared/schemas/pota';
+import { PotaAuthInitDataSchema, PotaAuthResultDataSchema, PotaStatusSchema } from '../../../shared/schemas';
 import { apiClient, requestWithSchema } from '../services/apiClient';
 import { useAuth } from '../auth/useAuth';
 import { usePermission } from '../hooks/usePermission';
@@ -26,15 +26,17 @@ type PotaStatus = z.infer<typeof PotaStatusSchema>;
 function PotaAuthDialog({
   authLoading,
   authError,
+  open,
   onClose,
 }: {
   authLoading: boolean;
   authError: string | null;
+  open: boolean;
   onClose: () => void;
 }) {
   return (
     <Dialog
-      open={true}
+      open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
@@ -74,6 +76,7 @@ function PotaAuth() {
   const [error, setError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const checkIntervalRef = useRef<number | null>(null);
 
@@ -249,6 +252,7 @@ function PotaAuth() {
       <PotaAuthDialog
         authLoading={authLoading}
         authError={authError}
+        open={authDialogOpen}
         onClose={() => {
           if (!authLoading) {
             setAuthDialogOpen(false);
