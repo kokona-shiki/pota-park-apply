@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import * as notificationService from '../services/notificationService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 import {
@@ -133,7 +133,7 @@ router.get('/api/notifications/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const notificationId = Number.parseInt(id, 10);
+    const notificationId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
     if (Number.isNaN(notificationId)) {
       return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
@@ -164,7 +164,7 @@ router.put('/api/notifications/:id/read', authenticateToken, async (req, res) =>
     }
 
     const { id } = req.params;
-    const notificationId = Number.parseInt(id, 10);
+    const notificationId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
     if (Number.isNaN(notificationId)) {
       return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
@@ -203,7 +203,7 @@ router.put('/api/notifications/:id/dismiss-popup', authenticateToken, async (req
     }
 
     const { id } = req.params;
-    const notificationId = Number.parseInt(id, 10);
+    const notificationId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
     if (Number.isNaN(notificationId)) {
       return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
@@ -329,7 +329,7 @@ router.get(
       }
 
       const { id } = req.params;
-      const draftId = Number.parseInt(id, 10);
+      const draftId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
       if (Number.isNaN(draftId)) {
         return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
@@ -361,7 +361,7 @@ router.put(
       }
 
       const { id } = req.params;
-      const draftId = Number.parseInt(id, 10);
+      const draftId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
       if (Number.isNaN(draftId)) {
         return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
@@ -400,7 +400,7 @@ router.delete(
       }
 
       const { id } = req.params;
-      const draftId = Number.parseInt(id, 10);
+      const draftId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
       if (Number.isNaN(draftId)) {
         return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
@@ -428,7 +428,7 @@ router.post(
       }
 
       const { id } = req.params;
-      const draftId = Number.parseInt(id, 10);
+      const draftId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
       if (Number.isNaN(draftId)) {
         return sendBizError(res, 'INVALID_PARAMETER', '无效的草稿ID', null);
@@ -451,7 +451,7 @@ router.post(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const notificationId = Number.parseInt(id, 10);
+      const notificationId = Number.parseInt(Array.isArray(id) ? id[0] : id, 10);
 
       if (Number.isNaN(notificationId)) {
         return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);

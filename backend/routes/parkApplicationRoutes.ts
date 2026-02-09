@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import * as parkApplicationService from '../services/parkApplicationService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 import { ParkApplicationSubmitRequestSchema } from '../../shared/schemas/parkApplication.js';
@@ -123,7 +123,7 @@ router.get('/api/park-applications/:id', authenticateToken, async (req, res) => 
 
     const application = await parkApplicationService.getApplicationById(
       req.user?.id,
-      parseInt(id, 10)
+      parseInt(Array.isArray(id) ? id[0] : id, 10)
     );
 
     return sendOk(res, { application }, 'ok');
@@ -153,7 +153,7 @@ router.put(
 
       const application = await parkApplicationService.reviewApplication(
         req.user?.id,
-        parseInt(id, 10),
+        parseInt(Array.isArray(id) ? id[0] : id, 10),
         status,
         reviewNotes,
         rejectionReason
@@ -182,11 +182,11 @@ router.put('/api/park-applications/:id/re-review', authenticateToken, async (req
     }
 
     const application = await parkApplicationService.reReviewApplication(
-      req.user?.id,
-      parseInt(id, 10),
-      status,
-      reviewNotes
-    );
+        req.user?.id,
+        parseInt(Array.isArray(id) ? id[0] : id, 10),
+        status,
+        reviewNotes
+      );
 
     return sendOk(res, { application }, '重新审核成功');
   } catch (error) {
@@ -211,7 +211,7 @@ router.put(
 
       const application = await parkApplicationService.syncToPOTA(
         req.user?.id,
-        parseInt(id, 10),
+        parseInt(Array.isArray(id) ? id[0] : id, 10),
         potaNotes
       );
 
@@ -228,7 +228,7 @@ router.get('/api/park-applications/:id/audit-logs', authenticateToken, async (re
   try {
     const { id } = req.params;
 
-    const logs = await parkApplicationService.getAuditLogs(req.user?.id, parseInt(id, 10));
+    const logs = await parkApplicationService.getAuditLogs(req.user?.id, parseInt(Array.isArray(id) ? id[0] : id, 10));
 
     return sendOk(res, { logs }, 'ok');
   } catch (error) {
@@ -257,7 +257,7 @@ router.post(
 
       const reminder = await parkApplicationService.createReviewReminder(
         req.user?.id,
-        parseInt(id, 10),
+        parseInt(Array.isArray(id) ? id[0] : id, 10),
         reminderType,
         notes,
         remindedTo ? parseInt(String(remindedTo), 10) : null

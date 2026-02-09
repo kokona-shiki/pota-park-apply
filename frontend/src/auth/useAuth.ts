@@ -1,8 +1,25 @@
-import { useContext } from 'react';
-import { AuthContext } from './context';
+import { useAuthStore } from '../store';
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('AuthContext not provided');
-  return ctx;
+  const {
+    user,
+    accessToken,
+    isAuthLoading,
+    isTokenReady,
+    setUser,
+    setAccessToken,
+    logout,
+    refreshSession,
+  } = useAuthStore();
+  
+  return {
+    user,
+    accessToken,
+    isAuthLoading,
+    isTokenReady,
+    setUser,
+    setAccessToken,
+    logout,
+    refreshSession,
+  };
 }

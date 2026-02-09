@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 
@@ -75,13 +75,13 @@ router.put('/api/users/:userId', authenticateToken, async (req, res) => {
     }
 
     const updatedUser = await userService.updateUserInfo(
-      req.user?.id,
-      parseInt(userId, 10),
-      field,
-      String(value),
-      reason,
-      oldPassword
-    );
+        req.user?.id,
+        parseInt(Array.isArray(userId) ? userId[0] : userId, 10),
+        field,
+        String(value),
+        reason,
+        oldPassword
+      );
 
     return sendOk(res, { user: updatedUser }, '用户信息更新成功');
   } catch (error) {
@@ -105,11 +105,11 @@ router.put('/api/users/:userId/role', authenticateToken, async (req, res) => {
     }
 
     const updatedUser = await userService.updateUserRole(
-      req.user?.id,
-      parseInt(userId, 10),
-      role,
-      reason
-    );
+        req.user?.id,
+        parseInt(Array.isArray(userId) ? userId[0] : userId, 10),
+        role,
+        reason
+      );
 
     return sendOk(res, { user: updatedUser }, '用户角色更新成功');
   } catch (error) {
@@ -133,10 +133,10 @@ router.put('/api/users/:userId/active', authenticateToken, async (req, res) => {
     }
 
     const updatedUser = await userService.updateUserActive(
-      req.user?.id,
-      parseInt(userId, 10),
-      isActive
-    );
+        req.user?.id,
+        parseInt(Array.isArray(userId) ? userId[0] : userId, 10),
+        isActive
+      );
 
     return sendOk(res, { user: updatedUser }, isActive ? '用户已解封' : '用户已封禁');
   } catch (error) {
@@ -196,7 +196,7 @@ router.put('/api/users/:userId/change-password', authenticateToken, async (req, 
     }
 
     // 确保用户只能修改自己的密码
-    if (req.user?.id !== parseInt(userId, 10)) {
+    if (req.user?.id !== parseInt(Array.isArray(userId) ? userId[0] : userId, 10)) {
       return sendBizError(res, 'PERMISSION_ERROR', '只能修改自己的密码', null);
     }
 

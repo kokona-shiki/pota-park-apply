@@ -2,18 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
-import systemRoutes from './routes/systemRoutes.js';
-import authRoutes from './routes/authRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import callsignRoutes from './routes/callsignRoutes.js';
-import parkApplicationRoutes from './routes/parkApplicationRoutes.js';
-import provinceRoutes from './routes/provinceRoutes.js';
-import potaRoutes from './routes/potaRoutes.js';
-import potaImportRoutes from './routes/potaImportRoutes.js';
-import potaSyncLogRoutes from './routes/potaSyncLogRoutes.js';
-import exportRoutes from './routes/exportRoutes.js';
-import notificationRoutes from './routes/notificationRoutes.js';
+import systemRoutes from './routes/systemRoutes';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import callsignRoutes from './routes/callsignRoutes';
+import parkApplicationRoutes from './routes/parkApplicationRoutes';
+import provinceRoutes from './routes/provinceRoutes';
+import potaRoutes from './routes/potaRoutes';
+import potaImportRoutes from './routes/potaImportRoutes';
+import potaSyncLogRoutes from './routes/potaSyncLogRoutes';
+import exportRoutes from './routes/exportRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import { initProxies } from './config/proxyConfig.js';
+import { errorHandler } from './utils/response';
 
 const app = express();
 
@@ -105,13 +106,6 @@ app.use('*', (_req, res) => {
 });
 
 // 全局错误处理
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('服务器错误:', err);
-  res.status(500).json({
-    code: 'SERVER_ERROR',
-    message: '服务器内部错误',
-    data: null,
-  });
-});
+app.use(errorHandler);
 
 export default app;

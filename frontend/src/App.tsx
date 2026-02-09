@@ -6,12 +6,12 @@ import SideBar from './components/SideBar';
 import { PopupNotification } from './components/PopupNotification';
 import { AuthContext } from './auth/context';
 import type { AuthUser } from './auth/context';
-import { useAuthManager } from './auth/useAuthManager';
 import { useAuthInterceptors } from './hooks/useAuthInterceptors';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
 import { useMultiTabSync } from './hooks/useMultiTabSync';
 import { useAuthInit } from './hooks/useAuthInit';
 import { AppRoutes } from './AppRoutes';
+import { useAuthStore } from './store';
 
 function LoadingState() {
   return (
@@ -32,46 +32,72 @@ function App() {
   const location = useLocation();
   const hasInitializedRef = useRef(false);
 
-  const authManager = useAuthManager();
+  const {
+    user,
+    accessToken,
+    isAuthLoading,
+    isTokenReady,
+    setUser,
+    setAccessToken,
+    setIsAuthLoading,
+    logout,
+    refreshSession,
+    getCurrentAccessToken,
+    isTokenFresh,
+    readAuthData,
+  } = useAuthStore();
 
   const { ensureValidAccessToken } = useTokenRefresh({
-    getCurrentAccessToken: authManager.getCurrentAccessToken,
-    performRefreshAsLeader: authManager.performRefreshAsLeader,
-    readRefreshLock: authManager.readRefreshLock,
-    isLockExpired: authManager.isLockExpired,
-    isTokenFresh: authManager.isTokenFresh,
-    getJwtIatMs: authManager.getJwtIatMs,
-    writeAuthData: authManager.writeAuthData as (data: unknown) => void,
-    rejectAllWaiters: authManager.rejectAllWaiters,
-    resolveAllWaiters: authManager.resolveAllWaiters,
-    waitForTokenFromOtherTab: authManager.waitForTokenFromOtherTab,
-    tabIdRef: authManager.tabIdRef,
+    getCurrentAccessToken,
+    performRefreshAsLeader: async () => {
+      await refreshSession();
+      const { accessToken } = readAuthData();
+      return accessToken;
+    },
+    readRefreshLock: () => null, // Zustand 持久化已经处理了状态同步
+    isLockExpired: () => true,
+    isTokenFresh,
+    getJwtIatMs: () => Date.now(),
+    writeAuthData: (data: any) => {
+      if (data.user) setUser(data.user as AuthUser | null);
+      if (data.accessToken) setAccessToken(data.accessToken);
+    },
+    rejectAllWaiters: () => {},
+    resolveAllWaiters: () => {},
+    waitForTokenFromOtherTab: () => Promise.resolve(null),
+    tabIdRef: { current: Math.random().toString(36).substr(2, 9) },
   });
 
   useAuthInterceptors({
-    getCurrentAccessToken: authManager.getCurrentAccessToken,
-    isTokenFresh: authManager.isTokenFresh,
+    getCurrentAccessToken,
+    isTokenFresh,
     ensureValidAccessToken,
-    logout: authManager.logout,
+    logout,
   });
 
   useMultiTabSync({
-    setUser: (user) => authManager.setUser(user as AuthUser | null),
-    setAccessToken: authManager.setAccessToken,
-    rejectAllWaiters: authManager.rejectAllWaiters,
-    resolveAllWaiters: authManager.resolveAllWaiters,
-    readAuthData: authManager.readAuthData,
-    isTokenFresh: authManager.isTokenFresh,
+    setUser: (user) => setUser(user as AuthUser | null),
+    setAccessToken,
+    rejectAllWaiters: () => {},
+    resolveAllWaiters: () => {},
+    readAuthData: () => {
+      const { user, accessToken } = useAuthStore.getState();
+      return { user, accessToken } as { accessToken: string; user: unknown } | null;
+    },
+    isTokenFresh,
   });
 
   useAuthInit({
     isAuthPage: isAuthPage(location.pathname),
-    isTokenFresh: authManager.isTokenFresh,
+    isTokenFresh,
     ensureValidAccessToken,
-    readAuthData: authManager.readAuthData,
-    setUser: authManager.setUser as (user: unknown | null) => void,
-    setAccessToken: authManager.setAccessToken,
-    setIsAuthLoading: authManager.setIsAuthLoading,
+    readAuthData: () => {
+      const { user, accessToken } = useAuthStore.getState();
+      return { user, accessToken } as { accessToken: string; user: unknown } | null;
+    },
+    setUser: (user) => setUser(user as AuthUser | null),
+    setAccessToken,
+    setIsAuthLoading,
     hasInitializedRef,
   });
 
@@ -80,24 +106,24 @@ function App() {
   return (
     <AuthContext.Provider
       value={{
-        user: authManager.user,
-        setUser: authManager.setUser,
-        accessToken: authManager.accessToken,
-        setAccessToken: authManager.setAccessToken,
-        refreshSession: () => authManager.refreshSession(ensureValidAccessToken),
-        logout: authManager.logout,
-        isAuthLoading: authManager.isAuthLoading,
-        isTokenReady: authManager.isTokenReady,
+        user,
+        setUser,
+        accessToken,
+        setAccessToken,
+        refreshSession: () => refreshSession(),
+        logout,
+        isAuthLoading,
+        isTokenReady,
       }}
     >
-      {authManager.isAuthLoading ? (
+      {isAuthLoading ? (
         <LoadingState />
       ) : (
         <AppContent
           isAuthPage={currentIsAuthPage}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
-          user={authManager.user}
+          user={user}
         />
       )}
       <PopupNotification />

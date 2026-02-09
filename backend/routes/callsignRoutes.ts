@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 import { CallsignChangeRequestCreateSchema, CallsignChangeReviewSchema } from '../../shared/schemas/callsign.js';
@@ -66,7 +66,7 @@ router.put(
 
       const result = await userService.reviewCallsignChange(
         req.user?.id,
-        parseInt(requestId, 10),
+        parseInt(Array.isArray(requestId) ? requestId[0] : requestId, 10),
         status,
         reviewNotes
       );

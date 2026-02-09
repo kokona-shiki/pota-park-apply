@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import { getPotaSyncLogs, getPotaSyncLogById } from '../services/potaSyncLogService.js';
 
 const router = express.Router();
@@ -45,7 +45,7 @@ router.get('/api/pota/sync-logs/:id', authenticateToken, requirePermission('pota
   try {
     const { id } = req.params;
 
-    const log = await getPotaSyncLogById(parseInt(id, 10));
+    const log = await getPotaSyncLogById(parseInt(Array.isArray(id) ? id[0] : id, 10));
 
     if (!log) {
       return res.status(404).json({

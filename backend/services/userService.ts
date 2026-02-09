@@ -1,4 +1,3 @@
-import { insert, update, getOne, getMany, transaction, query } from '../config/database.js';
 import potaAuthService from './potaAuthService.js';
 import {
   hashPassword,
@@ -12,6 +11,9 @@ import {
 } from '../utils/auth.js';
 import * as notificationService from './notificationService.js';
 
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
 type UserAdminAuditPayload = {
   action: string;
   operatorId: number;
@@ -21,7 +23,7 @@ type UserAdminAuditPayload = {
   oldIsActive?: boolean | null;
   newIsActive?: boolean | null;
   reason?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: any;
 };
 
 type RegisterUserPayload = {
@@ -45,22 +47,19 @@ export const logUserAdminAudit = async ({
   reason = null,
   metadata = {},
 }: UserAdminAuditPayload) => {
-  await query(
-    `
-    INSERT INTO user_admin_audit_logs (
+  await prisma.userAdminAuditLog.create({
+    data: {
       action,
-      operator_id,
-      target_user_id,
-      old_role,
-      new_role,
-      old_is_active,
-      new_is_active,
+      operator_id: operatorId,
+      target_user_id: targetUserId,
+      old_role: oldRole,
+      new_role: newRole,
+      old_is_active: oldIsActive,
+      new_is_active: newIsActive,
       reason,
-      metadata
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-  `,
-    [action, operatorId, targetUserId, oldRole, newRole, oldIsActive, newIsActive, reason, metadata]
-  );
+      metadata,
+    },
+  });
 };
 
 // 用户注册
@@ -70,16 +69,26 @@ export const registerUser = async (userData: RegisterUserPayload) => {
   const { password, role = 'user' } = userData;
 
   // 优先返回邮箱冲突
-  const existingEmail = await getOne(`SELECT id FROM users WHERE lower(email) = lower($1)`, [
-    email,
-  ]);
+  const existingEmail = await prisma.user.findFirst({
+    where: {
+      email: {
+        equals: email,
+        mode: 'insensitive',
+      },
+    },
+  });
   if (existingEmail) {
     throw new Error('邮箱已被使用');
   }
 
-  const existingCallsign = await getOne(`SELECT id FROM users WHERE upper(callsign) = upper($1)`, [
-    callsign,
-  ]);
+  const existingCallsign = await prisma.user.findFirst({
+    where: {
+      callsign: {
+        equals: callsign,
+        mode: 'insensitive',
+      },
+    },
+  });
   if (existingCallsign) {
     throw new Error('呼号已被使用');
   }
@@ -88,16 +97,17 @@ export const registerUser = async (userData: RegisterUserPayload) => {
   const passwordHash = await hashPassword(password);
 
   // 创建用户
-  const newUser = await insert(
-    `
-    INSERT INTO users (email, callsign, password_hash, role)
-    VALUES ($1, $2, $3, $4)
-  `,
-    [email, callsign, passwordHash, role]
-  );
+  const newUser = await prisma.user.create({
+    data: {
+      email,
+      callsign,
+      password_hash: passwordHash,
+      role,
+    },
+  });
 
-  delete newUser.password_hash;
-  return newUser;
+  const { password_hash, ...userWithoutPassword } = newUser;
+  return userWithoutPassword;
 };
 
 // 用户登录
@@ -119,17 +129,17 @@ export const loginUser = async (identifier: string, password: string) => {
   }
 
   // 更新 last_login
-  await update(
-    `
-    UPDATE users
-    SET last_login = CURRENT_TIMESTAMP
-    WHERE id = $1
-  `,
-    [user.id]
-  );
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      last_login: new Date(),
+    },
+  });
 
-  delete user.password_hash;
-  return user;
+  const { password_hash, ...userWithoutPassword } = user;
+  return userWithoutPassword;
 };
 
 // 更新用户信息
@@ -146,10 +156,11 @@ export const updateUserInfo = async (
     throw new Error('没有权限修改该用户信息');
   }
 
-  const currentUser = await getOne(
-    `SELECT ${field} as current_value, password_hash FROM users WHERE id = $1`,
-    [targetUserId]
-  );
+  const currentUser = await prisma.user.findUnique({
+    where: {
+      id: targetUserId,
+    },
+  });
   if (!currentUser) {
     throw new Error('用户不存在');
   }
@@ -163,26 +174,39 @@ export const updateUserInfo = async (
     }
   }
 
-  return await transaction(async (client) => {
-    await client.query(
-      `
-      INSERT INTO user_info_changes (user_id, field_name, old_value, new_value, change_reason)
-      VALUES ($1, $2, $3, $4, $5)
-    `,
-      [targetUserId, field, currentUser.current_value, newValue, reason]
-    );
+  return await prisma.$transaction(async (prisma) => {
+    // 记录用户信息变更
+    await prisma.userInfoChange.create({
+      data: {
+        user_id: targetUserId,
+        field_name: field,
+        old_value: currentUser[field as keyof typeof currentUser] as string,
+        new_value: newValue,
+        change_reason: reason,
+      },
+    });
 
-    const updatedUser = await client.query(
-      `
-      UPDATE users
-      SET ${field} = $1
-      WHERE id = $2
-      RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-    `,
-      [newValue, targetUserId]
-    );
+    // 更新用户信息
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: targetUserId,
+      },
+      data: {
+        [field]: newValue,
+      },
+      select: {
+        id: true,
+        email: true,
+        callsign: true,
+        role: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    return updatedUser.rows[0];
+    return updatedUser;
   });
 };
 
@@ -190,42 +214,53 @@ export const updateUserInfo = async (
 export const requestCallsignChange = async (userId: number, newCallsign: string, reason: string) => {
   const normalized = normalizeCallsign(newCallsign);
 
-  const existingUser = await getOne(
-    `
-    SELECT id FROM users
-    WHERE upper(callsign) = upper($1) AND id != $2 AND is_active = true
-  `,
-    [normalized, userId]
-  );
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      callsign: {
+        equals: normalized,
+        mode: 'insensitive',
+      },
+      id: {
+        not: userId,
+      },
+      is_active: true,
+    },
+  });
 
   if (existingUser) {
     throw new Error('该呼号已被使用');
   }
 
-  const currentUser = await getOne(`SELECT callsign FROM users WHERE id = $1`, [userId]);
+  const currentUser = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      callsign: true,
+    },
+  });
   if (!currentUser) {
     throw new Error('用户不存在');
   }
 
-  const pendingRequest = await getOne(
-    `
-    SELECT id FROM callsign_change_requests
-    WHERE user_id = $1 AND status = 'pending'
-  `,
-    [userId]
-  );
+  const pendingRequest = await prisma.callsignChangeRequest.findFirst({
+    where: {
+      user_id: userId,
+      status: 'pending',
+    },
+  });
 
   if (pendingRequest) {
     throw new Error('您已有待审核的呼号变更申请');
   }
 
-  const request = await insert(
-    `
-    INSERT INTO callsign_change_requests (user_id, current_callsign, requested_callsign, reason)
-    VALUES ($1, $2, $3, $4)
-    `,
-    [userId, currentUser.callsign, normalized, reason]
-  );
+  const request = await prisma.callsignChangeRequest.create({
+    data: {
+      user_id: userId,
+      current_callsign: currentUser.callsign,
+      requested_callsign: normalized,
+    },
+  });
 
   const systemAdmins = await notificationService.getUsersByRole('system_admin');
   if (systemAdmins.length > 0) {
@@ -248,15 +283,18 @@ export const reviewCallsignChange = async (
   status: string,
   reviewNotes: string
 ) => {
-  const request = await getOne(
-    `
-    SELECT ccr.*, u.email
-    FROM callsign_change_requests ccr
-    JOIN users u ON ccr.user_id = u.id
-    WHERE ccr.id = $1
-  `,
-    [requestId]
-  );
+  const request = await prisma.callsignChangeRequest.findUnique({
+    where: {
+      id: requestId,
+    },
+    include: {
+      user: {
+        select: {
+          email: true,
+        },
+      },
+    },
+  });
 
   if (!request) {
     throw new Error('申请不存在');
@@ -266,29 +304,40 @@ export const reviewCallsignChange = async (
     throw new Error('申请已被处理');
   }
 
-  return await transaction(async (client) => {
-    await client.query(
-      `
-      UPDATE callsign_change_requests
-      SET status = $1, reviewer_id = $2, review_notes = $3, reviewed_at = CURRENT_TIMESTAMP
-      WHERE id = $4
-    `,
-      [status, reviewerId, reviewNotes, requestId]
-    );
+  return await prisma.$transaction(async (prisma) => {
+    // 更新呼号变更申请状态
+    await prisma.callsignChangeRequest.update({
+      where: {
+        id: requestId,
+      },
+      data: {
+        status,
+        reviewer_id: reviewerId,
+        review_notes: reviewNotes,
+        reviewed_at: new Date(),
+      },
+    });
 
     let updatedUser = null;
     if (status === 'approved') {
-      const result = await client.query(
-        `
-        UPDATE users
-        SET callsign = $1
-        WHERE id = $2
-        RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-        `,
-        [request.requested_callsign, request.user_id]
-      );
-
-      updatedUser = result.rows[0];
+      updatedUser = await prisma.user.update({
+        where: {
+          id: request.user_id,
+        },
+        data: {
+          callsign: request.requested_callsign,
+        },
+        select: {
+          id: true,
+          email: true,
+          callsign: true,
+          role: true,
+          is_active: true,
+          last_login: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
     }
 
     await notificationService.createNotification(
@@ -312,23 +361,26 @@ export const reviewCallsignChange = async (
 
 // 获取呼号变更申请列表
 export const getCallsignChangeRequests = async (status: string | null) => {
-  let queryText = `
-    SELECT ccr.*, u.email as applicant_email, u.callsign as applicant_callsign,
-           r.email as reviewer_email, r.callsign as reviewer_callsign
-    FROM callsign_change_requests ccr
-    JOIN users u ON ccr.user_id = u.id
-    LEFT JOIN users r ON ccr.reviewer_id = r.id
-  `;
-
-  const params: Array<string | number> = [];
-  if (status) {
-    queryText += ' WHERE ccr.status = $1 ORDER BY ccr.created_at DESC';
-    params.push(status);
-  } else {
-    queryText += ' ORDER BY ccr.created_at DESC';
-  }
-
-  return await getMany(queryText, params);
+  return await prisma.callsignChangeRequest.findMany({
+    where: status ? { status } : {},
+    include: {
+      user: {
+        select: {
+          email: true,
+          callsign: true,
+        },
+      },
+      reviewer: {
+        select: {
+          email: true,
+          callsign: true,
+        },
+      },
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+  });
 };
 
 // 构建审计日志查询条件
@@ -371,55 +423,68 @@ export const getUserAdminAuditLogs = async ({
   const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
   const safeOffset = Math.max(0, Number(offset) || 0);
 
-  const { conditions, params } = buildAuditLogConditions(action, targetUserId, operatorId);
+  const whereConditions: any = {};
+  if (action) {
+    whereConditions.action = action;
+  }
+  if (targetUserId) {
+    whereConditions.target_user_id = targetUserId;
+  }
+  if (operatorId) {
+    whereConditions.operator_id = operatorId;
+  }
 
-  params.push(safeLimit);
-  const limitIndex = params.length;
-  params.push(safeOffset);
-  const offsetIndex = params.length;
-
-  const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  return await getMany(
-    `
-      SELECT
-        l.*, 
-        op.callsign AS operator_callsign,
-        op.email AS operator_email,
-        tu.callsign AS target_callsign,
-        tu.email AS target_email
-      FROM user_admin_audit_logs l
-      LEFT JOIN users op ON l.operator_id = op.id
-      LEFT JOIN users tu ON l.target_user_id = tu.id
-      ${whereSql}
-      ORDER BY l.created_at DESC
-      LIMIT $${limitIndex} OFFSET $${offsetIndex}
-    `,
-    params
-  );
+  return await prisma.userAdminAuditLog.findMany({
+    where: whereConditions,
+    include: {
+      operator: {
+        select: {
+          callsign: true,
+          email: true,
+        },
+      },
+      target_user: {
+        select: {
+          callsign: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+    take: safeLimit,
+    skip: safeOffset,
+  });
 };
 
 // 获取用户列表
 export const getUsers = async (role: string | null = null, isActive: boolean | null = null) => {
-  let queryText = `
-    SELECT id, email, callsign, role, is_active, last_login, created_at, updated_at
-    FROM users
-    WHERE 1=1
-  `;
-
-  const params: Array<string | number | boolean> = [];
+  const whereConditions: any = {};
   if (isActive === true || isActive === false) {
-    params.push(isActive);
-    queryText += ` AND is_active = $${params.length}`;
+    whereConditions.is_active = isActive;
   }
 
   if (role) {
-    params.push(role);
-    queryText += ` AND role = $${params.length}`;
+    whereConditions.role = role;
   }
 
-  queryText += ' ORDER BY created_at DESC';
-  return await getMany(queryText, params);
+  return await prisma.user.findMany({
+    where: whereConditions,
+    select: {
+      id: true,
+      email: true,
+      callsign: true,
+      role: true,
+      is_active: true,
+      last_login: true,
+      created_at: true,
+      updated_at: true,
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+  });
 };
 
 // 修改用户角色（必须系统管理员；必须 reason；不能改自己；目标用户必须 is_active=true）
@@ -438,9 +503,16 @@ export const updateUserRole = async (
   }
 
   // 业务限制：目标用户被禁用时，不允许改角色
-  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [
-    targetUserId,
-  ]);
+  const target = await prisma.user.findUnique({
+    where: {
+      id: targetUserId,
+    },
+    select: {
+      id: true,
+      role: true,
+      is_active: true,
+    },
+  });
   if (!target) throw new Error('用户不存在');
   if (!target.is_active) throw new Error('用户已被禁用，无法修改角色');
 
@@ -450,32 +522,41 @@ export const updateUserRole = async (
     throw new Error('只有系统管理员才能修改用户角色');
   }
 
-  return await transaction(async (client) => {
-    const updated = await client.query(
-      `
-      UPDATE users
-      SET role = $1
-      WHERE id = $2
-      RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-    `,
-      [newRole, targetUserId]
-    );
+  return await prisma.$transaction(async (prisma) => {
+    // 更新用户角色
+    const updated = await prisma.user.update({
+      where: {
+        id: targetUserId,
+      },
+      data: {
+        role: newRole,
+      },
+      select: {
+        id: true,
+        email: true,
+        callsign: true,
+        role: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    await client.query(
-      `
-      INSERT INTO user_admin_audit_logs (
-        action,
-        operator_id,
-        target_user_id,
-        old_role,
-        new_role,
-        reason,
-        metadata
-      ) VALUES ('user_role_changed', $1, $2, $3, $4, $5, $6)
-    `,
-      [operatorId, targetUserId, target.role, newRole, reason, {}]
-    );
+    // 记录审计日志
+    await prisma.userAdminAuditLog.create({
+      data: {
+        action: 'user_role_changed',
+        operator_id: operatorId,
+        target_user_id: targetUserId,
+        old_role: target.role,
+        new_role: newRole,
+        reason: reason,
+        metadata: {},
+      },
+    });
 
+    // 创建通知
     await notificationService.createNotification(
       {
         type: 'user_management_operation',
@@ -486,7 +567,7 @@ export const updateUserRole = async (
       }
     );
 
-    return updated.rows[0];
+    return updated;
   });
 };
 
@@ -500,9 +581,16 @@ export const updateUserActive = async (
     throw new Error('不能修改自己的启用状态');
   }
 
-  const target = await getOne(`SELECT id, role, is_active FROM users WHERE id = $1`, [
-    targetUserId,
-  ]);
+  const target = await prisma.user.findUnique({
+    where: {
+      id: targetUserId,
+    },
+    select: {
+      id: true,
+      role: true,
+      is_active: true,
+    },
+  });
   if (!target) throw new Error('用户不存在');
 
   // 权限校验：只有系统管理员
@@ -514,39 +602,40 @@ export const updateUserActive = async (
   // 禁用时：不允许同时改角色（这里不做；改角色接口已禁止 is_active=false）
   const newIsActive = Boolean(isActive);
 
-  const updatedUser = await transaction(async (client) => {
-    const updated = await client.query(
-      `
-      UPDATE users
-      SET is_active = $1
-      WHERE id = $2
-      RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-    `,
-      [newIsActive, targetUserId]
-    );
+  const updatedUser = await prisma.$transaction(async (prisma) => {
+    // 更新用户启用状态
+    const updated = await prisma.user.update({
+      where: {
+        id: targetUserId,
+      },
+      data: {
+        is_active: newIsActive,
+      },
+      select: {
+        id: true,
+        email: true,
+        callsign: true,
+        role: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    await client.query(
-      `
-      INSERT INTO user_admin_audit_logs (
-        action,
-        operator_id,
-        target_user_id,
-        old_is_active,
-        new_is_active,
-        metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-    `,
-      [
-        newIsActive ? 'user_enabled' : 'user_disabled',
-        operatorId,
-        targetUserId,
-        target.is_active,
-        newIsActive,
-        {},
-      ]
-    );
+    // 记录审计日志
+    await prisma.userAdminAuditLog.create({
+      data: {
+        action: newIsActive ? 'user_enabled' : 'user_disabled',
+        operator_id: operatorId,
+        target_user_id: targetUserId,
+        old_is_active: target.is_active,
+        new_is_active: newIsActive,
+        metadata: {},
+      },
+    });
 
-    return updated.rows[0];
+    return updated;
   });
 
   // 封禁：吊销所有 refresh tokens（实现“强制登出”的可达部分：无法续期/重登）
@@ -564,15 +653,26 @@ export const deleteUser = async (operatorId: number, targetUserId: number) => {
     throw new Error('没有权限删除用户');
   }
 
-  const deletedUser = await update(
-    `
-    UPDATE users
-    SET is_active = false, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $1 AND is_active = true
-    RETURNING id, email, callsign, role, is_active, last_login, created_at, updated_at
-  `,
-    [targetUserId]
-  );
+  const deletedUser = await prisma.user.update({
+    where: {
+      id: targetUserId,
+      is_active: true,
+    },
+    data: {
+      is_active: false,
+      updated_at: new Date(),
+    },
+    select: {
+      id: true,
+      email: true,
+      callsign: true,
+      role: true,
+      is_active: true,
+      last_login: true,
+      created_at: true,
+      updated_at: true,
+    },
+  });
 
   if (!deletedUser) {
     throw new Error('用户不存在或已被删除');
@@ -596,7 +696,15 @@ const validatePasswordUpdate = async (
   }
 
   // 获取当前用户信息以验证原密码
-  const user = await getOne(`SELECT id, password_hash FROM users WHERE id = $1`, [userId]);
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      password_hash: true,
+    },
+  });
 
   if (!user) {
     throw new Error('用户不存在');
@@ -632,13 +740,15 @@ const handlePotaTokensReencryption = async (
 
 // 记录密码变更日志
 const logPasswordChange = async (userId: number, reason: string) => {
-  await insert(
-    `
-    INSERT INTO user_info_changes (user_id, field_name, old_value, new_value, change_reason)
-    VALUES ($1, $2, 'PASSWORD_HASH_REDACTED', 'PASSWORD_HASH_REDACTED', $3)
-  `,
-    [userId, 'password_hash', reason || '用户修改密码']
-  );
+  await prisma.userInfoChange.create({
+    data: {
+      user_id: userId,
+      field_name: 'password_hash',
+      old_value: 'PASSWORD_HASH_REDACTED',
+      new_value: 'PASSWORD_HASH_REDACTED',
+      change_reason: reason || '用户修改密码',
+    },
+  });
 };
 
 // 更新用户密码
@@ -657,14 +767,25 @@ export const updateUserPassword = async (
   const existingPotaTokens = await handlePotaTokensReencryption(userId, user.password_hash);
 
   // 更新用户密码
-  const updatedUser = await update(
-    `
-    UPDATE users
-    SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $2
-  `,
-    [newPasswordHash, userId]
-  );
+  const updatedUser = await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      password_hash: newPasswordHash,
+      updated_at: new Date(),
+    },
+    select: {
+      id: true,
+      email: true,
+      callsign: true,
+      role: true,
+      is_active: true,
+      last_login: true,
+      created_at: true,
+      updated_at: true,
+    },
+  });
 
   if (!updatedUser) {
     throw new Error('用户不存在');
@@ -683,7 +804,5 @@ export const updateUserPassword = async (
   // 记录密码变更日志
   await logPasswordChange(userId, reason);
 
-  // 删除旧的密码哈希，只返回用户基本信息
-  delete updatedUser.password_hash;
   return updatedUser;
 };

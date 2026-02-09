@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/authenticateToken.js';
+import { authenticateToken } from '../middleware/authenticateToken';
 import { checkUserPermission } from '../utils/auth.js';
 import {
   getUnprocessedParks,

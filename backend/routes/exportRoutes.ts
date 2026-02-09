@@ -1,12 +1,15 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authenticateToken.js';
-import { requirePermission } from '../middleware/requirePermission.js';
+import { authenticateToken } from '../middleware/authenticateToken';
+import { requirePermission } from '../middleware/requirePermission';
 import * as exportService from '../services/exportService.js';
 import { sendError, sendOk } from '../utils/response.js';
 
 interface AuthenticatedRequest extends express.Request {
-  user?: {
+  user: {
     id: number;
+    email: string;
+    hasPotaImportPermission?: boolean;
+    hasReviewPermission?: boolean;
   };
 }
 

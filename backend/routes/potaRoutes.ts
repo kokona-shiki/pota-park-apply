@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/authenticateToken.js';
+import { authenticateToken } from '../middleware/authenticateToken';
 import { sendOk, sendError, sendBizError } from '../utils/response.js';
 import potaAuthService from '../services/potaAuthService.js';
 import { getOne, getMany } from '../config/database.js';

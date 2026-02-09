@@ -9,7 +9,7 @@ import {
   revokeAllRefreshTokensForUser,
   revokeRefreshToken,
 } from '../utils/auth.js';
-import { authenticateToken } from '../middleware/authenticateToken.js';
+import { authenticateToken } from '../middleware/authenticateToken';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendHttpError, sendOk } from '../utils/response.js';
 import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/auth.js';
@@ -306,7 +306,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
       ip: req.ip || null,
     });
 
-    return await handleRefreshTokenResult(req, res, result as RefreshTokenResult);
+    return await handleRefreshTokenResult(req, res, result as unknown as RefreshTokenResult);
   } catch (error) {
     console.error('刷新 token 失败:', error);
     return sendError(res, error, { httpMessage: '刷新 token 失败' });
