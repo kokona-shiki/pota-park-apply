@@ -44,34 +44,92 @@ export function sendError(
     httpMessage
   } = {}
 ) {
-  const status = err?.status;
-  const code = err?.code;
-  const message = err?.message;
-  const data = err?.data ?? null;
-  const details = err?.details ?? null;
+  const errorInfo = extractErrorInfo(err);
+  const responseData = buildResponseData(errorInfo);
 
-  // 构建响应数据，根据是否有details字段来决定格式
-  const responseData = details ? { details } : data;
-
-  if (status === 401 || status === 403 || status === 429) {
-    return sendHttpError(
-      res,
-      status,
-      code || httpCode || defaultHttpCode(status),
-      message || httpMessage || defaultHttpMessage(status),
-      responseData
-    );
+  if (isAuthError(errorInfo.status)) {
+    return handleAuthError(res, errorInfo, { httpCode, httpMessage }, responseData);
   }
 
-  if (typeof status === 'number' && status >= 500) {
-    return sendHttpError(
-      res,
-      status,
-      code || httpCode || defaultHttpCode(status),
-      message || httpMessage || defaultHttpMessage(status),
-      responseData
-    );
+  if (isServerError(errorInfo.status)) {
+    return handleServerError(res, errorInfo, { httpCode, httpMessage }, responseData);
   }
+
+  return handleBusinessError(res, errorInfo, { bizCode, bizMessage }, responseData);
+}
+
+/**
+ * 提取错误信息
+ */
+function extractErrorInfo(err) {
+  return {
+    status: err?.status,
+    code: err?.code,
+    message: err?.message,
+    data: err?.data ?? null,
+    details: err?.details ?? null
+  };
+}
+
+/**
+ * 构建响应数据
+ */
+function buildResponseData(errorInfo) {
+  return errorInfo.details ? { details: errorInfo.details } : errorInfo.data;
+}
+
+/**
+ * 检查是否为认证相关错误
+ */
+function isAuthError(status) {
+  return status === 401 || status === 403 || status === 429;
+}
+
+/**
+ * 检查是否为服务器错误
+ */
+function isServerError(status) {
+  return typeof status === 'number' && status >= 500;
+}
+
+/**
+ * 处理认证相关错误
+ */
+function handleAuthError(res, errorInfo, options, responseData) {
+  const { status, code, message } = errorInfo;
+  const { httpCode, httpMessage } = options;
+
+  return sendHttpError(
+    res,
+    status,
+    code || httpCode || defaultHttpCode(status),
+    message || httpMessage || defaultHttpMessage(status),
+    responseData
+  );
+}
+
+/**
+ * 处理服务器错误
+ */
+function handleServerError(res, errorInfo, options, responseData) {
+  const { status, code, message } = errorInfo;
+  const { httpCode, httpMessage } = options;
+
+  return sendHttpError(
+    res,
+    status,
+    code || httpCode || defaultHttpCode(status),
+    message || httpMessage || defaultHttpMessage(status),
+    responseData
+  );
+}
+
+/**
+ * 处理业务错误
+ */
+function handleBusinessError(res, errorInfo, options, responseData) {
+  const { code, message } = errorInfo;
+  const { bizCode, bizMessage } = options;
 
   return sendBizError(res, code || bizCode, message || bizMessage, responseData);
 }
