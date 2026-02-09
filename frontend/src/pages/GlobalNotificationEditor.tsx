@@ -41,6 +41,23 @@ export const GlobalNotificationEditor = () => {
     );
   }
 
+  const createNotificationPayload = () => {
+    return {
+      title,
+      description,
+      link_url: linkUrl || '',
+      notification_mode: notificationMode,
+      scheduled_at: publishType === 'scheduled' ? scheduledAt : undefined,
+    };
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setLinkUrl('');
+    setScheduledAt('');
+  };
+
   const handleSubmit = async (isDraft: boolean = false) => {
     if (!title.trim() || !description.trim()) {
       setError('标题和描述不能为空');
@@ -52,35 +69,25 @@ export const GlobalNotificationEditor = () => {
     setSuccess(false);
 
     try {
+      const payload = createNotificationPayload();
+      
       if (isDraft) {
         await fetchApi('/api/notifications/drafts', {
           method: 'POST',
-          body: {
-            title,
-            description,
-            link_url: linkUrl || '',
-            notification_mode: notificationMode,
-            scheduled_at: publishType === 'scheduled' ? scheduledAt : undefined,
-          },
+          body: payload,
         });
       } else {
         await fetchApi('/api/notifications', {
           method: 'POST',
           body: {
+            ...payload,
             type: 'global_notification',
-            title,
-            description,
-            link_url: linkUrl || '',
-            notification_mode: notificationMode,
-            scheduled_at: publishType === 'scheduled' ? scheduledAt : undefined,
           },
         });
       }
+      
       setSuccess(true);
-      setTitle('');
-      setDescription('');
-      setLinkUrl('');
-      setScheduledAt('');
+      resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
     } finally {
