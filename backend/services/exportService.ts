@@ -1,6 +1,6 @@
 import { query, getMany } from '../config/database.js';
 import { format, toZonedTime } from 'date-fns-tz';
-import { create } from 'xmlbuilder2';
+import { create, Element } from 'xmlbuilder2';
 import AdmZip from 'adm-zip';
 import { writeToString } from 'fast-csv';
 import regionMapping from '../../shared/region.json';
@@ -148,31 +148,121 @@ const recordExportAuditLog = async (
   `, [fileType, parkCount, userId]);
 };
 
-export const exportToCSV = async (userId: number): Promise<Buffer> => {
-  const parks = await getAllParks();
-  
-  const csvData = parks.map(park => ({
+// 转换公园数据为 CSV 格式
+const convertToCSVData = (park: ParkExportData) => {
+  const basicInfo = getBasicParkInfo(park);
+  const locationInfo = getParkLocationInfo(park);
+  const applicantInfo = getParkApplicantInfo(park);
+  const statusInfo = getParkStatusInfo(park);
+  const potaInfo = getParkPotaInfo(park);
+
+  return {
+    ...basicInfo,
+    ...locationInfo,
+    ...applicantInfo,
+    ...statusInfo,
+    ...potaInfo
+  };
+};
+
+const getBasicParkInfo = (park: ParkExportData) => {
+  return {
     '公园申请 id': park.id,
     '公园名称': park.park_name,
-    '公园经纬度': `${park.latitude},${park.longitude}`,
     '公园类型': formatParkType(park.park_type),
     '省份': formatProvinces(park.provinces),
     '公园描述': park.description || '',
+    '公园网站': park.website || ''
+  };
+};
+
+const getParkLocationInfo = (park: ParkExportData) => {
+  return {
+    '公园经纬度': `${park.latitude},${park.longitude}`,
     '访问方法': formatAccessMethods(park.access_methods),
-    '激活方法': formatActivationMethods(park.activation_methods),
-    '公园网站': park.website || '',
+    '激活方法': formatActivationMethods(park.activation_methods)
+  };
+};
+
+const getParkApplicantInfo = (park: ParkExportData) => {
+  return {
     '公园申请人 id': park.applicant_id,
     '公园申请人呼号': park.applicant_callsign || '',
-    '公园申请人邮箱': park.applicant_email || '',
+    '公园申请人邮箱': park.applicant_email || ''
+  };
+};
+
+const getParkStatusInfo = (park: ParkExportData) => {
+  return {
     '公园申请时间': formatTimeToUTC8(park.created_at) || '',
-    '公园申请状态': STATUS_MAP[park.status] || park.status,
+    '公园申请状态': STATUS_MAP[park.status] || park.status
+  };
+};
+
+const getParkPotaInfo = (park: ParkExportData) => {
+  return {
     '同步到 POTA 的时间': formatTimeToUTC8(park.pota_synced_at) || '',
     '同步到 POTA 的操作员 ID': park.pota_synced_by || '',
     '同步到 POTA 的操作员呼号': park.pota_synced_by_callsign || '',
     '是否从 POTA 导入': park.is_pota_imported ? '是' : '否',
     'POTA 公园 ID': park.pota_id || '',
     'POTA 备注': park.pota_notes || ''
-  }));
+  };
+};
+
+// 添加公园数据到 KML
+const addParkToKML = (folder: Element, park: ParkExportData) => {
+  const placemark = folder.ele('Placemark');
+  placemark.ele('name').txt(park.park_name);
+  placemark.ele('Point').ele('coordinates').txt(`${park.longitude},${park.latitude},0`);
+
+  const extendedData = placemark.ele('ExtendedData');
+  addBasicInfoToKML(extendedData, park);
+  addLocationInfoToKML(extendedData, park);
+  addApplicantInfoToKML(extendedData, park);
+  addStatusInfoToKML(extendedData, park);
+  addPotaInfoToKML(extendedData, park);
+};
+
+const addBasicInfoToKML = (extendedData: Element, park: ParkExportData) => {
+  extendedData.ele('Data', { name: 'parkId' }).txt(park.id.toString());
+  extendedData.ele('Data', { name: 'parkName' }).txt(park.park_name);
+  extendedData.ele('Data', { name: 'parkType' }).txt(formatParkType(park.park_type));
+  extendedData.ele('Data', { name: 'province' }).txt(formatProvinces(park.provinces));
+  extendedData.ele('Data', { name: 'description' }).txt(park.description || '');
+  extendedData.ele('Data', { name: 'website' }).txt(park.website || '');
+};
+
+const addLocationInfoToKML = (extendedData: Element, park: ParkExportData) => {
+  extendedData.ele('Data', { name: 'coordinates' }).txt(`${park.latitude},${park.longitude}`);
+  extendedData.ele('Data', { name: 'accessMethods' }).txt(formatAccessMethods(park.access_methods));
+  extendedData.ele('Data', { name: 'activationMethods' }).txt(formatActivationMethods(park.activation_methods));
+};
+
+const addApplicantInfoToKML = (extendedData: Element, park: ParkExportData) => {
+  extendedData.ele('Data', { name: 'applicantId' }).txt(park.applicant_id.toString());
+  extendedData.ele('Data', { name: 'applicantCallsign' }).txt(park.applicant_callsign || '');
+  extendedData.ele('Data', { name: 'applicantEmail' }).txt(park.applicant_email || '');
+};
+
+const addStatusInfoToKML = (extendedData: Element, park: ParkExportData) => {
+  extendedData.ele('Data', { name: 'createdAt' }).txt(formatTimeToUTC8(park.created_at) || '');
+  extendedData.ele('Data', { name: 'status' }).txt(STATUS_MAP[park.status] || park.status);
+};
+
+const addPotaInfoToKML = (extendedData: Element, park: ParkExportData) => {
+  extendedData.ele('Data', { name: 'potaSyncedAt' }).txt(formatTimeToUTC8(park.pota_synced_at) || '');
+  extendedData.ele('Data', { name: 'potaSyncedById' }).txt(park.pota_synced_by?.toString() || '');
+  extendedData.ele('Data', { name: 'potaSyncedByCallsign' }).txt(park.pota_synced_by_callsign || '');
+  extendedData.ele('Data', { name: 'isPotaImported' }).txt(park.is_pota_imported ? '是' : '否');
+  extendedData.ele('Data', { name: 'potaId' }).txt(park.pota_id || '');
+  extendedData.ele('Data', { name: 'potaNotes' }).txt(park.pota_notes || '');
+};
+
+export const exportToCSV = async (userId: number): Promise<Buffer> => {
+  const parks = await getAllParks();
+  
+  const csvData = parks.map(convertToCSVData);
 
   const csvString = await writeToString(csvData, { headers: true });
   await recordExportAuditLog(userId, 'csv', parks.length);
@@ -189,34 +279,7 @@ export const exportToKMZ = async (userId: number): Promise<Buffer> => {
   const document = kml.ele('Document');
   const folder = document.ele('Folder', { name: 'POTA 公园数据' });
 
-  parks.forEach(park => {
-    const placemark = folder.ele('Placemark');
-    placemark.ele('name').txt(park.park_name);
-    placemark.ele('Point').ele('coordinates').txt(`${park.longitude},${park.latitude},0`);
-
-    const extendedData = placemark.ele('ExtendedData');
-
-    extendedData.ele('Data', { name: 'parkId' }).txt(park.id.toString());
-    extendedData.ele('Data', { name: 'parkName' }).txt(park.park_name);
-    extendedData.ele('Data', { name: 'coordinates' }).txt(`${park.latitude},${park.longitude}`);
-    extendedData.ele('Data', { name: 'parkType' }).txt(formatParkType(park.park_type));
-    extendedData.ele('Data', { name: 'province' }).txt(formatProvinces(park.provinces));
-    extendedData.ele('Data', { name: 'description' }).txt(park.description || '');
-    extendedData.ele('Data', { name: 'accessMethods' }).txt(formatAccessMethods(park.access_methods));
-    extendedData.ele('Data', { name: 'activationMethods' }).txt(formatActivationMethods(park.activation_methods));
-    extendedData.ele('Data', { name: 'website' }).txt(park.website || '');
-    extendedData.ele('Data', { name: 'applicantId' }).txt(park.applicant_id.toString());
-    extendedData.ele('Data', { name: 'applicantCallsign' }).txt(park.applicant_callsign || '');
-    extendedData.ele('Data', { name: 'applicantEmail' }).txt(park.applicant_email || '');
-    extendedData.ele('Data', { name: 'createdAt' }).txt(formatTimeToUTC8(park.created_at) || '');
-    extendedData.ele('Data', { name: 'status' }).txt(STATUS_MAP[park.status] || park.status);
-    extendedData.ele('Data', { name: 'potaSyncedAt' }).txt(formatTimeToUTC8(park.pota_synced_at) || '');
-    extendedData.ele('Data', { name: 'potaSyncedById' }).txt(park.pota_synced_by?.toString() || '');
-    extendedData.ele('Data', { name: 'potaSyncedByCallsign' }).txt(park.pota_synced_by_callsign || '');
-    extendedData.ele('Data', { name: 'isPotaImported' }).txt(park.is_pota_imported ? '是' : '否');
-    extendedData.ele('Data', { name: 'potaId' }).txt(park.pota_id || '');
-    extendedData.ele('Data', { name: 'potaNotes' }).txt(park.pota_notes || '');
-  });
+  parks.forEach(park => addParkToKML(folder, park));
 
   const xmlString = kml.end({ format: 'xml', prettyPrint: true }) as string;
   await recordExportAuditLog(userId, 'kmz', parks.length);

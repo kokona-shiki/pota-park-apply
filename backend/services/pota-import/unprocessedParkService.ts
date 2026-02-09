@@ -96,40 +96,24 @@ export const processUnprocessedPark = async (
       throw new Error(`无法识别公园类型: ${parkData.manualType}`);
     }
 
-    let parkDetail = null;
-    try {
-      const detailResult = await fetchPotaParkDetail(parkData.reference || '');
-      parkDetail = detailResult.data;
-    } catch (error) {
+    const parkDetail = await fetchParkDetail(parkData.reference);
+    if (!parkDetail) {
       return {
         success: false,
-        error: error.message || `查询 POTA 公园失败: ${parkData.reference}`,
+        error: `查询 POTA 公园失败: ${parkData.reference}`,
         reference: parkData.reference,
       };
     }
 
-    const enrichedPark: PotaPark = {
-      ...parkDetail,
-      reference: parkData.reference,
-      name: parkDetail?.name || parkData.name || parkData.reference,
-      activations: parkData.activations ?? parkDetail?.activations,
-      qsos: parkData.qsos ?? parkDetail?.qsos,
-    };
-
-    // 使用指定的类型创建公园数据
-    const internalPark = await transformPotaParkToInternal(enrichedPark, manualTypeId);
-    internalPark.park_type = manualTypeId; // 使用手动指定的类型ID
-
-    // 创建公园并记录审核日志
-    const createdPark = await createParkWithAudit(
-      internalPark,
+    const enrichedPark = enrichParkData(parkDetail, parkData);
+    const createdPark = await createAndProcessPark(
+      enrichedPark,
+      manualTypeId,
       operatorId,
-      operatorRole,
-      new Date().toISOString()
+      operatorRole
     );
 
-    // 从数据库中移除已处理的公园
-    await query('DELETE FROM pota_unprocessed_parks WHERE reference = $1', [parkData.reference]);
+    await removeUnprocessedPark(parkData.reference);
 
     console.log(`成功处理公园: ${parkData.reference} (ID: ${createdPark.id})`);
 
@@ -146,6 +130,61 @@ export const processUnprocessedPark = async (
       reference: parkData.reference,
     };
   }
+};
+
+/**
+ * 获取公园详情
+ */
+const fetchParkDetail = async (reference: string) => {
+  try {
+    const detailResult = await fetchPotaParkDetail(reference || '');
+    return detailResult.data;
+  } catch (error) {
+    console.error(`获取公园详情失败: ${reference}`, error.message);
+    return null;
+  }
+};
+
+/**
+ * 丰富公园数据
+ */
+const enrichParkData = (parkDetail: PotaPark, parkData: UnprocessedPark): PotaPark => {
+  return {
+    ...parkDetail,
+    reference: parkData.reference,
+    name: parkDetail?.name || parkData.name || parkData.reference,
+    activations: parkData.activations ?? parkDetail?.activations,
+    qsos: parkData.qsos ?? parkDetail?.qsos,
+  };
+};
+
+/**
+ * 创建并处理公园
+ */
+const createAndProcessPark = async (
+  enrichedPark: PotaPark,
+  manualTypeId: string,
+  operatorId: number,
+  operatorRole: string
+) => {
+  // 使用指定的类型创建公园数据
+  const internalPark = await transformPotaParkToInternal(enrichedPark, manualTypeId);
+  internalPark.park_type = manualTypeId; // 使用手动指定的类型ID
+
+  // 创建公园并记录审核日志
+  return await createParkWithAudit(
+    internalPark,
+    operatorId,
+    operatorRole,
+    new Date().toISOString()
+  );
+};
+
+/**
+ * 移除未处理的公园
+ */
+const removeUnprocessedPark = async (reference: string) => {
+  await query('DELETE FROM pota_unprocessed_parks WHERE reference = $1', [reference]);
 };
 
 /**

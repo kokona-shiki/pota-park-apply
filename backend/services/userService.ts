@@ -331,23 +331,8 @@ export const getCallsignChangeRequests = async (status: string | null) => {
   return await getMany(queryText, params);
 };
 
-// 获取用户管理审计日志（仅系统管理员）
-export const getUserAdminAuditLogs = async ({
-  action = null,
-  targetUserId = null,
-  operatorId = null,
-  limit = 200,
-  offset = 0,
-}: {
-  action?: string | null;
-  targetUserId?: number | null;
-  operatorId?: number | null;
-  limit?: number;
-  offset?: number;
-} = {}) => {
-  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
-  const safeOffset = Math.max(0, Number(offset) || 0);
-
+// 构建审计日志查询条件
+const buildAuditLogConditions = (action: string | null, targetUserId: number | null, operatorId: number | null) => {
   const conditions = [];
   const params: Array<string | number> = [];
 
@@ -365,6 +350,28 @@ export const getUserAdminAuditLogs = async ({
     params.push(Number(operatorId));
     conditions.push(`l.operator_id = $${params.length}`);
   }
+
+  return { conditions, params };
+};
+
+// 获取用户管理审计日志（仅系统管理员）
+export const getUserAdminAuditLogs = async ({
+  action = null,
+  targetUserId = null,
+  operatorId = null,
+  limit = 200,
+  offset = 0,
+}: {
+  action?: string | null;
+  targetUserId?: number | null;
+  operatorId?: number | null;
+  limit?: number;
+  offset?: number;
+} = {}) => {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+  const safeOffset = Math.max(0, Number(offset) || 0);
+
+  const { conditions, params } = buildAuditLogConditions(action, targetUserId, operatorId);
 
   params.push(safeLimit);
   const limitIndex = params.length;
@@ -577,12 +584,11 @@ export const deleteUser = async (operatorId: number, targetUserId: number) => {
   return deletedUser;
 };
 
-// 更新用户密码
-export const updateUserPassword = async (
+// 验证密码更新参数
+const validatePasswordUpdate = async (
   userId: number,
   oldPassword: string,
-  newPassword: string,
-  reason: string
+  newPassword: string
 ) => {
   // 验证新密码
   if (!newPassword || newPassword.length < 6) {
@@ -607,17 +613,48 @@ export const updateUserPassword = async (
     throw new Error('新密码不能与原密码相同');
   }
 
+  return user;
+};
+
+// 处理 POTA token 重新加密
+const handlePotaTokensReencryption = async (
+  userId: number,
+  oldPasswordHash: string
+) => {
+  try {
+    return await potaAuthService.getStoredTokens(userId, oldPasswordHash);
+  } catch (error) {
+    // 如果获取不到POTA token（可能是因为密码不匹配或不存在），则跳过重新加密
+    console.log('未能获取当前POTA token，可能未配置或密码不匹配:', error.message);
+    return null;
+  }
+};
+
+// 记录密码变更日志
+const logPasswordChange = async (userId: number, reason: string) => {
+  await insert(
+    `
+    INSERT INTO user_info_changes (user_id, field_name, old_value, new_value, change_reason)
+    VALUES ($1, $2, 'PASSWORD_HASH_REDACTED', 'PASSWORD_HASH_REDACTED', $3)
+  `,
+    [userId, 'password_hash', reason || '用户修改密码']
+  );
+};
+
+// 更新用户密码
+export const updateUserPassword = async (
+  userId: number,
+  oldPassword: string,
+  newPassword: string,
+  reason: string
+) => {
+  const user = await validatePasswordUpdate(userId, oldPassword, newPassword);
+
   // 为新密码生成哈希
   const newPasswordHash = await hashPassword(newPassword);
 
   // 获取当前存储的POTA token（如果有）
-  let existingPotaTokens = null;
-  try {
-    existingPotaTokens = await potaAuthService.getStoredTokens(userId, user.password_hash);
-  } catch (error) {
-    // 如果获取不到POTA token（可能是因为密码不匹配或不存在），则跳过重新加密
-    console.log('未能获取当前POTA token，可能未配置或密码不匹配:', error.message);
-  }
+  const existingPotaTokens = await handlePotaTokensReencryption(userId, user.password_hash);
 
   // 更新用户密码
   const updatedUser = await update(
@@ -644,13 +681,7 @@ export const updateUserPassword = async (
   }
 
   // 记录密码变更日志
-  await insert(
-    `
-    INSERT INTO user_info_changes (user_id, field_name, old_value, new_value, change_reason)
-    VALUES ($1, $2, 'PASSWORD_HASH_REDACTED', 'PASSWORD_HASH_REDACTED', $3)
-  `,
-    [userId, 'password_hash', reason || '用户修改密码']
-  );
+  await logPasswordChange(userId, reason);
 
   // 删除旧的密码哈希，只返回用户基本信息
   delete updatedUser.password_hash;

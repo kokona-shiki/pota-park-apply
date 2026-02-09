@@ -152,6 +152,22 @@ const identifyParkTypeByEnglish = (
   englishPart: string,
   mappings: ParkTypeMappings
 ): string | null => {
+  const possibleTypes = collectPossibleEnglishTypes(englishPart, mappings);
+  
+  if (possibleTypes.length === 0) {
+    return null;
+  }
+
+  return selectBestEnglishTypeMatch(possibleTypes);
+};
+
+/**
+ * 收集可能的英文类型匹配
+ */
+const collectPossibleEnglishTypes = (
+  englishPart: string,
+  mappings: ParkTypeMappings
+): Array<{ typeId: string; englishName: string; length: number }> => {
   const possibleTypes: Array<{ typeId: string; englishName: string; length: number }> = [];
 
   // 检查标准英文类型
@@ -178,10 +194,15 @@ const identifyParkTypeByEnglish = (
     }
   }
 
-  if (possibleTypes.length === 0) {
-    return null;
-  }
+  return possibleTypes;
+};
 
+/**
+ * 选择最佳的英文类型匹配
+ */
+const selectBestEnglishTypeMatch = (
+  possibleTypes: Array<{ typeId: string; englishName: string; length: number }>
+): string | null => {
   // 按长度降序排序，选择最长的匹配
   possibleTypes.sort((a, b) => b.length - a.length);
 
@@ -236,17 +257,47 @@ const identifyParkTypeByDefault = (
  */
 export const identifyParkType = async (potaPark: PotaPark) => {
   const mappings = await loadParkTypeMappings();
+  const { chinesePart, englishPart } = extractNameParts(potaPark);
 
+  if (!chinesePart && !englishPart) {
+    return null;
+  }
+
+  // 从中文部分识别
+  const chineseMatch = identifyParkTypeByChinese(chinesePart, mappings);
+  if (chineseMatch) {
+    return chineseMatch;
+  }
+
+  // 从英文部分识别
+  const englishMatch = identifyParkTypeByEnglishPart(englishPart, mappings);
+  if (englishMatch) {
+    return englishMatch;
+  }
+
+  // 通过默认类型识别
+  const defaultMatch = identifyParkTypeByDefault(chinesePart, englishPart, mappings);
+  if (defaultMatch) {
+    return defaultMatch;
+  }
+
+  // 如果没有匹配的类型，返回 null
+  console.log(
+    `无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`
+  );
+  return null;
+};
+
+/**
+ * 提取公园名称的中文和英文部分
+ */
+const extractNameParts = (potaPark: PotaPark) => {
   const rawName = typeof potaPark?.name === 'string' ? potaPark.name.trim() : '';
   let rawTypeDesc = '';
   if (typeof potaPark?.parktypeDesc === 'string') {
     rawTypeDesc = potaPark.parktypeDesc.trim();
   } else if (typeof potaPark?.parkTypeDesc === 'string') {
     rawTypeDesc = potaPark.parkTypeDesc.trim();
-  }
-
-  if (!rawName && !rawTypeDesc) {
-    return null;
   }
 
   let chinesePart = rawName;
@@ -260,30 +311,25 @@ export const identifyParkType = async (potaPark: PotaPark) => {
     }
   }
 
-  // 从中文部分识别
-  const chineseMatch = identifyParkTypeByChinese(chinesePart, mappings);
-  if (chineseMatch) {
-    return chineseMatch;
+  return { chinesePart, englishPart };
+};
+
+/**
+ * 从英文部分识别公园类型（带日志）
+ */
+const identifyParkTypeByEnglishPart = (
+  englishPart: string,
+  mappings: ParkTypeMappings
+): string | null => {
+  if (!englishPart) {
+    return null;
   }
 
-  // 从英文部分识别
-  if (englishPart) {
-    const englishMatch = identifyParkTypeByEnglish(englishPart, mappings);
-    if (englishMatch) {
-      return englishMatch;
-    }
-    console.log(`英文部分无法匹配任何类型: ${englishPart}`);
+  const englishMatch = identifyParkTypeByEnglish(englishPart, mappings);
+  if (englishMatch) {
+    return englishMatch;
   }
 
-  // 通过默认类型识别
-  const defaultMatch = identifyParkTypeByDefault(chinesePart, englishPart, mappings);
-  if (defaultMatch) {
-    return defaultMatch;
-  }
-
-  // 如果没有匹配的类型，返回 null
-  console.log(
-    `无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`
-  );
+  console.log(`英文部分无法匹配任何类型: ${englishPart}`);
   return null;
 };

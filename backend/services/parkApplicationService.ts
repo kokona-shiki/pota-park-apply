@@ -26,35 +26,32 @@ type ParkApplicationSubmitInput = {
   confirmedRejectedPark?: boolean;
 };
 
-// 提交公园申请
-export const submitParkApplication = async (
-  userId: number,
-  applicationData: ParkApplicationSubmitInput
-) => {
-  const {
-    park_name,
-    park_type,
-    provinces, // 省份数组
-    latitude,
-    longitude,
-    website,
-    description,
-    access_methods,
-    activation_methods,
-    confirmed_authenticity,
-  } = applicationData;
+// 定义数据库查询结果类型
+type QueryResult = {
+  rows: unknown[];
+  rowCount: number;
+};
 
-  // 检查权限
+// 定义数据库客户端类型
+type DatabaseClient = {
+  query: (text: string, params?: unknown[]) => Promise<QueryResult>;
+};
+
+// 验证申请权限
+async function validateSubmitPermission(userId: number) {
   const canSubmit = await checkUserPermission(userId, 'submit_application');
   if (!canSubmit) {
     const err: AppError = new Error('没有权限提交申请');
-    // 鉴权/鉴权相关错误：返回 4xx
     err.status = 403;
     err.code = 'FORBIDDEN';
     throw err;
   }
+}
 
-  // 验证访问方法和激活方法格式
+// 验证申请数据格式
+function validateApplicationData(applicationData: ParkApplicationSubmitInput) {
+  const { access_methods, activation_methods } = applicationData;
+
   if (!Array.isArray(access_methods) || access_methods.length === 0) {
     const err: AppError = new Error('至少需要选择一个访问方法');
     err.code = 'VALIDATION_ERROR';
@@ -66,15 +63,21 @@ export const submitParkApplication = async (
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
+}
 
+// 验证公园类型
+async function validateParkType(park_type?: string) {
   const parkTypeId = await resolveParkTypeId(park_type);
   if (!parkTypeId) {
     const err: AppError = new Error('公园类型无效');
     err.code = 'VALIDATION_ERROR';
     throw err;
   }
+  return parkTypeId;
+}
 
-  // 业务逻辑验证：公园名称完全重复检查
+// 检查公园名称重复
+async function checkDuplicateParkName(park_name: string, confirmedRejectedPark?: boolean) {
   const existingPark = await getOne(
     `
     SELECT id, park_name, status FROM park_applications 
@@ -84,59 +87,61 @@ export const submitParkApplication = async (
   );
 
   if (existingPark) {
-      const { id, status } = existingPark;
-      let errorMessage: string;
-      let errorCode: string;
-      let allowRetry: boolean = false;
-      
-      switch (status) {
-        case 'pending':
-          errorMessage = '您提交的公园名称已经在审核中';
-          errorCode = 'DUPLICATE_NAME_PENDING';
-          break;
-        case 'approved':
-          errorMessage = '您提交的公园名称待上传 POTA';
-          errorCode = 'DUPLICATE_NAME_APPROVED';
-          break;
-        case 'pota_synced':
-          errorMessage = '您提交的公园名称已经上传 POTA';
-          errorCode = 'DUPLICATE_NAME_POTA_SYNCED';
-          break;
-        case 'rejected':
-          errorMessage = '您提交的公园名称曾被审核拒绝，请确定是否要提交';
-          errorCode = 'DUPLICATE_NAME_REJECTED';
-          allowRetry = true;
-          break;
-        default:
-          errorMessage = '您提交的公园名称已存在';
-          errorCode = 'DUPLICATE_NAME';
-      }
-      
-      // 如果是已拒绝状态且用户已确认，则允许提交
-      if (status === 'rejected' && applicationData.confirmedRejectedPark) {
-        // 允许提交，跳过错误
-      } else {
-        const err: AppError & { 
-          details?: { 
-            existingPark: { id: number; name: string; status: ApplicationStatus };
-            allowRetry?: boolean 
-          } 
-        } = new Error(errorMessage);
-        err.code = errorCode;
-        err.status = 400;
-        err.details = {
-          existingPark: {
-            id: id,
-            name: existingPark.park_name,
-            status: status
-          },
-          allowRetry: allowRetry
-        };
-        throw err;
-      }
+    const { id, status } = existingPark;
+    let errorMessage: string;
+    let errorCode: string;
+    let allowRetry: boolean = false;
+    
+    switch (status) {
+      case 'pending':
+        errorMessage = '您提交的公园名称已经在审核中';
+        errorCode = 'DUPLICATE_NAME_PENDING';
+        break;
+      case 'approved':
+        errorMessage = '您提交的公园名称待上传 POTA';
+        errorCode = 'DUPLICATE_NAME_APPROVED';
+        break;
+      case 'pota_synced':
+        errorMessage = '您提交的公园名称已经上传 POTA';
+        errorCode = 'DUPLICATE_NAME_POTA_SYNCED';
+        break;
+      case 'rejected':
+        errorMessage = '您提交的公园名称曾被审核拒绝，请确定是否要提交';
+        errorCode = 'DUPLICATE_NAME_REJECTED';
+        allowRetry = true;
+        break;
+      default:
+        errorMessage = '您提交的公园名称已存在';
+        errorCode = 'DUPLICATE_NAME';
     }
+    
+    // 如果是已拒绝状态且用户已确认，则允许提交
+    if (status === 'rejected' && confirmedRejectedPark) {
+      // 允许提交，跳过错误
+    } else {
+      const err: AppError & { 
+        details?: { 
+          existingPark: { id: number; name: string; status: ApplicationStatus };
+          allowRetry?: boolean 
+        } 
+      } = new Error(errorMessage);
+      err.code = errorCode;
+      err.status = 400;
+      err.details = {
+        existingPark: {
+          id: id,
+          name: existingPark.park_name,
+          status: status
+        },
+        allowRetry: allowRetry
+      };
+      throw err;
+    }
+  }
+}
 
-  // 业务逻辑验证：公园名称相似度检查
+// 检查公园名称相似度
+async function checkParkNameSimilarity(park_name: string, confirmedNameSimilarity?: boolean) {
   const similarParks = await getMany(
     `
     SELECT id, park_name FROM park_applications 
@@ -174,7 +179,7 @@ export const submitParkApplication = async (
       name: park.name
     }));
 
-  if (filteredSimilarParks.length > 0 && !applicationData.confirmedNameSimilarity) {
+  if (filteredSimilarParks.length > 0 && !confirmedNameSimilarity) {
     const err: AppError & { details?: { similarParks: Array<{ id: number; name: string }> } } = new Error('公园名称相似度高');
     err.code = 'SIMILAR_NAME';
     err.status = 400;
@@ -183,8 +188,10 @@ export const submitParkApplication = async (
     };
     throw err;
   }
+}
 
-  // 业务逻辑验证：公园地理位置距离检查
+// 检查公园地理位置距离
+async function checkParkLocationDistance(latitude: number, longitude: number, confirmedNearbyLocation?: boolean) {
   const nearbyParks = await getMany(
     `
     SELECT id, park_name, latitude, longitude FROM park_applications 
@@ -204,7 +211,7 @@ export const submitParkApplication = async (
     name: park.park_name
   }));
 
-  if (filteredNearbyParks.length > 0 && !applicationData.confirmedNearbyLocation) {
+  if (filteredNearbyParks.length > 0 && !confirmedNearbyLocation) {
     const err: AppError & { details?: { nearbyParks: Array<{ id: number; name: string }> } } = new Error('公园距离过近');
     err.code = 'NEARBY_LOCATION';
     err.status = 400;
@@ -213,72 +220,139 @@ export const submitParkApplication = async (
     };
     throw err;
   }
+}
+
+// 创建公园申请记录
+async function createParkApplication(
+  client: DatabaseClient,
+  userId: number,
+  applicationData: ParkApplicationSubmitInput,
+  parkTypeId: string
+) {
+  const {
+    park_name,
+    provinces,
+    latitude,
+    longitude,
+    website,
+    description,
+    access_methods,
+    activation_methods,
+    confirmed_authenticity,
+  } = applicationData;
+
+  // 创建公园申请
+  const application = await client.query(
+    `
+    INSERT INTO park_applications (
+      park_name, park_type, provinces,
+      location, latitude, longitude, website, description,
+      access_methods, activation_methods, applicant_id, confirmed_authenticity
+    ) VALUES (
+      $1, $2, $3::json,
+      ST_SetSRID(ST_MakePoint($5, $4), 4326), $4, $5, $6, $7,
+      $8::json, $9::json, $10, $11
+    ) RETURNING *
+  `,
+    [
+      park_name,
+      parkTypeId,
+      JSON.stringify(provinces),
+      latitude,
+      longitude,
+      website,
+      description,
+      JSON.stringify(access_methods),
+      JSON.stringify(activation_methods),
+      userId,
+      confirmed_authenticity,
+    ]
+  );
+
+  const newApplication = application.rows[0];
+
+  // 记录审核日志
+  await client.query(
+    `
+    INSERT INTO application_audit_logs (
+      application_id, action, operator_id, operator_role, 
+      old_status, new_status, notes
+    ) VALUES (
+      $1, 'submitted', $2, 'applicant', 
+      NULL, 'pending', NULL
+    )
+  `,
+    [newApplication.id, userId]
+  );
+
+  // 重新查询完整的申请数据
+  const fullApplication = await client.query(
+    `
+    SELECT pa.*, 
+           u.email as applicant_email, u.callsign as applicant_callsign,
+           COALESCE(p.zh_name, '') as province_name, 
+           COALESCE(p.en_name, '') as province_en_name,
+           reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
+    FROM park_applications pa
+    JOIN users u ON pa.applicant_id = u.id
+    LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+    LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
+    WHERE pa.id = $1
+    `,
+    [newApplication.id]
+  );
+
+  return {
+    newApplication,
+    fullApplication: fullApplication.rows[0]
+  };
+}
+
+// 提交公园申请
+export const submitParkApplication = async (
+  userId: number,
+  applicationData: ParkApplicationSubmitInput
+) => {
+  const {
+    park_name,
+    park_type,
+    confirmedRejectedPark,
+    confirmedNameSimilarity,
+    confirmedNearbyLocation
+  } = applicationData;
+
+  // 验证权限
+  await validateSubmitPermission(userId);
+
+  // 验证申请数据格式
+  validateApplicationData(applicationData);
+
+  // 验证公园类型
+  const parkTypeId = await validateParkType(park_type);
+
+  // 检查公园名称重复
+  await checkDuplicateParkName(park_name, confirmedRejectedPark);
+
+  // 检查公园名称相似度
+  await checkParkNameSimilarity(park_name, confirmedNameSimilarity);
+
+  // 检查公园地理位置距离
+  await checkParkLocationDistance(
+    applicationData.latitude, 
+    applicationData.longitude, 
+    confirmedNearbyLocation
+  );
 
   return await transaction(async (client) => {
-    // 创建公园申请
-    const application = await client.query(
-      `
-      INSERT INTO park_applications (
-        park_name, park_type, provinces,
-        location, latitude, longitude, website, description,
-        access_methods, activation_methods, applicant_id, confirmed_authenticity
-      ) VALUES (
-        $1, $2, $3::json,
-        ST_SetSRID(ST_MakePoint($5, $4), 4326), $4, $5, $6, $7,
-        $8::json, $9::json, $10, $11
-      ) RETURNING *
-    `,
-      [
-        park_name,
-        parkTypeId,
-        JSON.stringify(provinces),
-        latitude,
-        longitude,
-        website,
-        description,
-        JSON.stringify(access_methods),
-        JSON.stringify(activation_methods),
-        userId,
-        confirmed_authenticity,
-      ]
+    // 创建公园申请记录
+    const { newApplication, fullApplication } = await createParkApplication(
+      client, userId, applicationData, parkTypeId
     );
 
-    const newApplication = application.rows[0];
-
-    // 记录审核日志
-    await client.query(
-      `
-      INSERT INTO application_audit_logs (
-        application_id, action, operator_id, operator_role, 
-        old_status, new_status, notes
-      ) VALUES (
-        $1, 'submitted', $2, 'applicant', 
-        NULL, 'pending', NULL
-      )
-    `,
-      [newApplication.id, userId]
-    );
-
-    // 重新查询完整的申请数据（包含 province_name 等关联字段）
-    const fullApplication = await client.query(
-      `
-      SELECT pa.*, 
-             u.email as applicant_email, u.callsign as applicant_callsign,
-             COALESCE(p.zh_name, '') as province_name, 
-             COALESCE(p.en_name, '') as province_en_name,
-             reviewer.email as reviewer_email, reviewer.callsign as reviewer_callsign
-      FROM park_applications pa
-      JOIN users u ON pa.applicant_id = u.id
-      LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
-      LEFT JOIN users reviewer ON pa.pota_synced_by = reviewer.id
-      WHERE pa.id = $1
-      `,
-      [newApplication.id]
-    );
-
+    // 通知审核员
     await notifyReviewersOnNewApplication(newApplication.id, park_name);
 
-    return fullApplication.rows[0];
+    return fullApplication;
   });
 };
 
