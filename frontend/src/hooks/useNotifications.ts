@@ -72,28 +72,28 @@ export const useNotifications = (filters: {
     setError(err instanceof Error ? err.message : '获取通知列表失败');
   };
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
 
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
-        const params = buildQueryParams(filters);
-        const response = await fetchApi<{ notifications: Notification[]; pagination: Pagination }>(
-          `/api/notifications?${params.toString()}`
-        );
-        handleFetchSuccess(response, setNotifications, setPagination);
-      } catch (err) {
-        handleFetchError(err, setError);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNotifications();
+    try {
+      const params = buildQueryParams(filters);
+      const response = await fetchApi<{ notifications: Notification[]; pagination: Pagination }>(
+        `/api/notifications?${params.toString()}`
+      );
+      handleFetchSuccess(response, setNotifications, setPagination);
+    } catch (err) {
+      handleFetchError(err, setError);
+    } finally {
+      setLoading(false);
+    }
   }, [user, filters]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return { notifications, loading, error, pagination, refetch: fetchNotifications };
 };
