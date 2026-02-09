@@ -19,7 +19,7 @@ import {
   TextField,
   Alert,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '../services/apiClient';
 import { usePermission } from '../hooks/usePermission';
 
@@ -46,7 +46,7 @@ export const GlobalNotificationManager = () => {
   });
   const [withdrawReason, setWithdrawReason] = useState('');
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (hasPermission !== true) return;
     setLoading(true);
     setError(null);
@@ -61,11 +61,11 @@ export const GlobalNotificationManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasPermission]);
 
   useEffect(() => {
     fetchNotifications();
-  }, [hasPermission]);
+  }, [fetchNotifications]);
 
   if (hasPermission === null) {
     return (
