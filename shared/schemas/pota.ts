@@ -7,6 +7,8 @@ export const PotaStatusSchema = z.object({
   willExpireSoon: z.boolean().optional(),
 });
 
+export type PotaStatus = z.infer<typeof PotaStatusSchema>;
+
 export const PotaStatusDataSchema = PotaStatusSchema;
 
 export const PotaAuthInitDataSchema = z.object({
