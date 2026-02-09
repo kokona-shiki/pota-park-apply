@@ -36,14 +36,22 @@ export const getAccessTokenExpiresIn = (role: string): string => {
   return highPrivilegeRoles.has(role) ? '5m' : '30m';
 };
 
-export const generateAccessToken = (payload: any): string => {
+export interface JwtPayload {
+  id: number;
+  email: string;
+  role: string;
+  hasPotaImportPermission?: boolean;
+  hasReviewPermission?: boolean;
+}
+
+export const generateAccessToken = (payload: JwtPayload): string => {
   const expiresIn = getAccessTokenExpiresIn(payload?.role);
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 };
 
-export const verifyToken = (token: string): any => {
+export const verifyToken = (token: string): JwtPayload => {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET) as JwtPayload;
   } catch (_error) {
     throw new Error('无效的令牌');
   }

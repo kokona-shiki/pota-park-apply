@@ -24,8 +24,8 @@ interface ErrorInfo {
   status?: number;
   code?: string;
   message?: string;
-  data?: any;
-  details?: any;
+  data?: unknown;
+  details?: unknown;
   stack?: string;
 }
 
@@ -33,9 +33,9 @@ interface ErrorInfo {
 interface LogOptions {
   level: LogLevel;
   message: string;
-  error?: any;
-  metadata?: any;
-  request?: any;
+  error?: unknown;
+  metadata?: unknown;
+  request?: unknown;
 }
 
 /**
@@ -69,7 +69,7 @@ export function log({ level, message, error, metadata, request }: LogOptions): v
 /**
  * 发送成功响应
  */
-export function sendOk(res: Response, data: any = null, message: string = 'ok'): Response {
+export function sendOk(res: Response, data: unknown = null, message: string = 'ok'): Response {
   return res.json({ code: 0, message, data });
 }
 
@@ -80,7 +80,7 @@ export function sendBizError(
   res: Response,
   code: string = 'BUSINESS_ERROR',
   message: string = '请求失败',
-  data: any = null
+  data: unknown = null
 ): Response {
   return res.json({ code, message, data });
 }
@@ -93,7 +93,7 @@ export function sendHttpError(
   status: number = 400,
   code: string = 'REQUEST_ERROR',
   message: string = '请求失败',
-  data: any = null
+  data: unknown = null
 ): Response {
   return res.status(status).json({ code, message, data });
 }
@@ -128,7 +128,7 @@ function defaultHttpMessage(status: number): string {
  * - >=500：保留 HTTP 状态码（服务端错误）
  * - 其他：一律 HTTP 200，使用 code!=0 表达业务错误
  */
-export function sendError(res: Response, err: any, options: ErrorOptions = {}): Response {
+export function sendError(res: Response, err: unknown, options: ErrorOptions = {}): Response {
   const {
     bizCode = 'BUSINESS_ERROR',
     bizMessage = '请求失败',
@@ -168,21 +168,27 @@ export function sendError(res: Response, err: any, options: ErrorOptions = {}): 
 /**
  * 提取错误信息
  */
-function extractErrorInfo(err: any): ErrorInfo {
+function extractErrorInfo(err: unknown): ErrorInfo {
+  const error = err as Error & {
+    status?: number;
+    code?: string;
+    data?: unknown;
+    details?: unknown;
+  };
   return {
-    status: err?.status,
-    code: err?.code,
-    message: err?.message,
-    data: err?.data ?? null,
-    details: err?.details ?? null,
-    stack: err?.stack,
+    status: error?.status,
+    code: error?.code,
+    message: error?.message,
+    data: error?.data ?? null,
+    details: error?.details ?? null,
+    stack: error?.stack,
   };
 }
 
 /**
  * 构建响应数据
  */
-function buildResponseData(errorInfo: ErrorInfo): any {
+function buildResponseData(errorInfo: ErrorInfo): unknown {
   return errorInfo.details ? { details: errorInfo.details } : errorInfo.data;
 }
 
@@ -207,7 +213,7 @@ function handleAuthError(
   res: Response,
   errorInfo: ErrorInfo,
   options: { httpCode?: string; httpMessage?: string },
-  responseData: any
+  responseData: unknown
 ): Response {
   const { status, code, message } = errorInfo;
   const { httpCode, httpMessage } = options;
@@ -229,7 +235,7 @@ function handleServerError(
   res: Response,
   errorInfo: ErrorInfo,
   options: { httpCode?: string; httpMessage?: string },
-  responseData: any
+  responseData: unknown
 ): Response {
   const { status, code, message } = errorInfo;
   const { httpCode, httpMessage } = options;
@@ -251,7 +257,7 @@ function handleBusinessError(
   res: Response,
   errorInfo: ErrorInfo,
   options: { bizCode: string; bizMessage: string },
-  responseData: any
+  responseData: unknown
 ): Response {
   const { code, message } = errorInfo;
   const { bizCode, bizMessage } = options;
@@ -262,7 +268,7 @@ function handleBusinessError(
 /**
  * 全局错误处理中间件
  */
-export function errorHandler(err: any, req: any, res: Response, next: any): void {
+export function errorHandler(err: unknown, req: unknown, res: Response, _next: unknown): void {
   sendError(res, err, {
     logLevel: LogLevel.ERROR,
     logMessage: '全局错误处理',
