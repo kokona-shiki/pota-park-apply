@@ -32,6 +32,29 @@ const shouldSkipAuth = (url: string) => {
   return isAuthRequest(url) || isRefreshRequest(url) || isLogoutRequest(url) || isPublicRequest(url);
 };
 
+interface SuccessResponse {
+  code: number;
+  data: unknown;
+  pagination?: unknown;
+}
+
+const isSuccessResponse = (payload: unknown): payload is SuccessResponse => {
+  return typeof payload === 'object' && payload !== null && 'code' in payload && (payload as { code?: unknown }).code === 0;
+};
+
+const createBusinessError = (res: unknown, payload: { code?: number; message?: string }): Error => {
+  const bizRes = { ...res, data: { ...payload, error: payload.message } };
+  const bizErr: Error & {
+    isBusinessError?: boolean;
+    code?: number;
+    response?: typeof res;
+  } = new Error(payload?.message || '业务错误');
+  bizErr.isBusinessError = true;
+  bizErr.code = payload.code;
+  bizErr.response = bizRes;
+  return bizErr;
+};
+
 const handleResponseSuccess = (res: unknown) => {
   const payload = res as {
     code?: number;
@@ -40,27 +63,45 @@ const handleResponseSuccess = (res: unknown) => {
     pagination?: unknown;
     [key: string]: unknown;
   };
+  
   if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
-    if (payload.code === 0) {
+    if (isSuccessResponse(payload)) {
       if (payload.data && typeof payload.data === 'object' && 'pagination' in payload.data) {
         return { ...res, data: payload };
       }
       return { ...res, data: payload.data };
     }
 
-    const bizRes = { ...res, data: { ...payload, error: payload.message } };
-    const bizErr: Error & {
-      isBusinessError?: boolean;
-      code?: number;
-      response?: typeof res;
-    } = new Error(payload?.message || '业务错误');
-    bizErr.isBusinessError = true;
-    bizErr.code = payload.code;
-    bizErr.response = bizRes;
-    return Promise.reject(bizErr);
+    return Promise.reject(createBusinessError(res, payload));
   }
 
   return res;
+};
+
+const shouldHandleAuthError = (status: number | undefined, url: string): boolean => {
+  return status === 401 && !shouldSkipAuth(url);
+};
+
+const handleTokenRefreshFailure = (
+  locationRef: React.MutableRefObject<Location>,
+  logout: () => void,
+  navigate: ReturnType<typeof useNavigate>
+): void => {
+  const from = locationRef.current;
+  if (from.pathname !== '/login' && from.pathname !== '/register') {
+    localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
+  }
+  logout();
+  navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
+};
+
+const updateAuthHeader = (request: { headers?: Record<string, string> }, token: string | null): void => {
+  if (token) {
+    request.headers = {
+      ...(request.headers || {}),
+      Authorization: `Bearer ${token}`,
+    };
+  }
 };
 
 const handleResponseError = (
@@ -73,7 +114,7 @@ const handleResponseError = (
   const status = (err as { response?: { status?: number } })?.response?.status;
   const url = String((err as { config?: { url?: string } })?.config?.url || '');
 
-  if (status !== 401 || shouldSkipAuth(url)) {
+  if (!shouldHandleAuthError(status, url)) {
     return Promise.reject(err);
   }
 
@@ -82,13 +123,9 @@ const handleResponseError = (
     __retried?: boolean;
     headers?: Record<string, string>;
   } = (err as { config?: { [key: string]: unknown } })?.config || {};
+  
   if (originalRequest.__retried) {
-    const from = locationRef.current;
-    if (from.pathname !== '/login' && from.pathname !== '/register') {
-      localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
-    }
-    logout();
-    navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
+    handleTokenRefreshFailure(locationRef, logout, navigate);
     return Promise.reject(err);
   }
 
@@ -96,21 +133,11 @@ const handleResponseError = (
 
   return ensureValidAccessToken({ forceRefresh: true })
     .then((token) => {
-      if (token) {
-        originalRequest.headers = {
-          ...(originalRequest.headers || {}),
-          Authorization: `Bearer ${token}`,
-        };
-      }
+      updateAuthHeader(originalRequest, token);
       return apiClient(originalRequest);
     })
     .catch((refreshErr) => {
-      const from = locationRef.current;
-      if (from.pathname !== '/login' && from.pathname !== '/register') {
-        localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
-      }
-      logout();
-      navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
+      handleTokenRefreshFailure(locationRef, logout, navigate);
       return Promise.reject(refreshErr);
     });
 };
@@ -133,6 +160,24 @@ export function useAuthInterceptors({
   }, []);
 
   useEffect(() => {
+    const addAuthHeader = (config: { headers?: Record<string, string> }, token: string) => {
+      config.headers = {
+        ...(config.headers || {}),
+        Authorization: `Bearer ${token}`,
+      };
+    };
+
+    const handleTokenRefresh = async (config: { headers?: Record<string, string> }) => {
+      try {
+        const newToken = await ensureValidAccessToken();
+        if (newToken) {
+          addAuthHeader(config, newToken);
+        }
+      } catch (err) {
+        console.error('Token refresh failed:', err);
+      }
+    };
+
     const requestInterceptor = apiClient.interceptors.request.use(async (config) => {
       const url = String((config as { url?: string })?.url || '');
 
@@ -142,25 +187,11 @@ export function useAuthInterceptors({
 
       const token = getCurrentAccessToken();
       if (token && isTokenFresh(token)) {
-        (config.headers as Record<string, string>) = {
-          ...(config.headers as Record<string, string>),
-          Authorization: `Bearer ${token}`,
-        };
+        addAuthHeader(config, token);
         return config;
       }
 
-      try {
-        const newToken = await ensureValidAccessToken();
-        if (newToken) {
-          (config.headers as Record<string, string>) = {
-            ...(config.headers as Record<string, string>),
-            Authorization: `Bearer ${newToken}`,
-          };
-        }
-      } catch (err) {
-        console.error('Token refresh failed:', err);
-      }
-
+      await handleTokenRefresh(config);
       return config;
     });
 
