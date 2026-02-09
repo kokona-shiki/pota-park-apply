@@ -58,6 +58,55 @@ const POISelector: React.FC<POISelectorProps> = ({
   error,
   setError,
 }) => {
+  // 处理 POTA 公园选中
+  const handlePotaParkSelect = (poi: MapPOI, parkInfo: PotaParkInfo) => {
+    const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
+    setProvince(provinceCode);
+    
+    // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
+    if (setProvinces && (!provinces || provinces.length <= 1)) {
+      setProvinces([provinceCode]);
+    }
+    
+    setParkName(parkInfo.name);
+    setParkType(parkInfo.parktypeDesc);
+    setWebsite(parkInfo.website || '');
+    setAccessMethods(
+      parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']
+    );
+    setActivationMethods(
+      parkInfo.activationMethods
+        ? mapActivationMethods(parkInfo.activationMethods)
+        : ['步行', '车载', '其他']
+    );
+    setIsPotaPark(true);
+  };
+
+  // 处理普通地图 POI 选中
+  const handleMapPOISelect = (poi: MapPOI) => {
+    // 地图 POI，解析省份和城市
+    const isoProvinceCode = getProvinceCodeFromNames(poi.province);
+    // 将 ISO-3166 格式转换为省份代码格式（如 '11'）
+    const provinceCode = mapLocationToProvince(isoProvinceCode);
+    
+    if (provinceCode) {
+      // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
+      // setProvince 设置默认值供用户参考，但不覆盖已选择的省份数组
+      setProvince(provinceCode);
+      if (setProvinces && (!provinces || provinces.length <= 1)) {
+        setProvinces([provinceCode]);
+      }
+    }
+
+    // 格式化公园名称: <省份><城市><名称>
+    const formattedName = poi.city 
+      ? `${poi.province}${poi.city}${poi.name}`
+      : `${poi.province}${poi.name}`;
+    
+    setParkName(formattedName);
+    setIsPotaPark(false);
+  };
+
   // 处理 POI 选中
   const handlePOISelect = (poi: MapPOI) => {
     setSelectedPOIId(poi.id);
@@ -67,49 +116,9 @@ const POISelector: React.FC<POISelectorProps> = ({
     // 如果是 POTA 公园，填充详细信息
     const parkInfo = potaParks.get(poi.id);
     if (parkInfo) {
-      const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
-      setProvince(provinceCode);
-      // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
-      // 如果省份选框已经大于一个省份，则不替换
-      if (setProvinces && (!provinces || provinces.length <= 1)) {
-        setProvinces([provinceCode]);
-      }
-      setParkName(parkInfo.name);
-      setParkType(parkInfo.parktypeDesc);
-      setWebsite(parkInfo.website || '');
-      setAccessMethods(
-        parkInfo.accessMethods ? mapAccessMethods(parkInfo.accessMethods) : ['汽车', '步行', '其他']
-      );
-      setActivationMethods(
-        parkInfo.activationMethods
-          ? mapActivationMethods(parkInfo.activationMethods)
-          : ['步行', '车载', '其他']
-      );
-      setIsPotaPark(true);
+      handlePotaParkSelect(poi, parkInfo);
     } else {
-      // 地图 POI，解析省份和城市
-      const isoProvinceCode = getProvinceCodeFromNames(poi.province);
-      // 将 ISO-3166 格式转换为省份代码格式（如 '11'）
-      const provinceCode = mapLocationToProvince(isoProvinceCode);
-      if (provinceCode) {
-        // 如果省份选框中没有省份或者只有一个省份，则使用 POI 对应省份替换选框中的省份
-        // 如果省份选框已经大于一个省份，则不替换
-        // setProvince 设置默认值供用户参考，但不覆盖已选择的省份数组
-        setProvince(provinceCode);
-        if (setProvinces && (!provinces || provinces.length <= 1)) {
-          setProvinces([provinceCode]);
-        }
-      }
-
-      // 格式化公园名称: <省份><城市><名称>
-      let formattedName: string;
-      if (poi.city) {
-        formattedName = `${poi.province}${poi.city}${poi.name}`;
-      } else {
-        formattedName = `${poi.province}${poi.name}`;
-      }
-      setParkName(formattedName);
-      setIsPotaPark(false);
+      handleMapPOISelect(poi);
     }
   };
 
