@@ -1,6 +1,6 @@
 import { query, getMany } from '../config/database.js';
 import { format, toZonedTime } from 'date-fns-tz';
-import { create, Element } from 'xmlbuilder2';
+import { create } from 'xmlbuilder2';
 import AdmZip from 'adm-zip';
 import { writeToString } from 'fast-csv';
 import regionMapping from '../../shared/region.json';
@@ -211,7 +211,12 @@ const getParkPotaInfo = (park: ParkExportData) => {
 };
 
 // 添加公园数据到 KML
-const addParkToKML = (folder: Element, park: ParkExportData) => {
+interface XmlBuilderElement {
+  ele: (name: string, attributes?: Record<string, string>) => XmlBuilderElement;
+  txt: (text: string) => XmlBuilderElement;
+}
+
+const addParkToKML = (folder: XmlBuilderElement, park: ParkExportData) => {
   const placemark = folder.ele('Placemark');
   placemark.ele('name').txt(park.park_name);
   placemark.ele('Point').ele('coordinates').txt(`${park.longitude},${park.latitude},0`);
@@ -224,7 +229,7 @@ const addParkToKML = (folder: Element, park: ParkExportData) => {
   addPotaInfoToKML(extendedData, park);
 };
 
-const addBasicInfoToKML = (extendedData: Element, park: ParkExportData) => {
+const addBasicInfoToKML = (extendedData: XmlBuilderElement, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'parkId' }).txt(park.id.toString());
   extendedData.ele('Data', { name: 'parkName' }).txt(park.park_name);
   extendedData.ele('Data', { name: 'parkType' }).txt(formatParkType(park.park_type));
@@ -233,24 +238,24 @@ const addBasicInfoToKML = (extendedData: Element, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'website' }).txt(park.website || '');
 };
 
-const addLocationInfoToKML = (extendedData: Element, park: ParkExportData) => {
+const addLocationInfoToKML = (extendedData: XmlBuilderElement, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'coordinates' }).txt(`${park.latitude},${park.longitude}`);
   extendedData.ele('Data', { name: 'accessMethods' }).txt(formatAccessMethods(park.access_methods));
   extendedData.ele('Data', { name: 'activationMethods' }).txt(formatActivationMethods(park.activation_methods));
 };
 
-const addApplicantInfoToKML = (extendedData: Element, park: ParkExportData) => {
+const addApplicantInfoToKML = (extendedData: XmlBuilderElement, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'applicantId' }).txt(park.applicant_id.toString());
   extendedData.ele('Data', { name: 'applicantCallsign' }).txt(park.applicant_callsign || '');
   extendedData.ele('Data', { name: 'applicantEmail' }).txt(park.applicant_email || '');
 };
 
-const addStatusInfoToKML = (extendedData: Element, park: ParkExportData) => {
+const addStatusInfoToKML = (extendedData: XmlBuilderElement, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'createdAt' }).txt(formatTimeToUTC8(park.created_at) || '');
   extendedData.ele('Data', { name: 'status' }).txt(STATUS_MAP[park.status] || park.status);
 };
 
-const addPotaInfoToKML = (extendedData: Element, park: ParkExportData) => {
+const addPotaInfoToKML = (extendedData: XmlBuilderElement, park: ParkExportData) => {
   extendedData.ele('Data', { name: 'potaSyncedAt' }).txt(formatTimeToUTC8(park.pota_synced_at) || '');
   extendedData.ele('Data', { name: 'potaSyncedById' }).txt(park.pota_synced_by?.toString() || '');
   extendedData.ele('Data', { name: 'potaSyncedByCallsign' }).txt(park.pota_synced_by_callsign || '');

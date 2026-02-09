@@ -12,7 +12,7 @@ import {
 const router = express.Router();
 
 // 解析通知列表查询参数
-const parseNotificationListFilters = (query: express.RequestQuery) => {
+const parseNotificationListFilters = (query: express.Request['query']) => {
   const { type, isRead, page, pageSize } = query;
   const filters: {
     type?: string;

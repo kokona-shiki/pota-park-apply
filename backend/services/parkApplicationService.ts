@@ -269,7 +269,7 @@ async function createParkApplication(
     ]
   );
 
-  const newApplication = application.rows[0];
+  const newApplication = application.rows[0] as { id: number };
 
   // 记录审核日志
   await client.query(

@@ -251,7 +251,7 @@ export const rotateRefreshToken = async (refreshTokenPlain, { userAgent = null, 
   });
 
   return {
-    status: 'ok',
+    status: 'valid',
     user,
     refreshToken: newRefreshToken,
     familyId: tokenRow.family_id,

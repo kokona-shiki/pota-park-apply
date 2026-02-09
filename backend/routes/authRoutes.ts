@@ -306,7 +306,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
       ip: req.ip || null,
     });
 
-    return await handleRefreshTokenResult(req, res, result);
+    return await handleRefreshTokenResult(req, res, result as RefreshTokenResult);
   } catch (error) {
     console.error('刷新 token 失败:', error);
     return sendError(res, error, { httpMessage: '刷新 token 失败' });

@@ -720,7 +720,7 @@ class PotaAuthService {
 
     // 如果仍然没有，等待一下再试
     if (!csrfToken) {
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000));
       csrfToken = await this.getCsrfTokenFromCookies(page);
     }
 
@@ -841,7 +841,7 @@ class PotaAuthService {
         console.log('通过轮询检测到 URL 变化:', currentUrl);
         return currentUrl;
       }
-      await page.waitForTimeout(checkInterval);
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
       waited += checkInterval;
     }
 

@@ -133,19 +133,21 @@ const buildWhereClause = (
     whereClause = 'WHERE ';
     
     // 添加日期范围过滤
-    const { dateClause, dateParams, newParamIndex } = buildDateClause(startDate, endDate, paramIndex);
+    const { dateClause, dateParams, newParamIndex } = buildDateClause(paramIndex, startDate, endDate);
     whereClause += dateClause;
     params.push(...dateParams);
     paramIndex = newParamIndex;
 
     // 添加操作类型过滤
-    const { typeClause, typeParams, updatedParamIndex } = buildOperationTypeClause(operationType, startDate || endDate, paramIndex);
+    const hasDateFilter = !!startDate || !!endDate;
+    const { typeClause, typeParams, updatedParamIndex } = buildOperationTypeClause(paramIndex, operationType, hasDateFilter);
     whereClause += typeClause;
     params.push(...typeParams);
     paramIndex = updatedParamIndex;
 
     // 添加搜索过滤
-    const { searchClause, searchParams, finalParamIndex } = buildSearchClause(search, startDate || endDate || operationType, paramIndex);
+    const hasOtherFilters = hasDateFilter || !!operationType;
+    const { searchClause, searchParams, finalParamIndex } = buildSearchClause(paramIndex, search, hasOtherFilters);
     whereClause += searchClause;
     params.push(...searchParams);
     paramIndex = finalParamIndex;
@@ -158,9 +160,9 @@ const buildWhereClause = (
  * 构建日期范围过滤子句
  */
 const buildDateClause = (
+  paramIndex: number,
   startDate?: string,
-  endDate?: string,
-  paramIndex: number
+  endDate?: string
 ) => {
   let clause = '';
   const params: Array<string | number> = [];
@@ -188,9 +190,9 @@ const buildDateClause = (
  * 构建操作类型过滤子句
  */
 const buildOperationTypeClause = (
+  paramIndex: number,
   operationType?: string,
-  hasDateFilter: boolean,
-  paramIndex: number
+  hasDateFilter: boolean = false
 ) => {
   let clause = '';
   const params: Array<string | number> = [];
@@ -210,9 +212,9 @@ const buildOperationTypeClause = (
  * 构建搜索过滤子句
  */
 const buildSearchClause = (
+  paramIndex: number,
   search?: string,
-  hasOtherFilters: boolean,
-  paramIndex: number
+  hasOtherFilters: boolean = false
 ) => {
   let clause = '';
   const params: Array<string | number> = [];
