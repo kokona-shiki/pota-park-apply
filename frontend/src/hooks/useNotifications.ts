@@ -38,6 +38,40 @@ export const useNotifications = (filters: {
     totalPages: 0,
   });
 
+  const buildQueryParams = (filters: {
+    type?: string;
+    isRead?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): URLSearchParams => {
+    const params = new URLSearchParams();
+    if (filters.type) params.append('type', filters.type);
+    if (filters.isRead !== undefined) params.append('isRead', String(filters.isRead));
+    if (filters.page) params.append('page', String(filters.page));
+    if (filters.pageSize) params.append('pageSize', String(filters.pageSize));
+    return params;
+  };
+
+  const handleFetchSuccess = (
+    response: { data?: { notifications?: Notification[]; pagination?: Pagination } },
+    setNotifications: (notifications: Notification[]) => void,
+    setPagination: (pagination: Pagination) => void
+  ) => {
+    if (response.data?.notifications) {
+      setNotifications(response.data.notifications);
+      if (response.data.pagination) {
+        setPagination(response.data.pagination);
+      }
+    }
+  };
+
+  const handleFetchError = (
+    err: unknown,
+    setError: (error: string | null) => void
+  ) => {
+    setError(err instanceof Error ? err.message : '获取通知列表失败');
+  };
+
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!user) return;
@@ -46,32 +80,22 @@ export const useNotifications = (filters: {
       setError(null);
 
       try {
-        const params = new URLSearchParams();
-        if (filters.type) params.append('type', filters.type);
-        if (filters.isRead !== undefined) params.append('isRead', String(filters.isRead));
-        if (filters.page) params.append('page', String(filters.page));
-        if (filters.pageSize) params.append('pageSize', String(filters.pageSize));
-
+        const params = buildQueryParams(filters);
         const response = await fetchApi<{ notifications: Notification[]; pagination: Pagination }>(
           `/api/notifications?${params.toString()}`
         );
-        if (response.data?.notifications) {
-          setNotifications(response.data.notifications);
-          if (response.data.pagination) {
-            setPagination(response.data.pagination);
-          }
-        }
+        handleFetchSuccess(response, setNotifications, setPagination);
       } catch (err) {
-        setError(err instanceof Error ? err.message : '获取通知列表失败');
+        handleFetchError(err, setError);
       } finally {
         setLoading(false);
       }
     };
 
     fetchNotifications();
-  }, [user, JSON.stringify(filters)]);
+  }, [user, filters]);
 
-  return { notifications, loading, error, pagination, refetch: () => {} };
+  return { notifications, loading, error, pagination, refetch: fetchNotifications };
 };
 
 export const useUnreadNotifications = () => {
@@ -118,7 +142,7 @@ export const useUnreadNotifications = () => {
     // 无论 user 是否变化，都设置定期轮询
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
-  }, [user, fetchUnreadCount]);
+  }, [fetchUnreadCount, user]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };

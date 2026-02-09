@@ -81,8 +81,8 @@ export const GlobalNotificationEditor = () => {
       setDescription('');
       setLinkUrl('');
       setScheduledAt('');
-    } catch (err: any) {
-      setError(err.message || '操作失败');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '操作失败');
     } finally {
       setLoading(false);
     }

@@ -45,9 +45,14 @@ export type ApiErrorLike = {
 
 export function getApiErrorMessage(err: unknown, fallback = '请求失败') {
   const e = err as ApiErrorLike;
-  const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
+  const msg = extractMessageFromError(e);
   if (typeof msg === 'string' && msg.trim()) return msg;
   return fallback;
+}
+
+function extractMessageFromError(e: ApiErrorLike | undefined): unknown {
+  if (!e) return undefined;
+  return e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
 }
 
 export type ApiErrorDetails = {

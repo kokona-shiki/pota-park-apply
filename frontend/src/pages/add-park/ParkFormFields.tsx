@@ -2,12 +2,11 @@
 import { Box, TextField, FormControl, InputLabel, Autocomplete, Select, MenuItem, Chip, Checkbox, FormControlLabel, Typography } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import Pinyin from 'pinyin-match';
-import type { ParkTypeOption } from './types';
+import type { ParkTypeOption, Province } from './types';
 
 interface ParkFormFieldsProps {
   parkName: string;
   parkType: string;
-  province: string;
   provinces: string[];
   latitude: string;
   longitude: string;
@@ -17,6 +16,7 @@ interface ParkFormFieldsProps {
   confirmed: boolean;
   isPotaPark: boolean;
   PARK_TYPE_OPTIONS: ParkTypeOption[];
+  provincesOptions: Province[];
   onParkNameChange: (value: string) => void;
   onParkTypeChange: (value: string) => void;
   onProvinceChange: (value: string) => void;
@@ -32,7 +32,6 @@ interface ParkFormFieldsProps {
 function ParkFormFields({
   parkName,
   parkType,
-  province,
   provinces,
   latitude,
   longitude,
@@ -42,6 +41,7 @@ function ParkFormFields({
   confirmed,
   isPotaPark,
   PARK_TYPE_OPTIONS,
+  provincesOptions,
   onParkNameChange,
   onParkTypeChange,
   onProvinceChange,
@@ -104,6 +104,7 @@ function ParkFormFields({
                     return;
                   }
                 } catch {
+                // eslint-disable-next-line no-empty
                 }
 
                 if (en.toLowerCase().includes(inputValue.toLowerCase())) {
@@ -133,8 +134,8 @@ function ParkFormFields({
           <Autocomplete
             disablePortal
             multiple
-            options={provinces}
-            value={provinces.filter((p) => province.includes(p))}
+            options={provincesOptions}
+            value={provincesOptions.filter((p) => provinces.includes(p.code))}
             onChange={(_, newValue) => {
               const codes = newValue.map((p) => p.code);
               onProvinceChange(codes.length > 0 ? codes[0] : '');
