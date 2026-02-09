@@ -1,5 +1,6 @@
 // src/pages/Register/RegisterForm.tsx
 import { Button } from '@mui/material';
+import FormFields from './FormFields';
 
 interface RegisterFormData {
   callsign: string;
@@ -42,12 +43,36 @@ function RegisterFormData({
   onSendCode,
   onClearCallsign,
 }: RegisterFormData) {
-  const canSubmit = callsign.trim().length > 0 && email.trim().length > 0 && password.trim().length >= 8 && verificationCode.length === 6 && captchaCode.length > 0;
-
   const stripBlankChars = (v: string) => v.replace(/\s+/g, '');
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === ' ') e.preventDefault();
+  };
+
+  const handleCallsignChange = (value: string) => {
+    onCallsignChange(stripBlankChars(value));
+  };
+
+  const handlePasswordChange = (value: string) => {
+    const next = stripBlankChars(value);
+    onPasswordChange(next);
+    if (next.length === 0) onTogglePassword();
+  };
+
+  const canSubmit = () => {
+    return callsign.trim().length > 0 && 
+           email.trim().length > 0 && 
+           password.trim().length >= 8 && 
+           verificationCode.length === 6 && 
+           captchaCode.length > 0;
+  };
+
+  const canSendCode = () => {
+    return !sendingCode && email && captchaCode && cooldown === 0;
+  };
+
+  const getSendCodeButtonText = () => {
+    return sendingCode ? '发送中...' : `发送验证码${cooldown > 0 ? ` (${cooldown}s)` : ''}`;
   };
 
   return (
@@ -63,13 +88,9 @@ function RegisterFormData({
         sendingCode={sendingCode}
         submitting={submitting}
         onKeyDown={handleKeyDown}
-        onCallsignChange={(value) => onCallsignChange(stripBlankChars(value))}
+        onCallsignChange={handleCallsignChange}
         onEmailChange={onEmailChange}
-        onPasswordChange={(value) => {
-          const next = stripBlankChars(value);
-          onPasswordChange(next);
-          if (next.length === 0) onTogglePassword();
-        }}
+        onPasswordChange={handlePasswordChange}
         onTogglePassword={onTogglePassword}
         onVerificationCodeChange={onVerificationCodeChange}
         onCaptchaCodeChange={onCaptchaCodeChange}
@@ -79,16 +100,16 @@ function RegisterFormData({
         variant="outlined"
         fullWidth
         onClick={onSendCode}
-        disabled={sendingCode || !email || !captchaCode || cooldown > 0}
+        disabled={!canSendCode()}
         sx={{ mt: 2 }}
       >
-        {sendingCode ? '发送中...' : `发送验证码${cooldown > 0 ? ` (${cooldown}s)` : ''}`}
+        {getSendCodeButtonText()}
       </Button>
       <Button
         type="submit"
         variant="contained"
         fullWidth
-        disabled={!canSubmit || submitting}
+        disabled={!canSubmit() || submitting}
         sx={{ mt: 2 }}
       >
         {submitting ? '注册中...' : '注册'}
