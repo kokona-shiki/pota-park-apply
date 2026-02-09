@@ -26,6 +26,121 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5432'),
 });
 
+// 获取当前数据量
+async function getCurrentDataCounts(client) {
+  const parkCountResult = await client.query(`SELECT COUNT(*) as count FROM park_applications`);
+  const parkCount = parseInt(parkCountResult.rows[0].count);
+
+  const unprocessedCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_unprocessed_parks`);
+  const unprocessedCount = parseInt(unprocessedCountResult.rows[0].count);
+
+  const syncLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_sync_logs`);
+  const syncLogsCount = parseInt(syncLogsCountResult.rows[0].count);
+
+  const reviewRemindersCountResult = await client.query(`SELECT COUNT(*) as count FROM review_reminders`);
+  const reviewRemindersCount = parseInt(reviewRemindersCountResult.rows[0].count);
+
+  const auditLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM application_audit_logs`);
+  const auditLogsCount = parseInt(auditLogsCountResult.rows[0].count);
+
+  return {
+    parkCount,
+    unprocessedCount,
+    syncLogsCount,
+    reviewRemindersCount,
+    auditLogsCount
+  };
+}
+
+// 确认删除操作
+async function confirmDeletion() {
+  const readline = await import('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const answer = await new Promise((resolve) => {
+    rl.question('请输入 "DELETE_ALL_PARKS" 以确认删除所有公园数据: ', (input) => {
+      resolve(input.trim());
+      rl.close();
+    });
+  });
+
+  if (answer !== 'DELETE_ALL_PARKS') {
+    console.log('❌ 输入不匹配，取消删除操作。');
+    await pool.end();
+    process.exit(1);
+  }
+}
+
+// 删除数据
+async function deleteData(client, counts) {
+  // 删除审核提醒（外键关联到 park_applications）
+  if (counts.reviewRemindersCount > 0) {
+    console.log('   正在删除审核提醒...');
+    const deleteRemindersResult = await client.query(
+      'DELETE FROM review_reminders WHERE application_id IN (SELECT id FROM park_applications) RETURNING id'
+    );
+    console.log(`   ✅ 删除了 ${deleteRemindersResult.rows.length} 条审核提醒`);
+  }
+
+  // 删除审核日志（外键关联到 park_applications）
+  if (counts.auditLogsCount > 0) {
+    console.log('   正在删除审核日志...');
+    const deleteAuditResult = await client.query(
+      'DELETE FROM application_audit_logs WHERE application_id IN (SELECT id FROM park_applications) RETURNING id'
+    );
+    console.log(`   ✅ 删除了 ${deleteAuditResult.rows.length} 条审核日志`);
+  }
+
+  // 删除公园申请
+  if (counts.parkCount > 0) {
+    console.log('   正在删除公园申请...');
+    const deleteResult = await client.query('DELETE FROM park_applications RETURNING id');
+    console.log(`   ✅ 删除了 ${deleteResult.rows.length} 个公园申请`);
+  }
+
+  // 删除未处理的公园
+  if (counts.unprocessedCount > 0) {
+    console.log('   正在删除未处理的公园...');
+    const deleteUnprocessedResult = await client.query('DELETE FROM pota_unprocessed_parks RETURNING reference');
+    console.log(`   ✅ 删除了 ${deleteUnprocessedResult.rows.length} 个未处理的公园`);
+  }
+
+  // 删除 POTA 同步日志
+  if (counts.syncLogsCount > 0) {
+    console.log('   正在删除 POTA 同步日志...');
+    const deleteSyncLogsResult = await client.query('DELETE FROM pota_sync_logs RETURNING id');
+    console.log(`   ✅ 删除了 ${deleteSyncLogsResult.rows.length} 条 POTA 同步日志`);
+  }
+}
+
+// 验证删除结果
+async function verifyDeletion(client) {
+  const verifyParkResult = await client.query('SELECT COUNT(*) as count FROM park_applications');
+  const verifyParkCount = parseInt(verifyParkResult.rows[0].count);
+
+  const verifyUnprocessedResult = await client.query('SELECT COUNT(*) as count FROM pota_unprocessed_parks');
+  const verifyUnprocessedCount = parseInt(verifyUnprocessedResult.rows[0].count);
+
+  const verifySyncLogsResult = await client.query('SELECT COUNT(*) as count FROM pota_sync_logs');
+  const verifySyncLogsCount = parseInt(verifySyncLogsResult.rows[0].count);
+
+  const verifyRemindersResult = await client.query('SELECT COUNT(*) as count FROM review_reminders');
+  const verifyRemindersCount = parseInt(verifyRemindersResult.rows[0].count);
+
+  const verifyAuditResult = await client.query('SELECT COUNT(*) as count FROM application_audit_logs');
+  const verifyAuditCount = parseInt(verifyAuditResult.rows[0].count);
+
+  console.log(`✅ 删除后剩余数据:`);
+  console.log(`   - 公园申请: ${verifyParkCount}`);
+  console.log(`   - 未处理的公园: ${verifyUnprocessedCount}`);
+  console.log(`   - POTA 同步日志: ${verifySyncLogsCount}`);
+  console.log(`   - 审核提醒: ${verifyRemindersCount}`);
+  console.log(`   - 审核日志: ${verifyAuditCount}`);
+}
+
 async function deleteAllParks() {
   console.log('⚠️  警告：此脚本将删除系统中的所有公园数据！');
   console.log('⚠️  此操作不可逆，请确认您了解后果。');
@@ -36,31 +151,17 @@ async function deleteAllParks() {
 
     // 先查询当前数据量
     console.log('🔍 正在获取当前数据量...');
-
-    const parkCountResult = await client.query(`SELECT COUNT(*) as count FROM park_applications`);
-    const parkCount = parseInt(parkCountResult.rows[0].count);
-
-    const unprocessedCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_unprocessed_parks`);
-    const unprocessedCount = parseInt(unprocessedCountResult.rows[0].count);
-
-    const syncLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_sync_logs`);
-    const syncLogsCount = parseInt(syncLogsCountResult.rows[0].count);
-
-    const reviewRemindersCountResult = await client.query(`SELECT COUNT(*) as count FROM review_reminders`);
-    const reviewRemindersCount = parseInt(reviewRemindersCountResult.rows[0].count);
-
-    const auditLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM application_audit_logs`);
-    const auditLogsCount = parseInt(auditLogsCountResult.rows[0].count);
+    const counts = await getCurrentDataCounts(client);
 
     console.log(`📊 当前系统中有:`);
-    console.log(`   - ${parkCount} 个公园申请`);
-    console.log(`   - ${unprocessedCount} 个未处理的公园`);
-    console.log(`   - ${syncLogsCount} 条 POTA 同步日志`);
-    console.log(`   - ${reviewRemindersCount} 条审核提醒`);
-    console.log(`   - ${auditLogsCount} 条审核日志`);
+    console.log(`   - ${counts.parkCount} 个公园申请`);
+    console.log(`   - ${counts.unprocessedCount} 个未处理的公园`);
+    console.log(`   - ${counts.syncLogsCount} 条 POTA 同步日志`);
+    console.log(`   - ${counts.reviewRemindersCount} 条审核提醒`);
+    console.log(`   - ${counts.auditLogsCount} 条审核日志`);
     console.log('');
 
-    if (parkCount === 0 && unprocessedCount === 0 && syncLogsCount === 0 && reviewRemindersCount === 0 && auditLogsCount === 0) {
+    if (counts.parkCount === 0 && counts.unprocessedCount === 0 && counts.syncLogsCount === 0 && counts.reviewRemindersCount === 0 && counts.auditLogsCount === 0) {
       console.log('✅ 系统中没有公园相关数据，无需删除。');
       client.release();
       await pool.end();
@@ -68,93 +169,19 @@ async function deleteAllParks() {
     }
 
     // 确认操作
-    const readline = await import('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    const answer = await new Promise((resolve) => {
-      rl.question('请输入 "DELETE_ALL_PARKS" 以确认删除所有公园数据: ', (input) => {
-        resolve(input.trim());
-        rl.close();
-      });
-    });
-
-    if (answer !== 'DELETE_ALL_PARKS') {
-      console.log('❌ 输入不匹配，取消删除操作。');
-      client.release();
-      await pool.end();
-      process.exit(1);
-    }
+    await confirmDeletion();
 
     console.log('');
     console.log('🗑️  开始删除数据...');
 
-    // 删除审核提醒（外键关联到 park_applications）
-    if (reviewRemindersCount > 0) {
-      console.log('   正在删除审核提醒...');
-      const deleteRemindersResult = await client.query(
-        'DELETE FROM review_reminders WHERE application_id IN (SELECT id FROM park_applications) RETURNING id'
-      );
-      console.log(`   ✅ 删除了 ${deleteRemindersResult.rows.length} 条审核提醒`);
-    }
-
-    // 删除审核日志（外键关联到 park_applications）
-    if (auditLogsCount > 0) {
-      console.log('   正在删除审核日志...');
-      const deleteAuditResult = await client.query(
-        'DELETE FROM application_audit_logs WHERE application_id IN (SELECT id FROM park_applications) RETURNING id'
-      );
-      console.log(`   ✅ 删除了 ${deleteAuditResult.rows.length} 条审核日志`);
-    }
-
-    // 删除公园申请
-    if (parkCount > 0) {
-      console.log('   正在删除公园申请...');
-      const deleteResult = await client.query('DELETE FROM park_applications RETURNING id');
-      console.log(`   ✅ 删除了 ${deleteResult.rows.length} 个公园申请`);
-    }
-
-    // 删除未处理的公园
-    if (unprocessedCount > 0) {
-      console.log('   正在删除未处理的公园...');
-      const deleteUnprocessedResult = await client.query('DELETE FROM pota_unprocessed_parks RETURNING reference');
-      console.log(`   ✅ 删除了 ${deleteUnprocessedResult.rows.length} 个未处理的公园`);
-    }
-
-    // 删除 POTA 同步日志
-    if (syncLogsCount > 0) {
-      console.log('   正在删除 POTA 同步日志...');
-      const deleteSyncLogsResult = await client.query('DELETE FROM pota_sync_logs RETURNING id');
-      console.log(`   ✅ 删除了 ${deleteSyncLogsResult.rows.length} 条 POTA 同步日志`);
-    }
+    // 删除数据
+    await deleteData(client, counts);
 
     console.log('');
     console.log('🔍 验证删除结果...');
 
     // 验证删除结果
-    const verifyParkResult = await client.query('SELECT COUNT(*) as count FROM park_applications');
-    const verifyParkCount = parseInt(verifyParkResult.rows[0].count);
-
-    const verifyUnprocessedResult = await client.query('SELECT COUNT(*) as count FROM pota_unprocessed_parks');
-    const verifyUnprocessedCount = parseInt(verifyUnprocessedResult.rows[0].count);
-
-    const verifySyncLogsResult = await client.query('SELECT COUNT(*) as count FROM pota_sync_logs');
-    const verifySyncLogsCount = parseInt(verifySyncLogsResult.rows[0].count);
-
-    const verifyRemindersResult = await client.query('SELECT COUNT(*) as count FROM review_reminders');
-    const verifyRemindersCount = parseInt(verifyRemindersResult.rows[0].count);
-
-    const verifyAuditResult = await client.query('SELECT COUNT(*) as count FROM application_audit_logs');
-    const verifyAuditCount = parseInt(verifyAuditResult.rows[0].count);
-
-    console.log(`✅ 删除后剩余数据:`);
-    console.log(`   - 公园申请: ${verifyParkCount}`);
-    console.log(`   - 未处理的公园: ${verifyUnprocessedCount}`);
-    console.log(`   - POTA 同步日志: ${verifySyncLogsCount}`);
-    console.log(`   - 审核提醒: ${verifyRemindersCount}`);
-    console.log(`   - 审核日志: ${verifyAuditCount}`);
+    await verifyDeletion(client);
 
     client.release();
     console.log('');

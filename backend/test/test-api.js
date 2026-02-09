@@ -40,99 +40,116 @@ async function testBasicEndpoints() {
   }
 }
 
+// 测试用户注册
+async function testUserRegistration() {
+  console.log('1. 测试用户注册...');
+  const registerResponse = await fetch(`${BASE_URL}/api/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'test@example.com',
+      callsign: 'BG0TEST',
+      password: 'test123456',
+    }),
+  });
+
+  if (registerResponse.ok) {
+    const registerData = await registerResponse.json();
+    console.log('✅ 用户注册成功:', {
+      message: registerData.message,
+      userId: registerData.user?.id,
+      role: registerData.user?.role,
+    });
+    return registerData.token;
+  } else {
+    const errorData = await registerResponse.json();
+    console.log('❌ 用户注册失败:', errorData);
+    return null;
+  }
+}
+
+// 测试用户登录
+async function testUserLogin() {
+  console.log('2. 测试用户登录...');
+  const loginResponse = await fetch(`${BASE_URL}/api/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      identifier: 'test@example.com',
+      password: 'test123456',
+    }),
+  });
+
+  if (loginResponse.ok) {
+    const loginData = await loginResponse.json();
+    console.log('✅ 用户登录成功:', {
+      message: loginData.message,
+      userId: loginData.user?.id,
+    });
+  }
+}
+
+// 测试获取用户信息
+async function testUserInfo(token) {
+  console.log('3. 测试获取用户信息...');
+  const userInfoResponse = await fetch(`${BASE_URL}/api/user-info`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (userInfoResponse.ok) {
+    const userInfoData = await userInfoResponse.json();
+    console.log('✅ 获取用户信息成功:', {
+      email: userInfoData.user?.email,
+      callsign: userInfoData.user?.callsign,
+      role: userInfoData.user?.role,
+    });
+  }
+}
+
+// 测试提交公园申请
+async function testParkApplication(token) {
+  console.log('4. 测试提交公园申请...');
+  const applicationResponse = await fetch(`${BASE_URL}/api/park-applications`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      park_name: '测试公园',
+      park_type: '测试类型',
+      provinces: ['CN-GD'], // 省份数组
+      latitude: 22.5211,
+      longitude: 113.3823,
+      access_methods: [{ zh: '汽车', en: 'Vehicle' }],
+      activation_methods: [{ zh: '步行', en: 'Foot' }],
+      confirmed_authenticity: true,
+    }),
+  });
+
+  if (applicationResponse.ok) {
+    const applicationData = await applicationResponse.json();
+    console.log('✅ 提交公园申请成功:', {
+      message: applicationData.message,
+      applicationId: applicationData.application?.id,
+      status: applicationData.application?.status,
+    });
+  }
+}
+
 // 测试需要数据库的接口（需要先初始化数据库）
 async function testDatabaseEndpoints() {
   console.log('🧪 测试需要数据库的接口...');
 
   try {
-    // 测试用户注册
-    console.log('1. 测试用户注册...');
-    const registerResponse = await fetch(`${BASE_URL}/api/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'test@example.com',
-        callsign: 'BG0TEST',
-        password: 'test123456',
-      }),
-    });
-
-    if (registerResponse.ok) {
-      const registerData = await registerResponse.json();
-      console.log('✅ 用户注册成功:', {
-        message: registerData.message,
-        userId: registerData.user?.id,
-        role: registerData.user?.role,
-      });
-
-      const token = registerData.token;
-
-      // 测试用户登录
-      console.log('2. 测试用户登录...');
-      const loginResponse = await fetch(`${BASE_URL}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: 'test@example.com',
-          password: 'test123456',
-        }),
-      });
-
-      if (loginResponse.ok) {
-        const loginData = await loginResponse.json();
-        console.log('✅ 用户登录成功:', {
-          message: loginData.message,
-          userId: loginData.user?.id,
-        });
-      }
-
-      // 测试获取用户信息
-      console.log('3. 测试获取用户信息...');
-      const userInfoResponse = await fetch(`${BASE_URL}/api/user-info`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (userInfoResponse.ok) {
-        const userInfoData = await userInfoResponse.json();
-        console.log('✅ 获取用户信息成功:', {
-          email: userInfoData.user?.email,
-          callsign: userInfoData.user?.callsign,
-          role: userInfoData.user?.role,
-        });
-      }
-
-      // 测试提交公园申请
-      console.log('4. 测试提交公园申请...');
-      const applicationResponse = await fetch(`${BASE_URL}/api/park-applications`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          park_name: '测试公园',
-          park_type: '测试类型',
-          provinces: ['CN-GD'], // 省份数组
-          latitude: 22.5211,
-          longitude: 113.3823,
-          access_methods: [{ zh: '汽车', en: 'Vehicle' }],
-          activation_methods: [{ zh: '步行', en: 'Foot' }],
-          confirmed_authenticity: true,
-        }),
-      });
-
-      if (applicationResponse.ok) {
-        const applicationData = await applicationResponse.json();
-        console.log('✅ 提交公园申请成功:', {
-          message: applicationData.message,
-          applicationId: applicationData.application?.id,
-          status: applicationData.application?.status,
-        });
-      }
-    } else {
-      const errorData = await registerResponse.json();
-      console.log('❌ 用户注册失败:', errorData);
+    const token = await testUserRegistration();
+    if (!token) {
+      return;
     }
+
+    await testUserLogin();
+    await testUserInfo(token);
+    await testParkApplication(token);
   } catch (error) {
     console.error('❌ 数据库接口测试失败:', error.message);
 

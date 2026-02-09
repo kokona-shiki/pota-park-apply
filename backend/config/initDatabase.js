@@ -646,6 +646,391 @@ export const createFunctionsAndTriggers = async () => {
   }
 };
 
+const migrateSchemaFrom2To3 = async () => {
+  console.log('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
+  await query('DROP INDEX IF EXISTS idx_dx_entity');
+  await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '3')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=3）');
+};
+
+const migrateSchemaFrom3To4 = async () => {
+  console.log('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_pkce (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      code_verifier TEXT NOT NULL,
+      state TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_tokens (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      id_token_encrypted TEXT NOT NULL,
+      access_token_encrypted TEXT,
+      refresh_token_encrypted TEXT NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '4')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+  console.log('✅ schema 迁移完成（schema_version=4）');
+};
+
+const migrateSchemaFrom4To5 = async () => {
+  console.log('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
+
+  await query(`
+    ALTER TABLE users 
+    ADD COLUMN IF NOT EXISTS pota_encryption_salt TEXT
+  `);
+
+  await query(`
+    UPDATE users 
+    SET pota_encryption_salt = gen_random_bytes(32)::TEXT 
+    WHERE pota_encryption_salt IS NULL
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '5')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=5）');
+};
+
+const migrateSchemaFrom5To6 = async () => {
+  console.log('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES ('pota_import', 'POTA 公园数据导入权限')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'pota_representative', p.id
+    FROM permissions p
+    WHERE p.permission_code = 'pota_import'
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '6')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=6）');
+};
+
+const migrateSchemaFrom6To7 = async () => {
+  console.log('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
+      reference TEXT PRIMARY KEY,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at
+    ON pota_unprocessed_parks (created_at DESC)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '7')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=7）');
+};
+
+const migrateSchemaFrom7To8 = async () => {
+  console.log('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
+
+  await query(`
+    ALTER TABLE park_applications 
+    ADD COLUMN IF NOT EXISTS pota_park_type VARCHAR(255)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '8')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=8）');
+};
+
+const migrateSchemaFrom8To9 = async () => {
+  console.log('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
+
+  await query(`
+    ALTER TABLE park_applications 
+    ADD COLUMN IF NOT EXISTS pota_id VARCHAR(20) UNIQUE
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_park_pota_id 
+    ON park_applications(pota_id)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '9')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=9）');
+};
+
+const migrateSchemaFrom9To10 = async () => {
+  console.log('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS export_audit_logs (
+      id SERIAL PRIMARY KEY,
+      file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('csv', 'kmz')),
+      park_count INTEGER NOT NULL,
+      exported_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      exported_by_callsign VARCHAR(50),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES ('export_parks', '导出公园数据权限')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'pota_representative', p.id
+    FROM permissions p
+    WHERE p.permission_code = 'export_parks'
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '10')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=10）');
+};
+
+const migrateSchemaFrom10To11 = async () => {
+  console.log('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
+
+  await query(`
+    UPDATE application_audit_logs
+    SET action = 'pota_imported'
+    WHERE action = 'pota_synced'
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '11')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=11）');
+};
+
+const migrateSchemaFrom11To12 = async () => {
+  console.log('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      email VARCHAR(255) NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      verified_at TIMESTAMP WITH TIME ZONE,
+      attempts INTEGER DEFAULT 0,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id 
+    ON email_verification_tokens(user_id)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_email 
+    ON email_verification_tokens(email)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_code 
+    ON email_verification_tokens(code)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires_at 
+    ON email_verification_tokens(expires_at)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '12')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=12）');
+};
+
+const migrateSchemaFrom12To13 = async () => {
+  console.log('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      link_url VARCHAR(500),
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      metadata JSONB,
+      is_global BOOLEAN DEFAULT false,
+      notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+      popup_dismissed BOOLEAN DEFAULT false,
+      status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
+      published_at TIMESTAMP WITH TIME ZONE,
+      published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      scheduled_at TIMESTAMP WITH TIME ZONE
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_id 
+    ON notifications(user_id)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_read 
+    ON notifications(is_read)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_created_at 
+    ON notifications(created_at DESC)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_global 
+    ON notifications(is_global)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_status 
+    ON notifications(status)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode 
+    ON notifications(notification_mode)
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS notification_drafts (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      link_url VARCHAR(500),
+      notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+      scheduled_at TIMESTAMP WITH TIME ZONE,
+      created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by 
+    ON notification_drafts(created_by)
+  `);
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES 
+      ('create_global_notification', '创建全局通知'),
+      ('edit_global_notification', '编辑全局通知'),
+      ('publish_global_notification', '发布全局通知'),
+      ('withdraw_global_notification', '撤回全局通知'),
+      ('view_global_notifications', '查看全局通知列表')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'system_admin', p.id
+    FROM permissions p
+    WHERE p.permission_code IN (
+      'create_global_notification',
+      'edit_global_notification',
+      'publish_global_notification',
+      'withdraw_global_notification',
+      'view_global_notifications'
+    )
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '13')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.log('✅ schema 迁移完成（schema_version=13）');
+};
+
 export const migrateSchemaToLatest = async () => {
   try {
     const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
@@ -655,403 +1040,26 @@ export const migrateSchemaToLatest = async () => {
       return;
     }
 
-    if (v === '2') {
-      console.log('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
-      await query('DROP INDEX IF EXISTS idx_dx_entity');
-      await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
+    const migrationMap = {
+      '2': migrateSchemaFrom2To3,
+      '3': migrateSchemaFrom3To4,
+      '4': migrateSchemaFrom4To5,
+      '5': migrateSchemaFrom5To6,
+      '6': migrateSchemaFrom6To7,
+      '7': migrateSchemaFrom7To8,
+      '8': migrateSchemaFrom8To9,
+      '9': migrateSchemaFrom9To10,
+      '10': migrateSchemaFrom10To11,
+      '11': migrateSchemaFrom11To12,
+      '12': migrateSchemaFrom12To13
+    };
 
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '3')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=3）');
-      return;
+    const migrationFn = migrationMap[v];
+    if (migrationFn) {
+      await migrationFn();
+    } else {
+      console.warn(`⚠️ 未识别的 schema_version: ${String(v)}`);
     }
-
-    if (v === '3') {
-      console.log('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
-      await query(`
-        CREATE TABLE IF NOT EXISTS pota_pkce (
-          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-          code_verifier TEXT NOT NULL,
-          state TEXT NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      await query(`
-        CREATE TABLE IF NOT EXISTS pota_tokens (
-          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-          id_token_encrypted TEXT NOT NULL,
-          access_token_encrypted TEXT,
-          refresh_token_encrypted TEXT NOT NULL,
-          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '4')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-      console.log('✅ schema 迁移完成（schema_version=4）');
-      return;
-    }
-
-    if (v === '4') {
-      console.log('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
-
-      await query(`
-        ALTER TABLE users 
-        ADD COLUMN IF NOT EXISTS pota_encryption_salt TEXT
-      `);
-
-      await query(`
-        UPDATE users 
-        SET pota_encryption_salt = gen_random_bytes(32)::TEXT 
-        WHERE pota_encryption_salt IS NULL
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '5')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=5）');
-      return;
-    }
-
-    if (v === '5') {
-      console.log('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
-
-      await query(`
-        INSERT INTO permissions (permission_code, description)
-        VALUES ('pota_import', 'POTA 公园数据导入权限')
-        ON CONFLICT (permission_code) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO role_permissions (role, permission_id)
-        SELECT 'pota_representative', p.id
-        FROM permissions p
-        WHERE p.permission_code = 'pota_import'
-        ON CONFLICT (role, permission_id) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '6')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=6）');
-      return;
-    }
-
-    if (v === '6') {
-      console.log('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
-          reference TEXT PRIMARY KEY,
-          payload JSONB NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at
-        ON pota_unprocessed_parks (created_at DESC)
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '7')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=7）');
-      return;
-    }
-
-    if (v === '7') {
-      console.log('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
-
-      await query(`
-        ALTER TABLE park_applications 
-        ADD COLUMN IF NOT EXISTS pota_park_type VARCHAR(255)
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '8')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=8）');
-      return;
-    }
-
-    if (v === '8') {
-      console.log('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
-
-      await query(`
-        ALTER TABLE park_applications 
-        ADD COLUMN IF NOT EXISTS pota_id VARCHAR(20) UNIQUE
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_park_pota_id 
-        ON park_applications(pota_id)
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '9')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=9）');
-      return;
-    }
-
-    if (v === '9') {
-      console.log('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS export_audit_logs (
-          id SERIAL PRIMARY KEY,
-          file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('csv', 'kmz')),
-          park_count INTEGER NOT NULL,
-          exported_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          exported_by_callsign VARCHAR(50),
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await query(`
-        INSERT INTO permissions (permission_code, description)
-        VALUES ('export_parks', '导出公园数据权限')
-        ON CONFLICT (permission_code) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO role_permissions (role, permission_id)
-        SELECT 'pota_representative', p.id
-        FROM permissions p
-        WHERE p.permission_code = 'export_parks'
-        ON CONFLICT (role, permission_id) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '10')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=10）');
-      return;
-    }
-
-    if (v === '10') {
-      console.log('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
-
-      await query(`
-        UPDATE application_audit_logs
-        SET action = 'pota_imported'
-        WHERE action = 'pota_synced'
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '11')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=11）');
-      return;
-    }
-
-    if (v === '11') {
-      console.log('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS email_verification_tokens (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          email VARCHAR(255) NOT NULL,
-          code VARCHAR(6) NOT NULL,
-          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          verified_at TIMESTAMP WITH TIME ZONE,
-          attempts INTEGER DEFAULT 0,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id 
-        ON email_verification_tokens(user_id)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_email 
-        ON email_verification_tokens(email)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_code 
-        ON email_verification_tokens(code)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires_at 
-        ON email_verification_tokens(expires_at)
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '12')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=12）');
-      return;
-    }
-
-    if (v === '12') {
-      console.log('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS notifications (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          type VARCHAR(50) NOT NULL,
-          title VARCHAR(255) NOT NULL,
-          description TEXT NOT NULL,
-          link_url VARCHAR(500),
-          is_read BOOLEAN DEFAULT false,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          metadata JSONB,
-          is_global BOOLEAN DEFAULT false,
-          notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
-          popup_dismissed BOOLEAN DEFAULT false,
-          status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
-          published_at TIMESTAMP WITH TIME ZONE,
-          published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          scheduled_at TIMESTAMP WITH TIME ZONE
-        )
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_user_id 
-        ON notifications(user_id)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_is_read 
-        ON notifications(is_read)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_created_at 
-        ON notifications(created_at DESC)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_is_global 
-        ON notifications(is_global)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_status 
-        ON notifications(status)
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode 
-        ON notifications(notification_mode)
-      `);
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS notification_drafts (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255) NOT NULL,
-          description TEXT NOT NULL,
-          link_url VARCHAR(500),
-          notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
-          scheduled_at TIMESTAMP WITH TIME ZONE,
-          created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by 
-        ON notification_drafts(created_by)
-      `);
-
-      await query(`
-        INSERT INTO permissions (permission_code, description)
-        VALUES 
-          ('create_global_notification', '创建全局通知'),
-          ('edit_global_notification', '编辑全局通知'),
-          ('publish_global_notification', '发布全局通知'),
-          ('withdraw_global_notification', '撤回全局通知'),
-          ('view_global_notifications', '查看全局通知列表')
-        ON CONFLICT (permission_code) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO role_permissions (role, permission_id)
-        SELECT 'system_admin', p.id
-        FROM permissions p
-        WHERE p.permission_code IN (
-          'create_global_notification',
-          'edit_global_notification',
-          'publish_global_notification',
-          'withdraw_global_notification',
-          'view_global_notifications'
-        )
-        ON CONFLICT (role, permission_id) DO NOTHING
-      `);
-
-      await query(`
-        INSERT INTO app_meta (key, value)
-        VALUES ('schema_version', '13')
-        ON CONFLICT (key) DO UPDATE
-        SET value = EXCLUDED.value,
-            updated_at = CURRENT_TIMESTAMP
-      `);
-
-      console.log('✅ schema 迁移完成（schema_version=13）');
-      return;
-    }
-
-    console.warn(`⚠️ 未识别的 schema_version: ${String(v)}`);
   } catch (error) {
     console.error('❌ schema 迁移失败:', error);
     throw error;
