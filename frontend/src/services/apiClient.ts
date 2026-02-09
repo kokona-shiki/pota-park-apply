@@ -16,10 +16,10 @@ export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 interface LogOptions {
   level: LogLevel;
   message: string;
-  error?: any;
-  metadata?: any;
-  request?: any;
-  response?: any;
+  error?: unknown;
+  metadata?: unknown;
+  request?: unknown;
+  response?: unknown;
 }
 
 /**
@@ -86,9 +86,11 @@ const handleBusinessError = (message: string | undefined, response: unknown) => 
   
   // 提取错误代码
   if (response && typeof response === 'object') {
-    const responseData = (response as any).data;
+    const responseObj = response as { data?: unknown };
+    const responseData = responseObj.data;
     if (responseData && typeof responseData === 'object') {
-      businessError.code = responseData.code;
+      const dataObj = responseData as { code?: string };
+      businessError.code = dataObj.code;
     }
   }
   

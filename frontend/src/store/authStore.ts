@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { z } from 'zod';
 import type { AuthUser } from '../auth/context';
 import { authService } from '../services';
+import { safeParseJsonWithSchema } from '../utils/parseJson';
 
 interface AuthState {
   // 状态
@@ -85,7 +87,12 @@ const useAuthStore = create<AuthState>()(
         if (!token) return false;
 
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
+          const payloadStr = atob(token.split('.')[1]);
+          const jwtPayloadSchema = z.object({
+            exp: z.number(),
+          });
+          const payload = safeParseJsonWithSchema(jwtPayloadSchema, payloadStr);
+          if (!payload) return false;
           const now = Date.now() / 1000;
           return payload.exp > now;
         } catch {

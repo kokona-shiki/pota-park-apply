@@ -13,6 +13,9 @@ import { useAuthInit } from './hooks/useAuthInit';
 import { AppRoutes } from './AppRoutes';
 import { useAuthStore } from './store';
 
+// 在模块加载时生成唯一的 tabId
+const tabId = Math.random().toString(36).substring(2, 9);
+
 function LoadingState() {
   return (
     <Box
@@ -47,6 +50,9 @@ function App() {
     readAuthData,
   } = useAuthStore();
 
+  // 使用模块级别的 tabId 变量
+  const tabIdRef = useRef(tabId);
+
   const { ensureValidAccessToken } = useTokenRefresh({
     getCurrentAccessToken,
     performRefreshAsLeader: async () => {
@@ -58,14 +64,14 @@ function App() {
     isLockExpired: () => true,
     isTokenFresh,
     getJwtIatMs: () => Date.now(),
-    writeAuthData: (data: any) => {
+    writeAuthData: (data: { user?: unknown; accessToken?: string }) => {
       if (data.user) setUser(data.user as AuthUser | null);
       if (data.accessToken) setAccessToken(data.accessToken);
     },
     rejectAllWaiters: () => {},
     resolveAllWaiters: () => {},
     waitForTokenFromOtherTab: () => Promise.resolve(null),
-    tabIdRef: { current: Math.random().toString(36).substr(2, 9) },
+    tabIdRef,
   });
 
   useAuthInterceptors({
