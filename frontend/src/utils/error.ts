@@ -52,7 +52,13 @@ export function getApiErrorMessage(err: unknown, fallback = '请求失败') {
 
 function extractMessageFromError(e: ApiErrorLike | undefined): unknown {
   if (!e) return undefined;
-  return e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
+  
+  const responseData = e?.response?.data;
+  if (responseData) {
+    return responseData.message ?? responseData.error;
+  }
+  
+  return e?.message;
 }
 
 export type ApiErrorDetails = {

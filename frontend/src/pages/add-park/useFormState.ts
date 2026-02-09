@@ -48,22 +48,38 @@ const getDefaultValue = <T>(saved: T | undefined, initial: T | undefined, fallba
   return saved ?? initial ?? fallback;
 };
 
+// 默认值配置
+const DEFAULT_FORM_STATE: FormState = {
+  parkName: '',
+  parkType: '',
+  province: '',
+  provinces: [],
+  latitude: '',
+  longitude: '',
+  website: '',
+  accessMethods: ['汽车', '步行', '其他'],
+  activationMethods: ['步行', '车载', '其他'],
+  confirmed: false,
+  isPotaPark: false,
+  mapCenter: [39.9042, 116.4074],
+  mapZoom: 13,
+};
+
+// 生成初始表单状态
 const getInitialFormState = (savedState: FormState | null, initialState: Partial<FormState>): FormState => {
-  return {
-    parkName: getDefaultValue(savedState?.parkName, initialState.parkName, ''),
-    parkType: getDefaultValue(savedState?.parkType, initialState.parkType, ''),
-    province: getDefaultValue(savedState?.province, initialState.province, ''),
-    provinces: getDefaultValue(savedState?.provinces, initialState.provinces, []),
-    latitude: getDefaultValue(savedState?.latitude, initialState.latitude, ''),
-    longitude: getDefaultValue(savedState?.longitude, initialState.longitude, ''),
-    website: getDefaultValue(savedState?.website, initialState.website, ''),
-    accessMethods: getDefaultValue(savedState?.accessMethods, initialState.accessMethods, ['汽车', '步行', '其他']),
-    activationMethods: getDefaultValue(savedState?.activationMethods, initialState.activationMethods, ['步行', '车载', '其他']),
-    confirmed: getDefaultValue(savedState?.confirmed, initialState.confirmed, false),
-    isPotaPark: getDefaultValue(savedState?.isPotaPark, initialState.isPotaPark, false),
-    mapCenter: getDefaultValue(savedState?.mapCenter, initialState.mapCenter, [39.9042, 116.4074]),
-    mapZoom: getDefaultValue(savedState?.mapZoom, initialState.mapZoom, 13),
-  };
+  const result: FormState = { ...DEFAULT_FORM_STATE };
+  
+  // 更新每个字段的值
+  Object.keys(DEFAULT_FORM_STATE).forEach((key) => {
+    const typedKey = key as keyof FormState;
+    result[typedKey] = getDefaultValue(
+      savedState?.[typedKey],
+      initialState[typedKey],
+      DEFAULT_FORM_STATE[typedKey]
+    );
+  });
+  
+  return result;
 };
 
 export const useFormState = (initialState: Partial<FormState> = {}) => {
@@ -82,22 +98,7 @@ export const useFormState = (initialState: Partial<FormState> = {}) => {
   }, []);
 
   const resetFormState = useCallback(() => {
-    const defaultState: FormState = {
-      parkName: '',
-      parkType: '',
-      province: '',
-      provinces: [],
-      latitude: '',
-      longitude: '',
-      website: '',
-      accessMethods: ['汽车', '步行', '其他'],
-      activationMethods: ['步行', '车载', '其他'],
-      confirmed: false,
-      isPotaPark: false,
-      mapCenter: [39.9042, 116.4074],
-      mapZoom: 13,
-    };
-    setFormState(defaultState);
+    setFormState(DEFAULT_FORM_STATE);
     clearFormState();
   }, []);
 

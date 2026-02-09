@@ -29,15 +29,15 @@ interface SubmitResult {
 }
 
 function isDuplicateNameError(errorCode?: string): boolean {
-  return errorCode?.startsWith('DUPLICATE_NAME');
+  return errorCode?.startsWith('DUPLICATE_NAME') ?? false;
 }
 
 function isSimilarNameError(errorCode?: string, errorMessage?: string): boolean {
-  return errorCode === 'SIMILAR_NAME' || errorMessage?.includes('公园名称相似度较高');
+  return errorCode === 'SIMILAR_NAME' || Boolean(errorMessage?.includes('公园名称相似度较高'));
 }
 
 function isNearbyLocationError(errorCode?: string, errorMessage?: string): boolean {
-  return errorCode === 'NEARBY_LOCATION' || errorMessage?.includes('公园距离过近');
+  return errorCode === 'NEARBY_LOCATION' || Boolean(errorMessage?.includes('公园距离过近'));
 }
 
 function shouldShowLink(errorCode?: string): boolean {
@@ -166,6 +166,113 @@ export const useSubmitHandler = (formState: FormState) => {
   const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
   const { submitting, handleSubmit } = useSubmit();
 
+  // 处理重复名称错误
+  const handleDuplicateNameError = (result: SubmitResult, errorCode?: string) => {
+    const details = result.errorDetails?.details;
+    const existingPark = details?.existingPark;
+    const allowRetry = details?.allowRetry ?? false;
+
+    setDialogType(getDialogType(allowRetry));
+    setDialogTitle(getDialogTitle(allowRetry));
+    setDialogMessage(result.error || '提交失败，请重试');
+    setDialogParkList(extractParkList(result, shouldShowLink(errorCode)));
+    setDialogParkListTitle(getParkListTitle(existingPark));
+
+    if (allowRetry) {
+      setDialogConfirmAction(createDuplicateNameConfirmAction(
+        formState,
+        handleSubmit,
+        setError,
+        clearFormState,
+        navigate
+      ));
+    } else {
+      setDialogConfirmAction(null);
+    }
+  };
+
+  // 处理已存在公园错误
+  const handleExistingParkError = (result: SubmitResult) => {
+    const existingPark = result.errorDetails?.existingPark;
+    const shouldShowLink = existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
+
+    setDialogType('error');
+    setDialogTitle('错误');
+    setDialogMessage(result.error || '提交失败，请重试');
+    setDialogParkList(extractParkList(result, shouldShowLink));
+    setDialogParkListTitle(getParkListTitle(existingPark));
+    setDialogConfirmAction(null);
+  };
+
+  // 处理相似名称错误
+  const handleSimilarNameError = (result: SubmitResult) => {
+    const parkList = extractSimilarParks(result);
+
+    setDialogType('warning');
+    setDialogTitle('警告');
+    setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
+    setDialogParkList(parkList);
+    setDialogParkListTitle('相似公园列表');
+    setDialogConfirmAction(createSimilarNameConfirmAction(
+      formState,
+      handleSubmit,
+      setError,
+      clearFormState,
+      navigate
+    ));
+  };
+
+  // 处理附近位置错误
+  const handleNearbyLocationError = (result: SubmitResult) => {
+    const parkList = extractNearbyParks(result);
+
+    setDialogType('warning');
+    setDialogTitle('警告');
+    setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
+    setDialogParkList(parkList);
+    setDialogParkListTitle('附近公园列表');
+    setDialogConfirmAction(createNearbyLocationConfirmAction(
+      formState,
+      handleSubmit,
+      setError,
+      clearFormState,
+      navigate
+    ));
+  };
+
+  // 处理成功结果
+  const handleSuccessResult = () => {
+    clearFormState();
+    navigate('/my-uploads');
+  };
+
+  // 处理错误结果
+  const handleErrorResult = (result: SubmitResult) => {
+    const errorCode = result.errorDetails?.code;
+
+    if (isDuplicateNameError(errorCode)) {
+      handleDuplicateNameError(result, errorCode);
+      return;
+    }
+
+    if (result.errorDetails?.existingPark) {
+      handleExistingParkError(result);
+      return;
+    }
+
+    if (isSimilarNameError(errorCode, result.error)) {
+      handleSimilarNameError(result);
+      return;
+    }
+
+    if (isNearbyLocationError(errorCode, result.error)) {
+      handleNearbyLocationError(result);
+      return;
+    }
+
+    setError(result.error || '提交失败，请重试');
+  };
+
   const handleFormSubmit = async () => {
     setError(null);
 
@@ -173,88 +280,11 @@ export const useSubmitHandler = (formState: FormState) => {
       const result = await handleSubmit(formState);
 
       if (result.success) {
-        clearFormState();
-        navigate('/my-uploads');
+        handleSuccessResult();
         return;
       }
 
-      const errorCode = result.errorDetails?.code;
-
-      if (isDuplicateNameError(errorCode)) {
-        const details = result.errorDetails?.details;
-        const existingPark = details?.existingPark;
-        const allowRetry = details?.allowRetry;
-
-        setDialogType(getDialogType(allowRetry));
-        setDialogTitle(getDialogTitle(allowRetry));
-        setDialogMessage(result.error || '提交失败，请重试');
-        setDialogParkList(extractParkList(result, shouldShowLink(errorCode)));
-        setDialogParkListTitle(getParkListTitle(existingPark));
-
-        if (allowRetry) {
-          setDialogConfirmAction(createDuplicateNameConfirmAction(
-            formState,
-            handleSubmit,
-            setError,
-            clearFormState,
-            navigate
-          ));
-        } else {
-          setDialogConfirmAction(null);
-        }
-        return;
-      }
-
-      if (result.errorDetails?.existingPark) {
-        const existingPark = result.errorDetails.existingPark;
-        const shouldShowLink = existingPark?.status === 'approved' || existingPark?.status === 'pota_synced';
-
-        setDialogType('error');
-        setDialogTitle('错误');
-        setDialogMessage(result.error || '提交失败，请重试');
-        setDialogParkList(extractParkList(result, shouldShowLink));
-        setDialogParkListTitle(getParkListTitle(existingPark));
-        setDialogConfirmAction(null);
-        return;
-      }
-
-      if (isSimilarNameError(errorCode, result.error)) {
-        const parkList = extractSimilarParks(result);
-
-        setDialogType('warning');
-        setDialogTitle('警告');
-        setDialogMessage('当前填写的公园名称与已有公园名称相似度较高。');
-        setDialogParkList(parkList);
-        setDialogParkListTitle('相似公园列表');
-        setDialogConfirmAction(createSimilarNameConfirmAction(
-          formState,
-          handleSubmit,
-          setError,
-          clearFormState,
-          navigate
-        ));
-        return;
-      }
-
-      if (isNearbyLocationError(errorCode, result.error)) {
-        const parkList = extractNearbyParks(result);
-
-        setDialogType('warning');
-        setDialogTitle('警告');
-        setDialogMessage('当前填写的公园位置与已有公园位置距离较近。');
-        setDialogParkList(parkList);
-        setDialogParkListTitle('附近公园列表');
-        setDialogConfirmAction(createNearbyLocationConfirmAction(
-          formState,
-          handleSubmit,
-          setError,
-          clearFormState,
-          navigate
-        ));
-        return;
-      }
-
-      setError(result.error || '提交失败，请重试');
+      handleErrorResult(result);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '提交失败，请检查网络后重试';
       setError(errorMessage);

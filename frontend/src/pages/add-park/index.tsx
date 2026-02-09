@@ -33,7 +33,7 @@ import SearchButtons from './SearchButtons';
 import { useFormState, clearFormState } from './useFormState';
 import { useSearch } from './useSearch';
 import { useSubmit } from './useSubmit';
-import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
+import type { Province, MapPOI, PotaParkInfo, ParkTypeOption, FormState } from './types';
 import type { ParkApplicationDetail } from '../../types/parkApplication';
 import type { SubmitResult } from './useSubmit';
 
@@ -171,7 +171,7 @@ function getParkListTitle(status: string | undefined) {
 // 辅助函数：处理带确认字段的提交
 async function handleSubmitWithConfirmation(
   handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  formData: unknown,
+  formData: FormState,
   navigate: (path: string) => void,
   setError: (error: string) => void,
   clearFormState: () => void,
@@ -180,7 +180,7 @@ async function handleSubmitWithConfirmation(
   const result = await handleSubmit({
     ...formData,
     [confirmationField]: true,
-  });
+  } as unknown);
 
   if (result.success) {
     clearFormState();
@@ -215,10 +215,10 @@ function setDialogState(
   setDialogOpen(true);
 }
 
-// 辅助函数：处理重复名称错误
-function handleDuplicateNameError(
+// 辅助函数：处理重复名称错误的新格式
+function handleDuplicateNameErrorNewFormat(
   result: SubmitResult,
-  formData: unknown,
+  formData: FormState,
   handleSubmit: (params: unknown) => Promise<SubmitResult>,
   navigate: (path: string) => void,
   setError: (error: string) => void,
@@ -234,62 +234,121 @@ function handleDuplicateNameError(
   const errorMessage = result.error || '提交失败，请重试';
   const errorCode = result.errorDetails?.code;
   const details = result.errorDetails?.details;
+  
+  const existingPark = details.existingPark;
+  const allowRetry = details.allowRetry;
+
+  const parkList = shouldShowParkLink(errorCode) && existingPark
+    ? [{ id: existingPark.id, name: existingPark.name }]
+    : [];
+
+  const confirmAction = allowRetry ? async () => {
+    await handleSubmitWithConfirmation(
+      handleSubmit,
+      formData,
+      navigate,
+      setError,
+      clearFormState,
+      'confirmedRejectedPark'
+    );
+  } : null;
+
+  setDialogState(
+    setDialogType,
+    setDialogTitle,
+    setDialogMessage,
+    setDialogParkList,
+    setDialogParkListTitle,
+    setDialogConfirmAction,
+    setDialogOpen,
+    allowRetry ? 'warning' : 'error',
+    allowRetry ? '警告' : '错误',
+    errorMessage,
+    parkList,
+    getParkListTitle(existingPark?.status),
+    confirmAction
+  );
+}
+
+// 辅助函数：处理重复名称错误的旧格式
+function handleDuplicateNameErrorOldFormat(
+  result: SubmitResult,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void
+) {
+  const errorMessage = result.error || '提交失败，请重试';
+  const existingPark = result.errorDetails?.existingPark;
+  const shouldShowLink = shouldShowParkLinkOldFormat(existingPark?.status);
+  const parkList = shouldShowLink
+    ? [{ id: existingPark.id, name: existingPark.name }]
+    : [];
+
+  setDialogState(
+    setDialogType,
+    setDialogTitle,
+    setDialogMessage,
+    setDialogParkList,
+    setDialogParkListTitle,
+    setDialogConfirmAction,
+    setDialogOpen,
+    'error',
+    '错误',
+    errorMessage,
+    parkList,
+    getParkListTitle(existingPark?.status),
+    null
+  );
+}
+
+// 辅助函数：处理重复名称错误
+function handleDuplicateNameError(
+  result: SubmitResult,
+  formData: FormState,
+  handleSubmit: (params: unknown) => Promise<SubmitResult>,
+  navigate: (path: string) => void,
+  setError: (error: string) => void,
+  clearFormState: () => void,
+  setDialogType: (type: 'error' | 'warning') => void,
+  setDialogTitle: (title: string) => void,
+  setDialogMessage: (message: string) => void,
+  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
+  setDialogParkListTitle: (title: string) => void,
+  setDialogConfirmAction: (action: (() => void) | null) => void,
+  setDialogOpen: (open: boolean) => void
+) {
+  const details = result.errorDetails?.details;
 
   if (details) {
-    const existingPark = details.existingPark;
-    const allowRetry = details.allowRetry;
-
-    const parkList = shouldShowParkLink(errorCode) && existingPark
-      ? [{ id: existingPark.id, name: existingPark.name }]
-      : [];
-
-    const confirmAction = allowRetry ? async () => {
-      await handleSubmitWithConfirmation(
-        handleSubmit,
-        formData,
-        navigate,
-        setError,
-        clearFormState,
-        'confirmedRejectedPark'
-      );
-    } : null;
-
-    setDialogState(
+    handleDuplicateNameErrorNewFormat(
+      result,
+      formData,
+      handleSubmit,
+      navigate,
+      setError,
+      clearFormState,
       setDialogType,
       setDialogTitle,
       setDialogMessage,
       setDialogParkList,
       setDialogParkListTitle,
       setDialogConfirmAction,
-      setDialogOpen,
-      allowRetry ? 'warning' : 'error',
-      allowRetry ? '警告' : '错误',
-      errorMessage,
-      parkList,
-      getParkListTitle(existingPark?.status),
-      confirmAction
+      setDialogOpen
     );
   } else if (result.errorDetails?.existingPark) {
-    const existingPark = result.errorDetails?.existingPark;
-    const shouldShowLink = shouldShowParkLinkOldFormat(existingPark?.status);
-    const parkList = shouldShowLink
-      ? [{ id: existingPark.id, name: existingPark.name }]
-      : [];
-
-    setDialogState(
+    handleDuplicateNameErrorOldFormat(
+      result,
       setDialogType,
       setDialogTitle,
       setDialogMessage,
       setDialogParkList,
       setDialogParkListTitle,
       setDialogConfirmAction,
-      setDialogOpen,
-      'error',
-      '错误',
-      errorMessage,
-      parkList,
-      getParkListTitle(existingPark?.status),
-      null
+      setDialogOpen
     );
   }
 }
@@ -297,7 +356,7 @@ function handleDuplicateNameError(
 // 辅助函数：处理相似名称错误
 function handleSimilarNameError(
   result: SubmitResult,
-  formData: unknown,
+  formData: FormState,
   handleSubmit: (params: unknown) => Promise<SubmitResult>,
   navigate: (path: string) => void,
   setError: (error: string) => void,
@@ -343,7 +402,7 @@ function handleSimilarNameError(
 // 辅助函数：处理附近位置错误
 function handleNearbyLocationError(
   result: SubmitResult,
-  formData: unknown,
+  formData: FormState,
   handleSubmit: (params: unknown) => Promise<SubmitResult>,
   navigate: (path: string) => void,
   setError: (error: string) => void,
@@ -524,7 +583,7 @@ function AddPark() {
     setError(null);
 
     try {
-      const formData = {
+      const formData: FormState = {
         parkName,
         parkType: resolveParkTypeId(parkType),
         province,
@@ -535,6 +594,9 @@ function AddPark() {
         accessMethods,
         activationMethods,
         confirmed,
+        isPotaPark: formState.isPotaPark,
+        mapCenter: formState.mapCenter,
+        mapZoom: formState.mapZoom,
       };
 
       const result = await handleSubmit(formData);

@@ -10,10 +10,6 @@ import {
   CircularProgress,
   Alert,
   Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Tooltip,
   Snackbar,
 } from '@mui/material';
@@ -26,8 +22,6 @@ import { z } from 'zod';
 import {
   PotaUnprocessedParkBulkProcessRequestSchema,
   PotaUnprocessedParkBulkProcessResultSchema,
-  PotaUnprocessedParkProcessRequestSchema,
-  PotaUnprocessedParkProcessResultSchema,
   PotaUnprocessedParksDataSchema,
   PotaUnprocessedParkSchema,
 } from '../../../shared/schemas/pota';
@@ -36,23 +30,8 @@ import { getApiErrorMessage } from '../utils/error';
 
 type UnprocessedPark = z.infer<typeof PotaUnprocessedParkSchema>;
 
-const PotaUnprocessedParks: React.FC = () => {
-  const { user, accessToken } = useAuth();
-  const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState<boolean>(false);
-  const [selectedType, setSelectedType] = useState<{ [key: string]: string }>({});
-  const [openConfirmDialog, setOpenConfirmDialog] = useState<boolean>(false);
-  const [parkToProcess, setParkToProcess] = useState<UnprocessedPark | null>(null);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [snackbar, setSnackbar] = useState<{
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  } | null>(null);
-
-
-
+// 提取公园类型相关的工具函数
+const useParkTypes = () => {
   // 获取所有可用的公园类型
   const allParkTypes = useMemo(() => {
     const typeMap = new Map<string, { id: string; zh: string; en: string }>();
@@ -144,30 +123,182 @@ const PotaUnprocessedParks: React.FC = () => {
     return chineseNames?.length ? chineseNames.join(' / ') : englishName;
   };
 
-  const getSelectedTypeLabel = (reference?: string) => {
-    if (!reference) {
-      return '';
-    }
-    const selectedId = selectedType[reference];
-    const selectedOption = selectedId ? parkTypeById.get(selectedId) : undefined;
-    if (selectedOption?.zh) {
-      return selectedOption.zh;
-    }
-    return selectedOption?.en ? getChineseTypeLabel(selectedOption.en) : '';
+  return {
+    allParkTypes,
+    parkTypeById,
+    resolveTypeId,
+    getChineseTypeLabel,
   };
+};
 
+// 提取省份相关的工具函数
+const useProvinceMapping = () => {
   const provinceByCode = useMemo(() => {
     return new Map<string, string>(
       regionMapping.map((item: { name: string; code: string }) => [item.code, item.name])
     );
   }, []);
 
-  useOnceOnMount(() => {
-    if (user) {
-      fetchUnprocessedParks();
-    }
-  }, [user]);
+  return { provinceByCode };
+};
 
+// 提取列定义
+const useColumns = (
+  allParkTypes: { id: string; zh: string; en: string }[],
+  selectedType: { [key: string]: string },
+  handleTypeChange: (reference: string, typeId: string) => void,
+  provinceByCode: Map<string, string>
+) => {
+  return useMemo(() => {
+    const columns: GridColDef<UnprocessedPark>[] = [
+      {
+        field: 'reference',
+        headerName: 'POTA ID',
+        width: 120,
+        renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
+          <Tooltip title={params.value ?? ''}>
+            <span>{params.value ?? ''}</span>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'name',
+        headerName: '公园名称',
+        flex: 1,
+        minWidth: 200,
+        renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
+          <Tooltip title={params.value ?? ''}>
+            <span>{params.value ?? ''}</span>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'failureReason',
+        headerName: '失败原因',
+        flex: 1,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
+          const reason = params.value ?? params.row.message ?? '';
+          return (
+            <Tooltip title={reason}>
+              <span>{reason || '-'}</span>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        field: 'latitude',
+        headerName: '纬度',
+        width: 100,
+        valueFormatter: (params: { value: number }) =>
+          typeof params.value === 'number' ? params.value.toFixed(4) : '-',
+      },
+      {
+        field: 'longitude',
+        headerName: '经度',
+        width: 100,
+        valueFormatter: (params: { value: number }) =>
+          typeof params.value === 'number' ? params.value.toFixed(4) : '-',
+      },
+      {
+        field: 'grid',
+        headerName: '网格',
+        width: 100,
+      },
+      {
+        field: 'activations',
+        headerName: '激活次数',
+        width: 100,
+      },
+      {
+        field: 'qsos',
+        headerName: 'QSOs',
+        width: 80,
+      },
+      {
+        field: 'locationDesc',
+        headerName: '省份',
+        flex: 1,
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
+          const code = params.value ?? '';
+          const codes = code
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+          const provinces = codes.map((item) => provinceByCode.get(item) || item);
+          const province = provinces.join('、') || code;
+          return (
+            <Tooltip title={code}>
+              <span>{province}</span>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        field: 'manualType',
+        headerName: '选择类型',
+        width: 200,
+        renderCell: (params: GridRenderCellParams<UnprocessedPark, string | null>) => (
+          <FormControl fullWidth size="small">
+            <Select
+              value={selectedType[params.row.reference] || ''}
+              onChange={(e) => handleTypeChange(params.row.reference, String(e.target.value))}
+              displayEmpty
+              MenuProps={{
+                anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                transformOrigin: { vertical: 'top', horizontal: 'left' },
+                PaperProps: {
+                  sx: {
+                    maxHeight: 320,
+                  },
+                },
+              }}
+            >
+              <MenuItem value="">
+                <em>请选择类型</em>
+              </MenuItem>
+              {allParkTypes.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
+                      {option.zh}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                      {option.en}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ),
+      },
+    ];
+    return columns;
+  }, [allParkTypes, selectedType, handleTypeChange, provinceByCode]);
+};
+
+const PotaUnprocessedParks: React.FC = () => {
+  const { user, accessToken } = useAuth();
+  const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState<boolean>(false);
+  const [selectedType, setSelectedType] = useState<{ [key: string]: string }>({});
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [snackbar, setSnackbar] = useState<{
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  } | null>(null);
+
+  // 使用自定义钩子获取公园类型
+  const { allParkTypes, parkTypeById, resolveTypeId } = useParkTypes();
+
+  // 使用自定义钩子获取省份映射
+  const { provinceByCode } = useProvinceMapping();
+
+  // 初始化选中的类型
   const initializeSelectedTypes = (parks: UnprocessedPark[]): { [key: string]: string } => {
     const initialSelected: { [key: string]: string } = {};
     parks.forEach((park: UnprocessedPark) => {
@@ -176,6 +307,7 @@ const PotaUnprocessedParks: React.FC = () => {
     return initialSelected;
   };
 
+  // 处理获取错误
   const handleFetchError = (err: unknown): void => {
     const error = err as { response?: { status: number } };
     if (error.response?.status === 401 || error.response?.status === 403) {
@@ -185,11 +317,12 @@ const PotaUnprocessedParks: React.FC = () => {
     }
   };
 
+  // 获取未处理公园列表
   const fetchUnprocessedParks = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const parks = await requestWithSchema(
         apiClient.get('/api/pota/unprocessed-parks', {
           headers: {
@@ -198,7 +331,7 @@ const PotaUnprocessedParks: React.FC = () => {
         }),
         PotaUnprocessedParksDataSchema
       );
-      
+
       setUnprocessedParks(parks);
       setHasPermission(true);
 
@@ -212,6 +345,7 @@ const PotaUnprocessedParks: React.FC = () => {
     }
   };
 
+  // 类型变更处理
   const handleTypeChange = (reference: string, typeId: string) => {
     setSelectedType((prev) => ({
       ...prev,
@@ -219,44 +353,9 @@ const PotaUnprocessedParks: React.FC = () => {
     }));
   };
 
-  const handleProcessSingle = async (park: UnprocessedPark) => {
-    if (!selectedType[park.reference]) {
-      setSnackbar({ message: '请选择公园类型', severity: 'info' });
-      return;
-    }
-
-    try {
-      setProcessing(true);
-
-      const selectedOption = parkTypeById.get(selectedType[park.reference]);
-      const parkData = {
-        ...park,
-        manualType: selectedOption?.id || '',
-      };
-
-      const requestBody = PotaUnprocessedParkProcessRequestSchema.parse({ parkData });
-      await requestWithSchema(
-        apiClient.post('/api/pota/process-unprocessed-park', requestBody, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }),
-        PotaUnprocessedParkProcessResultSchema
-      );
-
-      // 成功后刷新列表
-      await fetchUnprocessedParks();
-      setSnackbar({ message: '处理成功', severity: 'success' });
-    } catch (err) {
-      setSnackbar({ message: getApiErrorMessage(err, '处理失败'), severity: 'error' });
-      console.error(err);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleBulkProcess = async () => {
-    const parksToProcess = unprocessedParks
+  // 准备批量处理的公园数据
+  const prepareBulkParkData = () => {
+    return unprocessedParks
       .filter((park) => selectedType[park.reference])
       .map((park) => {
         const selectedOption = parkTypeById.get(selectedType[park.reference]);
@@ -265,6 +364,11 @@ const PotaUnprocessedParks: React.FC = () => {
           manualType: selectedOption?.id || '',
         };
       });
+  };
+
+  // 批量处理
+  const handleBulkProcess = async () => {
+    const parksToProcess = prepareBulkParkData();
 
     if (parksToProcess.length === 0) {
       setSnackbar({ message: '请至少选择一个公园并为其指定类型', severity: 'info' });
@@ -277,6 +381,7 @@ const PotaUnprocessedParks: React.FC = () => {
       const requestBody = PotaUnprocessedParkBulkProcessRequestSchema.parse({
         parksData: parksToProcess,
       });
+
       await requestWithSchema(
         apiClient.post('/api/pota/bulk-process-unprocessed-parks', requestBody, {
           headers: {
@@ -300,162 +405,14 @@ const PotaUnprocessedParks: React.FC = () => {
     }
   };
 
-  const handleConfirmProcess = (park: UnprocessedPark) => {
-    setParkToProcess(park);
-    setOpenConfirmDialog(true);
-  };
+  // 使用自定义钩子获取列定义
+  const columns = useColumns(allParkTypes, selectedType, handleTypeChange, provinceByCode);
 
-  const confirmProcess = () => {
-    if (parkToProcess) {
-      handleProcessSingle(parkToProcess);
+  useOnceOnMount(() => {
+    if (user) {
+      fetchUnprocessedParks();
     }
-    setOpenConfirmDialog(false);
-  };
-
-  const cancelProcess = () => {
-    setOpenConfirmDialog(false);
-    setParkToProcess(null);
-  };
-
-  // 定义列
-  const columns: GridColDef<UnprocessedPark>[] = [
-    {
-      field: 'reference',
-      headerName: 'POTA ID',
-      width: 120,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
-        <Tooltip title={params.value ?? ''}>
-          <span>{params.value ?? ''}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      field: 'name',
-      headerName: '公园名称',
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => (
-        <Tooltip title={params.value ?? ''}>
-          <span>{params.value ?? ''}</span>
-        </Tooltip>
-      ),
-    },
-    {
-      field: 'failureReason',
-      headerName: '失败原因',
-      flex: 1,
-      minWidth: 220,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
-        const reason = params.value ?? params.row.message ?? '';
-        return (
-          <Tooltip title={reason}>
-            <span>{reason || '-'}</span>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      field: 'latitude',
-      headerName: '纬度',
-      width: 100,
-      valueFormatter: (params: { value: number }) =>
-        typeof params.value === 'number' ? params.value.toFixed(4) : '-',
-    },
-    {
-      field: 'longitude',
-      headerName: '经度',
-      width: 100,
-      valueFormatter: (params: { value: number }) =>
-        typeof params.value === 'number' ? params.value.toFixed(4) : '-',
-    },
-    {
-      field: 'grid',
-      headerName: '网格',
-      width: 100,
-    },
-    {
-      field: 'activations',
-      headerName: '激活次数',
-      width: 100,
-    },
-    {
-      field: 'qsos',
-      headerName: 'QSOs',
-      width: 80,
-    },
-    {
-      field: 'locationDesc',
-      headerName: '省份',
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string>) => {
-        const code = params.value ?? '';
-        const codes = code
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean);
-        const provinces = codes.map((item) => provinceByCode.get(item) || item);
-        const province = provinces.join('、') || code;
-        return (
-          <Tooltip title={code}>
-            <span>{province}</span>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      field: 'manualType',
-      headerName: '选择类型',
-      width: 200,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, string | null>) => (
-        <FormControl fullWidth size="small">
-          <Select
-            value={selectedType[params.row.reference] || ''}
-            onChange={(e) => handleTypeChange(params.row.reference, String(e.target.value))}
-            displayEmpty
-            MenuProps={{
-              anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-              transformOrigin: { vertical: 'top', horizontal: 'left' },
-              PaperProps: {
-                sx: {
-                  maxHeight: 320,
-                },
-              },
-            }}
-          >
-            <MenuItem value="">
-              <em>请选择类型</em>
-            </MenuItem>
-            {allParkTypes.map((option: { id: string; zh: string; en: string }) => (
-              <MenuItem key={option.id} value={option.id}>
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>{option.zh}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                    {option.en}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '操作',
-      width: 150,
-      renderCell: (params: GridRenderCellParams<UnprocessedPark, unknown>) => (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => handleConfirmProcess(params.row)}
-          disabled={!selectedType[params.row.reference]}
-        >
-          导入
-        </Button>
-      ),
-    },
-  ];
+  }, [user]);
 
   if (loading || hasPermission === null) {
     return (
@@ -544,23 +501,6 @@ const PotaUnprocessedParks: React.FC = () => {
           />
         </div>
       )}
-
-      {/* 确认对话框 */}
-      <Dialog open={openConfirmDialog} onClose={cancelProcess}>
-        <DialogTitle>确认导入</DialogTitle>
-        <DialogContent>
-          <Typography>
-            您确定要将公园 <strong>{parkToProcess?.name}</strong> (ID: {parkToProcess?.reference})
-            以类型 <strong>{getSelectedTypeLabel(parkToProcess?.reference)}</strong> 导入吗？
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={cancelProcess}>取消</Button>
-          <Button variant="contained" onClick={confirmProcess} disabled={processing}>
-            {processing ? <CircularProgress size={24} /> : '确认导入'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {snackbar && (
         <Snackbar
