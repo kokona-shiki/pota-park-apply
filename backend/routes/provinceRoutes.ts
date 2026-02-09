@@ -1,9 +1,9 @@
 import express from 'express';
+import { PrismaClient } from '@prisma/client';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { sendOk, sendError } from '../utils/response.js';
 
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // 获取省份列表（仅登录用户可用）
