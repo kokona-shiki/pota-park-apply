@@ -64,6 +64,7 @@ function TableHeader({
         orderBy="park_name"
         currentOrderBy={orderBy}
         order={order}
+        width={350}
         minWidth={350}
         onSort={handleRequestSort}
       />

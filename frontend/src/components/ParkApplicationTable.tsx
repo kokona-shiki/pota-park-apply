@@ -97,7 +97,7 @@ export function ParkApplicationTable({
           <TableHeader
             order={order}
             orderBy={orderBy}
-            onRequestSort={onRequestSort}
+            onRequestSort={onRequestSort ?? (() => {})}
             showApplicantCallsign={showApplicantCallsign}
             showActions={showActions}
           />

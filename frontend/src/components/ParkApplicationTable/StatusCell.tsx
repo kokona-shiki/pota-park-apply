@@ -4,8 +4,7 @@ import { TableCell, Chip } from '@mui/material';
 interface StatusCellProps {
   statusMeta: {
     label: string;
-    bgcolor: string;
-    color: string;
+    color: 'warning' | 'info' | 'success' | 'error' | 'default';
   };
 }
 
@@ -15,18 +14,9 @@ function StatusCell({ statusMeta }: StatusCellProps) {
       sx={{
         whiteSpace: 'nowrap',
         width: 100,
-        backgroundColor: statusMeta.bgcolor,
-        color: statusMeta.color,
       }}
     >
-      <Chip
-        label={statusMeta.label}
-        size="small"
-        sx={{
-          backgroundColor: statusMeta.bgcolor,
-          color: statusMeta.color,
-        }}
-      />
+      <Chip label={statusMeta.label} size="small" color={statusMeta.color} />
     </TableCell>
   );
 }

@@ -111,9 +111,10 @@ function ParkAppTableRow({
       {showActions && (
         <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: 280 }}>
           <ActionButtons
-            onDetailClick={() => onDetailClick(app)}
-            onFlowClick={onFlowClick ? () => onFlowClick(app) : undefined}
-            onReviewClick={onReviewClick ? () => onReviewClick(app) : undefined}
+            app={app}
+            onDetailClick={onDetailClick}
+            onFlowClick={onFlowClick}
+            onReviewClick={onReviewClick}
           />
         </TableCell>
       )}
