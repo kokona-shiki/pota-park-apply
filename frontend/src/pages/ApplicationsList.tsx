@@ -210,7 +210,9 @@ function ApplicationsList() {
         })
       );
 
-      updateApplicationState(payload.application);
+      if (payload.application) {
+        updateApplicationState(payload.application);
+      }
       setDetailOpen(false);
     } catch (e: unknown) {
       setDetailError(getApiErrorMessage(e, '审核失败'));

@@ -101,11 +101,11 @@ function CallsignChangeRequests() {
     reviewed_at?: string | null;
     created_at: string;
     updated_at: string;
-    applicant_email?: string;
-    applicant_callsign?: string;
-    reviewer_email?: string;
-    reviewer_callsign?: string;
-  }>): CallsignChangeRequest[] => {
+    applicant_email?: string | null;
+    applicant_callsign?: string | null;
+    reviewer_email?: string | null;
+    reviewer_callsign?: string | null;
+  }> | undefined): CallsignChangeRequest[] => {
     return (requests || []).map(req => ({
       ...req,
       applicant_email: req.applicant_email || undefined,

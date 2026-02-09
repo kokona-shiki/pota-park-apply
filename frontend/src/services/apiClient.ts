@@ -34,7 +34,7 @@ const handleBusinessError = (message: string | undefined, response: unknown) => 
 };
 
 // 处理 Zod 验证错误
-const handleZodError = (error: unknown, responseData: unknown) => {
+const handleZodError = (error: unknown, responseData: unknown): never => {
   if (error instanceof z.ZodError) {
     console.error('Zod validation error:', error.issues);
     // 如果是 Zod 验证错误，检查是否是因为响应格式不符合预期
@@ -82,6 +82,7 @@ export const requestWithSchema = async <T>(
     return parseApiData(schema, responseData);
   } catch (error) {
     handleZodError(error, responseData);
+    throw error;
   }
 };
 

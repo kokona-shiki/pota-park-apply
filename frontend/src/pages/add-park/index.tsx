@@ -216,6 +216,20 @@ function setDialogState(
 }
 
 // 辅助函数：处理重复名称错误的新格式
+function getDialogTypeAndTitle(allowRetry: boolean | undefined) {
+  if (allowRetry) {
+    return { type: 'warning' as const, title: '警告' };
+  }
+  return { type: 'error' as const, title: '错误' };
+}
+
+function getDialogParkList(errorCode: string | undefined, existingPark: unknown) {
+  if (shouldShowParkLink(errorCode) && existingPark) {
+    return [{ id: (existingPark as { id: number }).id, name: (existingPark as { name: string }).name }];
+  }
+  return [];
+}
+
 function handleDuplicateNameErrorNewFormat(
   result: SubmitResult,
   formData: FormState,
@@ -235,12 +249,11 @@ function handleDuplicateNameErrorNewFormat(
   const errorCode = result.errorDetails?.code;
   const details = result.errorDetails?.details;
   
-  const existingPark = details.existingPark;
-  const allowRetry = details.allowRetry;
+  const existingPark = details?.existingPark;
+  const allowRetry = details?.allowRetry;
 
-  const parkList = shouldShowParkLink(errorCode) && existingPark
-    ? [{ id: existingPark.id, name: existingPark.name }]
-    : [];
+  const parkList = getDialogParkList(errorCode, existingPark);
+  const { type: dialogType, title: dialogTitle } = getDialogTypeAndTitle(allowRetry);
 
   const confirmAction = allowRetry ? async () => {
     await handleSubmitWithConfirmation(
@@ -261,8 +274,8 @@ function handleDuplicateNameErrorNewFormat(
     setDialogParkListTitle,
     setDialogConfirmAction,
     setDialogOpen,
-    allowRetry ? 'warning' : 'error',
-    allowRetry ? '警告' : '错误',
+    dialogType,
+    dialogTitle,
     errorMessage,
     parkList,
     getParkListTitle(existingPark?.status),

@@ -59,7 +59,7 @@ const POISelector: React.FC<POISelectorProps> = ({
   setError,
 }) => {
   // 处理 POTA 公园选中
-  const handlePotaParkSelect = (poi: MapPOI, parkInfo: PotaParkInfo) => {
+  const handlePotaParkSelect = (_poi: MapPOI, parkInfo: PotaParkInfo) => {
     const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
     setProvince(provinceCode);
     

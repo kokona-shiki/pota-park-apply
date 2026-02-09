@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { AxiosResponse } from 'axios';
 import { apiClient } from '../services/apiClient';
 import {
   REDIRECT_KEY,
@@ -43,7 +44,7 @@ const isSuccessResponse = (payload: unknown): payload is SuccessResponse => {
 };
 
 const createBusinessError = (res: unknown, payload: { code?: number; message?: string }): Error => {
-  const bizRes = { ...res, data: { ...payload, error: payload.message } };
+  const bizRes = { ...(typeof res === 'object' && res !== null ? res : {}), data: { ...payload, error: payload.message } };
   const bizErr: Error & {
     isBusinessError?: boolean;
     code?: number;
@@ -55,8 +56,8 @@ const createBusinessError = (res: unknown, payload: { code?: number; message?: s
   return bizErr;
 };
 
-const handleResponseSuccess = (res: unknown) => {
-  const payload = res as {
+const handleResponseSuccess = (res: AxiosResponse<unknown, unknown, object>): AxiosResponse<unknown, unknown, object> | Promise<AxiosResponse<unknown, unknown, object>> => {
+  const payload = res.data as {
     code?: number;
     message?: string;
     data?: unknown;

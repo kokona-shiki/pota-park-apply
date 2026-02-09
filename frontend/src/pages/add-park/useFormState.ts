@@ -67,7 +67,7 @@ const DEFAULT_FORM_STATE: FormState = {
 
 // 生成初始表单状态
 const getInitialFormState = (savedState: FormState | null, initialState: Partial<FormState>): FormState => {
-  const result: FormState = { ...DEFAULT_FORM_STATE };
+  const result = { ...DEFAULT_FORM_STATE };
   
   // 更新每个字段的值
   Object.keys(DEFAULT_FORM_STATE).forEach((key) => {

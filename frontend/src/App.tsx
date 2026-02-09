@@ -72,7 +72,6 @@ function App() {
     setUser: authManager.setUser as (user: unknown | null) => void,
     setAccessToken: authManager.setAccessToken,
     setIsAuthLoading: authManager.setIsAuthLoading,
-    setIsTokenReady: () => {},
     hasInitializedRef,
   });
 
