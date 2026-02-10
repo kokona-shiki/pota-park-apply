@@ -1,4 +1,5 @@
 import express from 'express';
+import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import {
   createRefreshTokenForUser,
@@ -8,6 +9,7 @@ import {
   rotateRefreshToken,
   revokeAllRefreshTokensForUser,
   revokeRefreshToken,
+  RotateRefreshTokenResult,
 } from '../utils/auth.js';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
@@ -16,34 +18,14 @@ import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/
 import { generateCaptcha, verifyCaptcha } from '../services/captchaService.js';
 import * as emailVerificationService from '../services/emailVerificationService.js';
 
-// 定义用户类型
-type User = {
-  id: number;
-  email: string;
-  callsign?: string;
-  role: string;
-  is_active: boolean;
-  last_login?: Date | null;
-  created_at: Date;
-  updated_at: Date;
-};
 
-// 定义刷新令牌结果类型
-type RefreshTokenResult = {
-  status: 'valid' | 'invalid' | 'expired' | 'user_disabled' | 'replay';
-  userId?: number;
-  user?: User;
-  refreshToken?: string;
-  familyId?: string;
-  absoluteExpiresAt?: Date;
-};
 
 const router = express.Router();
 
 const REFRESH_COOKIE_NAME = 'pota_refresh_token';
 const REFRESH_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
-const getCookie = (req: express.Request, name: string) => {
+const getCookie = (req: Request, name: string) => {
   const cookieHeader = req?.headers?.cookie;
   if (!cookieHeader) return null;
 
@@ -61,7 +43,7 @@ const getCookie = (req: express.Request, name: string) => {
   return null;
 };
 
-const setRefreshCookie = (req: express.Request, res: express.Response, refreshToken: string) => {
+const setRefreshCookie = (req: Request, res: express.Response, refreshToken: string) => {
   // secure: 依赖 req.secure（已在 app.ts 设置 trust proxy）
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
@@ -100,7 +82,7 @@ const sendCodeLimiter = rateLimit({
 });
 
 // 生成图形验证码
-router.get('/api/captcha', (req, res) => {
+router.get('/api/captcha', (req: Request, res: express.Response) => {
   const captcha = generateCaptcha();
   res.type('svg');
   res.setHeader('X-Captcha-Id', captcha.id);
@@ -108,7 +90,7 @@ router.get('/api/captcha', (req, res) => {
 });
 
 // 发送邮箱验证码
-router.post('/api/send-verification-email', sendCodeLimiter, async (req, res) => {
+router.post('/api/send-verification-email', sendCodeLimiter, async (req: Request, res: express.Response) => {
   try {
     const { email, captchaId, captchaCode } = req.body;
 
@@ -142,7 +124,7 @@ router.post('/api/send-verification-email', sendCodeLimiter, async (req, res) =>
 });
 
 // 验证邮箱验证码
-router.post('/api/verify-email-code', async (req, res) => {
+router.post('/api/verify-email-code', async (req: Request, res: express.Response) => {
   try {
     const { email, code } = req.body;
 
@@ -165,7 +147,7 @@ router.post('/api/verify-email-code', async (req, res) => {
 });
 
 // 用户注册（注册成功后需要重新登录，不自动签发 token）
-router.post('/api/register', authLimiter, async (req, res) => {
+router.post('/api/register', authLimiter, async (req: Request, res: express.Response) => {
   try {
     const parsed = RegisterRequestSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -189,7 +171,7 @@ router.post('/api/register', authLimiter, async (req, res) => {
 });
 
 // 用户登录
-router.post('/api/login', authLimiter, async (req, res) => {
+router.post('/api/login', authLimiter, async (req: Request, res: express.Response) => {
   try {
     const parsed = LoginRequestSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -236,7 +218,7 @@ router.post('/api/login', authLimiter, async (req, res) => {
 });
 
 // 处理刷新令牌结果
-const handleRefreshTokenResult = async (req: express.Request, res: express.Response, result: RefreshTokenResult) => {
+const handleRefreshTokenResult = async (req: Request, res: express.Response, result: RotateRefreshTokenResult) => {
   if (result.status === 'invalid' || result.status === 'expired') {
     clearRefreshCookie(res);
     return sendHttpError(res, 401, 'UNAUTHORIZED', '无效或过期的刷新令牌', null);
@@ -285,14 +267,14 @@ const handleRefreshTokenResult = async (req: express.Request, res: express.Respo
   const permissions = await getUserPermissions(user.id);
   const userWithPermissions = {
     ...user,
-    permissions: permissions.map((p: { permission_code: string }) => p.permission_code),
+    permissions: permissions.map((p) => p.permission_code),
   };
 
   return sendOk(res, { accessToken, user: userWithPermissions }, 'ok');
 };
 
 // 刷新 token（refreshToken 重放检测 + rotation）
-router.post('/api/refresh-token', authLimiter, async (req, res) => {
+router.post('/api/refresh-token', authLimiter, async (req: Request, res: express.Response) => {
   try {
     if (process.env.NODE_ENV !== 'production') {
       const tabId = req.get('X-Tab-Id') || null;
@@ -310,7 +292,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
       ip: req.ip || null,
     });
 
-    return await handleRefreshTokenResult(req, res, result as unknown as RefreshTokenResult);
+    return await handleRefreshTokenResult(req, res, result);
   } catch (error) {
     console.error('刷新 token 失败:', error);
     return sendError(res, error, { httpMessage: '刷新 token 失败' });
@@ -318,7 +300,7 @@ router.post('/api/refresh-token', authLimiter, async (req, res) => {
 });
 
 // 用户退出登录：清除 refresh cookie，并尽可能吊销该 refresh token
-router.post('/api/logout', async (req, res) => {
+router.post('/api/logout', async (req: Request, res: express.Response) => {
   try {
     const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');
     if (refreshToken) {
@@ -340,7 +322,7 @@ router.post('/api/logout', async (req, res) => {
 });
 
 // 获取当前用户信息
-router.get('/api/user-info', authenticateToken, async (req, res) => {
+router.get('/api/user-info', authenticateToken, async (req: Request, res: express.Response) => {
   try {
     const user = await findUserById(req.user?.id);
     if (!user) {
@@ -362,7 +344,7 @@ router.get('/api/user-info', authenticateToken, async (req, res) => {
 });
 
 // 获取用户权限
-router.get('/api/user-permissions', authenticateToken, async (req, res) => {
+router.get('/api/user-permissions', authenticateToken, async (req: Request, res: express.Response) => {
   try {
     const permissions = await getUserPermissions(req.user?.id);
     return sendOk(res, { permissions }, 'ok');
@@ -373,7 +355,7 @@ router.get('/api/user-permissions', authenticateToken, async (req, res) => {
 });
 
 // 检查特定权限
-router.get('/api/check-permission/:permissionCode', authenticateToken, async (req, res) => {
+router.get('/api/check-permission/:permissionCode', authenticateToken, async (req: Request, res: express.Response) => {
   try {
     const permissionCode = req.params.permissionCode;
     const permissions = await getUserPermissions(req.user?.id);
