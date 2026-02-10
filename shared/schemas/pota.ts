@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginationSchema, createApiResponseSchema } from './common';
+import { PaginationSchema, createApiResponseSchema } from './common.js';
 
 export const PotaStatusSchema = z.object({
   connected: z.boolean(),

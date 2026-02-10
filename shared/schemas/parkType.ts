@@ -1,6 +1,6 @@
 // shared/schemas/parkType.ts
 
-import parkTypeMapping from '../park_type_mapping.json';
+import parkTypeMapping from '../park_type_mapping.json' with { type: "json" };
 
 /**
  * 中英文对照的公园类型映射

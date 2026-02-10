@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiResponseSchema } from './common';
+import { createApiResponseSchema } from './common.js';
 
 export const NotificationModeSchema = z.union([z.literal('normal'), z.literal('popup')]);
 

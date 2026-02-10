@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiResponseSchema } from './common';
+import { createApiResponseSchema } from './common.js';
 
 export const ImportTaskResultSummarySchema = z.object({
   total: z.number(),

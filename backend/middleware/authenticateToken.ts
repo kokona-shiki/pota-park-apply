@@ -9,6 +9,7 @@ declare module 'express-serve-static-core' {
       email: string;
       hasPotaImportPermission?: boolean;
       hasReviewPermission?: boolean;
+      password_hash?: string;
     };
   }
 }

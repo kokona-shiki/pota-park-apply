@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authenticateToken';
-import { requirePermission } from '../middleware/requirePermission';
+import { authenticateToken } from '../middleware/authenticateToken.js';
+import { requirePermission } from '../middleware/requirePermission.js';
 import * as exportService from '../services/exportService.js';
 import { sendError, sendOk } from '../utils/response.js';
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken } from '../middleware/authenticateToken';
-import { requirePermission } from '../middleware/requirePermission';
+import { authenticateToken } from '../middleware/authenticateToken.js';
+import { requirePermission } from '../middleware/requirePermission.js';
 import * as parkApplicationService from '../services/parkApplicationService.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 import { ParkApplicationSubmitRequestSchema } from '../../shared/schemas/parkApplication.js';

@@ -3,9 +3,9 @@ import { format, toZonedTime } from 'date-fns-tz';
 import { create } from 'xmlbuilder2';
 import AdmZip from 'adm-zip';
 import { writeToString } from 'fast-csv';
-import regionMapping from '../../shared/region.json';
-import { PARK_TYPE_MAP } from '../../shared/schemas/parkType';
-import type { ExportAuditLog } from '../../shared/schemas/export';
+import regionMapping from '../../shared/region.json' with { type: "json" };
+import { PARK_TYPE_MAP } from '../../shared/schemas/parkType.js';
+import type { ExportAuditLog } from '../../shared/schemas/export.js';
 
 const REGION_BY_ISO = new Map(regionMapping.map((item) => [item.code, item.name]));
 

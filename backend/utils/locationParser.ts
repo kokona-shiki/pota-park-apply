@@ -1,5 +1,5 @@
 // backend/utils/locationParser.ts
-import regionData from '../../shared/region.json';
+import regionData from '../../shared/region.json' with { type: "json" };
 
 /**
  * 从公园名称中解析省份信息

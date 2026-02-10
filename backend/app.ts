@@ -2,19 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
-import systemRoutes from './routes/systemRoutes';
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import callsignRoutes from './routes/callsignRoutes';
-import parkApplicationRoutes from './routes/parkApplicationRoutes';
-import provinceRoutes from './routes/provinceRoutes';
-import potaRoutes from './routes/potaRoutes';
-import potaImportRoutes from './routes/potaImportRoutes';
-import potaSyncLogRoutes from './routes/potaSyncLogRoutes';
-import exportRoutes from './routes/exportRoutes';
-import notificationRoutes from './routes/notificationRoutes';
+import systemRoutes from './routes/systemRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import callsignRoutes from './routes/callsignRoutes.js';
+import parkApplicationRoutes from './routes/parkApplicationRoutes.js';
+import provinceRoutes from './routes/provinceRoutes.js';
+import potaRoutes from './routes/potaRoutes.js';
+import potaImportRoutes from './routes/potaImportRoutes.js';
+import potaSyncLogRoutes from './routes/potaSyncLogRoutes.js';
+import exportRoutes from './routes/exportRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import { initProxies } from './config/proxyConfig.js';
-import { errorHandler } from './utils/response';
+import { errorHandler } from './utils/response.js';
 
 const app = express();
 

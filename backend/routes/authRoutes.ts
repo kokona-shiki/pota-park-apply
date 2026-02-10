@@ -9,7 +9,7 @@ import {
   revokeAllRefreshTokensForUser,
   revokeRefreshToken,
 } from '../utils/auth.js';
-import { authenticateToken } from '../middleware/authenticateToken';
+import { authenticateToken } from '../middleware/authenticateToken.js';
 import * as userService from '../services/userService.js';
 import { sendBizError, sendError, sendHttpError, sendOk } from '../utils/response.js';
 import { LoginRequestSchema, RegisterRequestSchema } from '../../shared/schemas/auth.js';

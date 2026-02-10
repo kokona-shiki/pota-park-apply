@@ -35,6 +35,7 @@ type UserAdminAuditPayload = {
   oldIsActive?: boolean | null;
   newIsActive?: boolean | null;
   reason?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 };
 

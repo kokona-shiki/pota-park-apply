@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createApiResponseSchema } from './common';
-import { UserSchema } from './user';
+import { createApiResponseSchema } from './common.js';
+import { UserSchema } from './user.js';
 
 export const CallsignChangeRequestSchema = z.object({
   id: z.number(),
