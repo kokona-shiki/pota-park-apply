@@ -8,7 +8,7 @@ import globals from 'globals';
 
 export default tseslint.config(
   // 全局忽略
-  { ignores: ['dist/**', 'node_modules/**', '*.config.js', 'coverage/**'] },
+  { ignores: ['dist/**', 'node_modules/**', '*.config.js', 'coverage/**', '.sonar/**'] },
 
   // 基础推荐规则
   js.configs.recommended,
