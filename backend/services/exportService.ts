@@ -125,7 +125,29 @@ const getAllParks = async (): Promise<ParkExportData[]> => {
     LEFT JOIN users u ON pa.applicant_id = u.id
     LEFT JOIN users u2 ON pa.pota_synced_by = u2.id
     ORDER BY pa.id ASC
-  `);
+  `) as Array<{
+    id: number;
+    park_name: string;
+    latitude: number;
+    longitude: number;
+    park_type: string | null;
+    provinces: string[] | unknown;
+    description: string | null;
+    access_methods: string[] | unknown;
+    activation_methods: string[] | unknown;
+    website: string | null;
+    applicant_id: number;
+    applicant_callsign: string | null;
+    applicant_email: string | null;
+    created_at: string;
+    status: string;
+    pota_synced_at: string | null;
+    pota_synced_by: number | null;
+    pota_synced_by_callsign: string | null;
+    pota_id: string | null;
+    pota_notes: string | null;
+    is_pota_imported: boolean;
+  }>;
 
   return parks.map(park => ({
     ...park,
@@ -307,7 +329,13 @@ export const getExportAuditLogs = async (): Promise<ExportAuditLog[]> => {
     FROM export_audit_logs eal
     ORDER BY eal.created_at DESC
     LIMIT 100
-  `);
+  `) as Array<{
+    id: number;
+    file_type: "csv" | "kmz";
+    park_count: number;
+    exported_by_callsign: string;
+    created_at: string;
+  }>;
 
   return logs.map(log => ({
     ...log,

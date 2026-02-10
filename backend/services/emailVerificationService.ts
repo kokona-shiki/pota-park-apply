@@ -27,6 +27,17 @@ export const createVerificationToken = async (email: string, callsign?: string):
   return code;
 };
 
+// 定义邮件验证令牌类型
+type EmailVerificationToken = {
+  id: number;
+  email: string;
+  code: string;
+  expires_at: string;
+  attempts: number;
+  created_at: string;
+  verified_at: string | null;
+};
+
 export const verifyEmailCode = async (email: string, code: string): Promise<boolean> => {
   const token = await getOne(
     `
@@ -36,7 +47,7 @@ export const verifyEmailCode = async (email: string, code: string): Promise<bool
     LIMIT 1
   `,
     [email, code]
-  );
+  ) as EmailVerificationToken;
 
   if (!token) {
     return false;
@@ -98,7 +109,7 @@ export const checkSendCooldown = async (email: string): Promise<boolean> => {
     LIMIT 1
   `,
     [email]
-  );
+  ) as { created_at: string };
 
   if (!lastToken) {
     return false;
@@ -117,7 +128,7 @@ export const getRemainingCooldown = async (email: string): Promise<number> => {
     LIMIT 1
   `,
     [email]
-  );
+  ) as { created_at: string };
 
   if (!lastToken) {
     return 0;

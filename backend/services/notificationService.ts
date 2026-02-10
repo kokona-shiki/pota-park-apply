@@ -317,7 +317,7 @@ export const getUsersByRole = async (role: string) => {
     SELECT id FROM users WHERE role = $1 AND is_active = true
     `,
     [role]
-  );
+  ) as Array<{ id: number }>;
 
   return users.map((u) => u.id);
 };
@@ -442,7 +442,17 @@ export const publishDraft = async (
     WHERE id = $1 AND created_by = $2
     `,
     [draftId, createdBy]
-  );
+  ) as {
+    id: number;
+    title: string;
+    description: string;
+    link_url: string | null;
+    notification_mode: string;
+    scheduled_at: string | null;
+    created_by: number;
+    created_at: string;
+    updated_at: string;
+  };
 
   if (!draft) {
     throw new Error('草稿不存在或无权访问');
@@ -608,7 +618,13 @@ export const withdrawNotification = async (
     SELECT * FROM notifications WHERE id = $1 AND is_global = true
     `,
     [notificationId]
-  );
+  ) as {
+    id: number;
+    title: string;
+    description: string;
+    published_at: string;
+    published_by: number;
+  };
 
   if (!notification) {
     throw new Error('通知不存在或不是全局通知');
@@ -647,7 +663,7 @@ export const publishScheduledNotifications = async () => {
       `
       SELECT id FROM users WHERE is_active = true
       `
-    );
+    ) as Array<{ id: number }>;
 
     const userIds = users.map((u) => u.id);
 
