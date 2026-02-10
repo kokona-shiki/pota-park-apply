@@ -84,7 +84,11 @@ async function checkDuplicateParkName(park_name: string, confirmedRejectedPark?:
     WHERE park_name = $1
     `,
     [park_name]
-  );
+  ) as {
+    id: number;
+    park_name: string;
+    status: ApplicationStatus;
+  };
 
   if (existingPark) {
     const { id, status } = existingPark;
@@ -148,7 +152,7 @@ async function checkParkNameSimilarity(park_name: string, confirmedNameSimilarit
     WHERE 
       status IN ('approved', 'pota_synced')
     `
-  );
+  ) as Array<{ id: number; park_name: string }>;
 
   const filteredSimilarParks = similarParks
     .map(park => ({
@@ -204,7 +208,7 @@ async function checkParkLocationDistance(latitude: number, longitude: number, co
       )
     `,
     [longitude, latitude] // PostGIS 使用 (lon, lat) 顺序
-  );
+  ) as Array<{ id: number; park_name: string }>;
 
   const filteredNearbyParks = nearbyParks.map(park => ({
     id: park.id,
@@ -366,7 +370,7 @@ export const notifyReviewersOnNewApplication = async (applicationId: number, par
       WHERE u.is_active = true
         AND p.permission_code = 'review_application'
       `
-    );
+    ) as Array<{ id: number }>;
 
     const reviewerIds = reviewers.map((r) => r.id);
 
@@ -493,7 +497,9 @@ export const getApplicationById = async (userId: number, applicationId: number) 
     WHERE pa.id = $1
   `,
     [applicationId]
-  );
+  ) as {
+    applicant_id: number;
+  };
 
   if (!application) {
     throw new Error('申请不存在');
@@ -531,7 +537,12 @@ export const reviewApplication = async (
     WHERE pa.id = $2
     `,
     [reviewerId, applicationId]
-  );
+  ) as {
+    status: ApplicationStatus;
+    reviewer_role: string;
+    park_name: string;
+    applicant_id: number;
+  };
 
   if (!currentApplication) {
     throw new Error('申请不存在');
@@ -643,7 +654,12 @@ export const reReviewApplication = async (
     WHERE pa.id = $2
   `,
     [operatorId, applicationId]
-  );
+  ) as {
+    status: ApplicationStatus;
+    operator_role: string;
+    park_name: string;
+    applicant_id: number;
+  };
 
   if (!currentApplication) {
     throw new Error('申请不存在');
@@ -744,18 +760,21 @@ export const syncToPOTA = async (operatorId: number, applicationId: number, pota
     WHERE pa.id = $2
   `,
     [operatorId, applicationId]
-  );
+  ) as {
+    status: ApplicationStatus;
+    operator_role: string;
+  };
 
   if (!currentApplication) {
     throw new Error('申请不存在');
   }
 
-  if (currentApplication.status !== 'approved') {
-    throw new Error('只有审核通过的申请才能录入POTA系统');
-  }
-
   if (currentApplication.status === 'pota_synced') {
     throw new Error('申请已录入POTA系统');
+  }
+
+  if (currentApplication.status !== 'approved') {
+    throw new Error('只有审核通过的申请才能录入POTA系统');
   }
 
   const operatorRole = currentApplication.operator_role;
@@ -847,7 +866,9 @@ export const createReviewReminder = async (
     SELECT id, status FROM park_applications WHERE id = $1
   `,
     [applicationId]
-  );
+  ) as {
+    status: ApplicationStatus;
+  };
 
   if (!application) {
     throw new Error('申请不存在');

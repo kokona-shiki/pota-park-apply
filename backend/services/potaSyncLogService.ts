@@ -49,7 +49,7 @@ export const logPotaSync = async (
       ) VALUES ($1, $2, $3, $4, $5)
       `,
       [operator, operationType, parksImported, status, details]
-    );
+    ) as { id: number };
 
     console.log(
       `POTA同步日志记录成功: ID ${logEntry.id}, 操作人: ${operator}, 类型: ${operationType}, 状态: ${status}`

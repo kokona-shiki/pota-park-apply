@@ -91,7 +91,7 @@ class PotaAuthService {
    */
   async generateUserDerivedKey(userId: number, passwordHash: string) {
     // 从数据库获取用户的 POTA 加密盐值
-    const userData = await getOne('SELECT pota_encryption_salt FROM users WHERE id = $1', [userId]);
+    const userData = await getOne('SELECT pota_encryption_salt FROM users WHERE id = $1', [userId]) as { pota_encryption_salt?: string };
 
     if (!userData) {
       throw new Error('用户不存在');
@@ -447,7 +447,11 @@ class PotaAuthService {
     const stored = await getOne(
       'SELECT id_token_encrypted, refresh_token_encrypted, expires_at FROM pota_tokens WHERE user_id = $1',
       [userId]
-    );
+    ) as {
+      id_token_encrypted: string;
+      refresh_token_encrypted: string;
+      expires_at: string;
+    };
 
     if (!stored) return null;
 
