@@ -64,9 +64,9 @@ function App() {
     isLockExpired: () => true,
     isTokenFresh,
     getJwtIatMs: () => Date.now(),
-    writeAuthData: (data: { user?: unknown; accessToken?: string }) => {
-      if (data.user) setUser(data.user as AuthUser | null);
-      if (data.accessToken) setAccessToken(data.accessToken);
+    writeAuthData: (data: unknown) => {
+      if (data && typeof data === 'object' && 'user' in data) setUser(data.user as AuthUser | null);
+      if (data && typeof data === 'object' && 'accessToken' in data) setAccessToken(data.accessToken as string);
     },
     rejectAllWaiters: () => {},
     resolveAllWaiters: () => {},
