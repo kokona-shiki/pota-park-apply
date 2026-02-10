@@ -853,11 +853,11 @@ function AddPark() {
               renderTags={(value, getTagProps) =>
                 value.map((option, index) => (
                   <Chip
+                    {...getTagProps({ index })}
                     key={option.code}
                     variant="outlined"
                     label={`${option.name} (${option.code})`}
                     size="small"
-                    {...getTagProps({ index })}
                   />
                 ))
               }
