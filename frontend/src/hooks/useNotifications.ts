@@ -37,6 +37,8 @@ export const useNotifications = (filters: {
     total: 0,
     totalPages: 0,
   });
+  const initializedRef = useRef(false);
+  const filtersRef = useRef(filters);
 
   const buildQueryParams = (filters: {
     type?: string;
@@ -92,8 +94,13 @@ export const useNotifications = (filters: {
   }, [user, filters]);
 
   useEffect(() => {
+    const filtersChanged = JSON.stringify(filters) !== JSON.stringify(filtersRef.current);
+    if (initializedRef.current && !filtersChanged) return;
+    
+    initializedRef.current = true;
+    filtersRef.current = filters;
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [fetchNotifications, filters]);
 
   return { notifications, loading, error, pagination, refetch: fetchNotifications };
 };

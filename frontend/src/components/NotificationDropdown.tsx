@@ -5,6 +5,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
 import { truncateMarkdown } from '../utils/markdown';
@@ -15,7 +16,8 @@ interface NotificationDropdownProps {
 
 export const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
   const navigate = useNavigate();
-  const { notifications, loading, refetch } = useNotifications({ pageSize: 10 });
+  const filters = useMemo(() => ({ pageSize: 10 }), []);
+  const { notifications, loading, refetch } = useNotifications(filters);
 
   const handleNotificationClick = async (notification: { id: number; is_read: boolean }) => {
     if (!notification.is_read) {
