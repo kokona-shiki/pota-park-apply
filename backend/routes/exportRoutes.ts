@@ -4,20 +4,11 @@ import { requirePermission } from '../middleware/requirePermission.js';
 import * as exportService from '../services/exportService.js';
 import { sendError, sendOk } from '../utils/response.js';
 
-interface AuthenticatedRequest extends express.Request {
-  user: {
-    id: number;
-    email: string;
-    hasPotaImportPermission?: boolean;
-    hasReviewPermission?: boolean;
-  };
-}
-
 const router = express.Router();
 
 router.get('/api/export/csv', authenticateToken, requirePermission('export_parks'), async (req, res) => {
   try {
-    const userId = (req as AuthenticatedRequest).user?.id;
+    const userId = req.user?.id;
     const csvBuffer = await exportService.exportToCSV(userId);
     
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -31,7 +22,7 @@ router.get('/api/export/csv', authenticateToken, requirePermission('export_parks
 
 router.get('/api/export/kmz', authenticateToken, requirePermission('export_parks'), async (req, res) => {
   try {
-    const userId = (req as AuthenticatedRequest).user?.id;
+    const userId = req.user?.id;
     const kmzBuffer = await exportService.exportToKMZ(userId);
     
     res.setHeader('Content-Type', 'application/vnd.google-earth.kmz');

@@ -22,9 +22,10 @@ type User = {
   email: string;
   callsign?: string;
   role: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
+  is_active: boolean;
+  last_login?: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 // 定义刷新令牌结果类型
@@ -34,6 +35,7 @@ type RefreshTokenResult = {
   user?: User;
   refreshToken?: string;
   familyId?: string;
+  absoluteExpiresAt?: Date;
 };
 
 const router = express.Router();
@@ -201,6 +203,7 @@ router.post('/api/login', authLimiter, async (req, res) => {
     const accessToken = generateAccessToken({
       id: user.id,
       email: user.email,
+      role: user.role,
     });
 
     // refreshToken：随机串 + 落库；通过 HttpOnly Cookie 返回给浏览器
@@ -272,6 +275,7 @@ const handleRefreshTokenResult = async (req: express.Request, res: express.Respo
   const accessToken = generateAccessToken({
     id: user.id,
     email: user.email,
+    role: user.role,
   });
 
   // rotation：刷新成功后，下发新的 refresh token（HttpOnly Cookie）
