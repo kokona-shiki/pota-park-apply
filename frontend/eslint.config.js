@@ -38,6 +38,7 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'error',
       'react-refresh/only-export-components': 'warn',
+      'react/jsx-key': 'off',
     },
     languageOptions: {
       globals: globals.browser,

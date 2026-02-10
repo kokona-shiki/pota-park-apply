@@ -1,5 +1,17 @@
 // src/pages/add-park/ParkFormFields.tsx
-import { Box, TextField, FormControl, InputLabel, Autocomplete, Select, MenuItem, Chip, Checkbox, FormControlLabel, Typography } from '@mui/material';
+import {
+  Box,
+  TextField,
+  FormControl,
+  InputLabel,
+  Autocomplete,
+  Select,
+  MenuItem,
+  Chip,
+  Checkbox,
+  FormControlLabel,
+  Typography,
+} from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import Pinyin from 'pinyin-match';
 import type { ParkTypeOption, Province } from './types';
@@ -118,9 +130,7 @@ function ParkFormFields({
             renderOption={(props, option) => (
               <li {...props} key={option.id}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                    {option.zh}
-                  </Typography>
+                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600 }}>{option.zh}</Typography>
                   <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                     {option.en}
                   </Typography>
@@ -234,10 +244,7 @@ function ParkFormFields({
 
       <FormControlLabel
         control={
-          <Checkbox
-            checked={confirmed}
-            onChange={(e) => onConfirmedChange(e.target.checked)}
-          />
+          <Checkbox checked={confirmed} onChange={(e) => onConfirmedChange(e.target.checked)} />
         }
         label="我已确认公园真实性"
         sx={{ mt: 2 }}

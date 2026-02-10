@@ -225,7 +225,9 @@ function getDialogTypeAndTitle(allowRetry: boolean | undefined) {
 
 function getDialogParkList(errorCode: string | undefined, existingPark: unknown) {
   if (shouldShowParkLink(errorCode) && existingPark) {
-    return [{ id: (existingPark as { id: number }).id, name: (existingPark as { name: string }).name }];
+    return [
+      { id: (existingPark as { id: number }).id, name: (existingPark as { name: string }).name },
+    ];
   }
   return [];
 }
@@ -248,23 +250,25 @@ function handleDuplicateNameErrorNewFormat(
   const errorMessage = result.error || '提交失败，请重试';
   const errorCode = result.errorDetails?.code;
   const details = result.errorDetails?.details;
-  
+
   const existingPark = details?.existingPark;
   const allowRetry = details?.allowRetry;
 
   const parkList = getDialogParkList(errorCode, existingPark);
   const { type: dialogType, title: dialogTitle } = getDialogTypeAndTitle(allowRetry);
 
-  const confirmAction = allowRetry ? async () => {
-    await handleSubmitWithConfirmation(
-      handleSubmit,
-      formData,
-      navigate,
-      setError,
-      clearFormState,
-      'confirmedRejectedPark'
-    );
-  } : null;
+  const confirmAction = allowRetry
+    ? async () => {
+        await handleSubmitWithConfirmation(
+          handleSubmit,
+          formData,
+          navigate,
+          setError,
+          clearFormState,
+          'confirmedRejectedPark'
+        );
+      }
+    : null;
 
   setDialogState(
     setDialogType,
@@ -297,9 +301,7 @@ function handleDuplicateNameErrorOldFormat(
   const errorMessage = result.error || '提交失败，请重试';
   const existingPark = result.errorDetails?.existingPark;
   const shouldShowLink = shouldShowParkLinkOldFormat(existingPark?.status);
-  const parkList = shouldShowLink
-    ? [{ id: existingPark.id, name: existingPark.name }]
-    : [];
+  const parkList = shouldShowLink ? [{ id: existingPark.id, name: existingPark.name }] : [];
 
   setDialogState(
     setDialogType,
@@ -796,7 +798,7 @@ function AddPark() {
           {searchResults.length > 0 && mapPOIs.length === 0 && (
             <Box
               sx={{
-                mt:1,
+                mt: 1,
                 maxHeight: 200,
                 overflowY: 'auto',
                 border: '1px solid',
