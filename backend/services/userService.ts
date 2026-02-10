@@ -35,7 +35,7 @@ type UserAdminAuditPayload = {
   oldIsActive?: boolean | null;
   newIsActive?: boolean | null;
   reason?: string | null;
-  metadata?: unknown;
+  metadata?: any;
 };
 
 type RegisterUserPayload = {
@@ -210,7 +210,7 @@ export const updateUserInfo = async (
         field_name: field,
         old_value: currentUser[field as keyof typeof currentUser] as string,
         new_value: newValue,
-        change_reason: reason,
+        change_reason: _reason,
       },
     });
 
