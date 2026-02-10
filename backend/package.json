@@ -21,6 +21,7 @@
     "reinstall": "pnpm clean && pnpm install"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.7.9",

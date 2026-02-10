@@ -11,8 +11,20 @@ import {
 } from '../utils/auth.js';
 import * as notificationService from './notificationService.js';
 import { PrismaClient } from '@db';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pkg from 'pg';
+const { Pool } = pkg;
 
-const prisma = new PrismaClient();
+const pool = new Pool({
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'pota_park',
+  password: process.env.DB_PASSWORD || 'password',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 type UserAdminAuditPayload = {
   action: string;
@@ -227,7 +239,11 @@ export const updateUserInfo = async (
 };
 
 // 申请呼号变更
-export const requestCallsignChange = async (userId: number, newCallsign: string, _reason: string) => {
+export const requestCallsignChange = async (
+  userId: number,
+  newCallsign: string,
+  _reason: string
+) => {
   const normalized = normalizeCallsign(newCallsign);
 
   const existingUser = await prisma.user.findFirst({
@@ -356,17 +372,16 @@ export const reviewCallsignChange = async (
       });
     }
 
-    await notificationService.createNotification(
-      {
-        type: 'callsign_change_request',
-        title: status === 'approved' ? '呼号变更申请已通过' : '呼号变更申请已拒绝',
-        description: status === 'approved'
+    await notificationService.createNotification({
+      type: 'callsign_change_request',
+      title: status === 'approved' ? '呼号变更申请已通过' : '呼号变更申请已拒绝',
+      description:
+        status === 'approved'
           ? `您的呼号变更申请已通过，呼号已变更为"${request.requested_callsign}"`
           : `您的呼号变更申请已被拒绝${reviewNotes ? `：${reviewNotes}` : ''}`,
-        userId: request.user_id,
-        linkUrl: `/callsign-change-requests`,
-      }
-    );
+      userId: request.user_id,
+      linkUrl: `/callsign-change-requests`,
+    });
 
     return {
       request: { ...request, status, review_notes: reviewNotes },
@@ -399,8 +414,6 @@ export const getCallsignChangeRequests = async (status: string | null) => {
   });
 };
 
-
-
 // 定义 getUserAdminAuditLogs 的参数类型
 interface GetUserAdminAuditLogsParams {
   action?: string | null;
@@ -413,7 +426,7 @@ interface GetUserAdminAuditLogsParams {
 // 获取用户管理审计日志（仅系统管理员）
 export const getUserAdminAuditLogs = async (params: GetUserAdminAuditLogsParams = {}) => {
   const { action = null, targetUserId = null, operatorId = null, limit = 200, offset = 0 } = params;
-  
+
   const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
   const safeOffset = Math.max(0, Number(offset) || 0);
 
@@ -444,7 +457,11 @@ export const getUserAdminAuditLogs = async (params: GetUserAdminAuditLogsParams 
 };
 
 // 构建审计日志查询条件
-function buildAuditLogWhereConditions(action: string | null, targetUserId: number | null, operatorId: number | null) {
+function buildAuditLogWhereConditions(
+  action: string | null,
+  targetUserId: number | null,
+  operatorId: number | null
+) {
   const whereConditions: {
     action?: string;
     target_user_id?: number;
@@ -564,15 +581,13 @@ export const updateUserRole = async (
     });
 
     // 创建通知
-    await notificationService.createNotification(
-      {
-        type: 'user_management_operation',
-        title: '用户角色已变更',
-        description: `您的角色已从"${target.role}"变更为"${newRole}"`,
-        userId: targetUserId,
-        linkUrl: '/profile',
-      }
-    );
+    await notificationService.createNotification({
+      type: 'user_management_operation',
+      title: '用户角色已变更',
+      description: `您的角色已从"${target.role}"变更为"${newRole}"`,
+      userId: targetUserId,
+      linkUrl: '/profile',
+    });
 
     return updated;
   });
@@ -692,11 +707,7 @@ export const deleteUser = async (operatorId: number, targetUserId: number) => {
 };
 
 // 验证密码更新参数
-const validatePasswordUpdate = async (
-  userId: number,
-  oldPassword: string,
-  newPassword: string
-) => {
+const validatePasswordUpdate = async (userId: number, oldPassword: string, newPassword: string) => {
   // 验证新密码
   if (!newPassword || newPassword.length < 6) {
     throw new Error('密码长度至少为6位');
@@ -732,10 +743,7 @@ const validatePasswordUpdate = async (
 };
 
 // 处理 POTA token 重新加密
-const handlePotaTokensReencryption = async (
-  userId: number,
-  oldPasswordHash: string
-) => {
+const handlePotaTokensReencryption = async (userId: number, oldPasswordHash: string) => {
   try {
     return await potaAuthService.getStoredTokens(userId, oldPasswordHash);
   } catch (error) {
