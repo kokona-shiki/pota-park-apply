@@ -221,7 +221,7 @@ class PotaAuthService {
    * 记录 token 交换请求
    */
   private logTokenExchangeRequest(code: string, codeVerifier: string): void {
-    console.log('Token 交换请求参数:', {
+    console.warn('Token 交换请求参数:', {
       grant_type: 'authorization_code',
       client_id: this.clientId,
       code: code.substring(0, 20) + '...',
@@ -536,7 +536,7 @@ class PotaAuthService {
         this.clientId
       }&logout_uri=${encodeURIComponent(this.redirectUri)}`;
 
-      console.log('开始调用 POTA 登出接口:', logoutUrl);
+      console.warn('开始调用 POTA 登出接口:', logoutUrl);
 
       // 启动浏览器
       browser = await puppeteer.launch({
@@ -568,14 +568,14 @@ class PotaAuthService {
 
       // 检查最终 URL（应该重定向到 pota.app）
       const finalUrl = page.url();
-      console.log('POTA 登出完成，最终 URL:', finalUrl);
+      console.warn('POTA 登出完成，最终 URL:', finalUrl);
 
       // 如果重定向到了 pota.app，说明登出成功
       if (
         finalUrl.includes('pota.app') ||
         (response && response.status() >= 200 && response.status() < 400)
       ) {
-        console.log('POTA 登出成功');
+        console.warn('POTA 登出成功');
         return true;
       } else {
         console.warn('POTA 登出响应状态异常:', response?.status(), '最终 URL:', finalUrl);
@@ -666,7 +666,7 @@ class PotaAuthService {
       browser = null;
       page = null;
 
-      console.log('Token 交换成功');
+      console.warn('Token 交换成功');
 
       return loginResult;
     } catch (error) {
@@ -820,10 +820,10 @@ class PotaAuthService {
       });
       const currentUrl = page.url();
       const elapsedTime = Date.now() - startTime;
-      console.log(`重定向完成，耗时: ${elapsedTime}ms`);
-      console.log('登录后重定向 URL:', currentUrl);
+      console.warn(`重定向完成，耗时: ${elapsedTime}ms`);
+      console.warn('登录后重定向 URL:', currentUrl);
       return currentUrl;
-    } catch (_error) {
+    } catch {
       // 如果导航超时，轮询检查 URL
       return await this.pollForRedirect(page, maxWaitTime, checkInterval);
     }
@@ -833,7 +833,7 @@ class PotaAuthService {
    * 轮询检查 URL 变化
    */
   private async pollForRedirect(page: Page, maxWaitTime: number, checkInterval: number): Promise<string> {
-    console.log('等待导航超时，开始轮询检查 URL...');
+    console.warn('等待导航超时，开始轮询检查 URL...');
     let waited = 0;
     while (waited < maxWaitTime) {
       const currentUrl = page.url();
@@ -842,7 +842,7 @@ class PotaAuthService {
         currentUrl.includes('code=') ||
         currentUrl.includes('error=')
       ) {
-        console.log('通过轮询检测到 URL 变化:', currentUrl);
+        console.warn('通过轮询检测到 URL 变化:', currentUrl);
         return currentUrl;
       }
       await new Promise(resolve => setTimeout(resolve, checkInterval));
@@ -892,7 +892,7 @@ class PotaAuthService {
       throw new Error('State 验证失败，可能存在安全风险');
     }
 
-    console.log('获取到授权码，立即开始交换 token（授权码有效期很短）...');
+    console.warn('获取到授权码，立即开始交换 token（授权码有效期很短）...');
 
     // 验证 code_verifier 和 code_challenge 匹配（用于调试）
     this.verifyPkceChallenge(pkce);
@@ -921,7 +921,7 @@ class PotaAuthService {
       });
       throw new Error('PKCE code_verifier 和 code_challenge 不匹配');
     }
-    console.log('PKCE 验证通过');
+    console.warn('PKCE 验证通过');
   }
 
   /**

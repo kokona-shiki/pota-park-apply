@@ -46,12 +46,6 @@ export function log({ level, message, error, metadata, request }: LogOptions): v
   const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
 
   switch (level) {
-    case LogLevel.DEBUG:
-      console.debug(logMessage, error, metadata, request);
-      break;
-    case LogLevel.INFO:
-      console.info(logMessage, error, metadata, request);
-      break;
     case LogLevel.WARN:
       console.warn(logMessage, error, metadata, request);
       break;
@@ -61,8 +55,6 @@ export function log({ level, message, error, metadata, request }: LogOptions): v
     case LogLevel.FATAL:
       console.error(logMessage, error, metadata, request);
       break;
-    default:
-      console.log(logMessage, error, metadata, request);
   }
 }
 

@@ -52,7 +52,7 @@ export const generateAccessToken = (payload: JwtPayload): string => {
 export const verifyToken = (token: string): JwtPayload => {
   try {
     return jwt.verify(token, JWT_SECRET) as JwtPayload;
-  } catch (_error) {
+  } catch {
     throw new Error('无效的令牌');
   }
 };

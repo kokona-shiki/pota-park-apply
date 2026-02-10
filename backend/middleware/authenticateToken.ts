@@ -38,7 +38,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     };
 
     next();
-  } catch (_error) {
+  } catch {
     // token 无效/过期：应视为"未认证"，返回 401 以便前端触发 refresh-token 并重试
     return res.status(401).json({ code: 'UNAUTHORIZED', message: '无效或过期的令牌', data: null });
   }

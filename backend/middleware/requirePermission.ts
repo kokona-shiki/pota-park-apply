@@ -15,7 +15,7 @@ export const requirePermission = (permission: string) => {
       }
 
       next();
-    } catch (_error) {
+    } catch {
       return res.status(500).json({ code: 'SERVER_ERROR', message: '权限检查失败', data: null });
     }
   };
