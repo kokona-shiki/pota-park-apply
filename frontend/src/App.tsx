@@ -1,5 +1,7 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { safeParseJsonWithSchema } from './utils/parseJson';
+import { z } from 'zod';
 import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
@@ -14,20 +16,20 @@ import { AppRoutes } from './AppRoutes';
 import { useAuthStore } from './store';
 
 function getJwtIatMs(token: string): number | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padLen = (4 - (base64.length % 4)) % 4;
-    const json = atob(base64 + '='.repeat(padLen));
-    const parsed = JSON.parse(json);
-    const iat = parsed?.iat;
-    if (typeof iat !== 'number') return null;
-    return iat * 1000;
-  } catch {
-    return null;
-  }
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const payload = parts[1];
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const padLen = (4 - (base64.length % 4)) % 4;
+  const json = atob(base64 + '='.repeat(padLen));
+
+  const JwtPayloadSchema = z.object({
+    iat: z.number(),
+  });
+
+  const parsed = safeParseJsonWithSchema(JwtPayloadSchema, json);
+  if (!parsed) return null;
+  return parsed.iat * 1000;
 }
 
 // 在模块加载时生成唯一的 tabId
@@ -91,14 +93,10 @@ function App() {
   const { ensureValidAccessToken } = useTokenRefresh({
     getCurrentAccessToken,
     performRefreshAsLeader: async () => {
-      try {
-        await refreshSession();
-        const data = readAuthData();
-        const accessToken = data?.accessToken || null;
-        return accessToken;
-      } catch (error) {
-        throw error;
-      }
+      await refreshSession();
+      const data = readAuthData();
+      const accessToken = data?.accessToken || null;
+      return accessToken;
     },
     readRefreshLock: () => null, // Zustand 持久化已经处理了状态同步
     isLockExpired: () => true,
