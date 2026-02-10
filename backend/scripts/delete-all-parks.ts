@@ -5,7 +5,7 @@
  * 仅用于开发调试目的
  */
 
-import { Pool } from 'pg';
+import { Pool, PoolClient, QueryResult } from 'pg';
 import { config } from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,21 +26,30 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5432'),
 });
 
+// 定义数据计数接口
+interface DataCounts {
+  parkCount: number;
+  unprocessedCount: number;
+  syncLogsCount: number;
+  reviewRemindersCount: number;
+  auditLogsCount: number;
+}
+
 // 获取当前数据量
-async function getCurrentDataCounts(client) {
-  const parkCountResult = await client.query(`SELECT COUNT(*) as count FROM park_applications`);
+async function getCurrentDataCounts(client: PoolClient): Promise<DataCounts> {
+  const parkCountResult: QueryResult<{ count: string }> = await client.query(`SELECT COUNT(*) as count FROM park_applications`);
   const parkCount = parseInt(parkCountResult.rows[0].count);
 
-  const unprocessedCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_unprocessed_parks`);
+  const unprocessedCountResult: QueryResult<{ count: string }> = await client.query(`SELECT COUNT(*) as count FROM pota_unprocessed_parks`);
   const unprocessedCount = parseInt(unprocessedCountResult.rows[0].count);
 
-  const syncLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM pota_sync_logs`);
+  const syncLogsCountResult: QueryResult<{ count: string }> = await client.query(`SELECT COUNT(*) as count FROM pota_sync_logs`);
   const syncLogsCount = parseInt(syncLogsCountResult.rows[0].count);
 
-  const reviewRemindersCountResult = await client.query(`SELECT COUNT(*) as count FROM review_reminders`);
+  const reviewRemindersCountResult: QueryResult<{ count: string }> = await client.query(`SELECT COUNT(*) as count FROM review_reminders`);
   const reviewRemindersCount = parseInt(reviewRemindersCountResult.rows[0].count);
 
-  const auditLogsCountResult = await client.query(`SELECT COUNT(*) as count FROM application_audit_logs`);
+  const auditLogsCountResult: QueryResult<{ count: string }> = await client.query(`SELECT COUNT(*) as count FROM application_audit_logs`);
   const auditLogsCount = parseInt(auditLogsCountResult.rows[0].count);
 
   return {
@@ -53,14 +62,14 @@ async function getCurrentDataCounts(client) {
 }
 
 // 确认删除操作
-async function confirmDeletion() {
+async function confirmDeletion(): Promise<void> {
   const readline = await import('readline');
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  const answer = await new Promise((resolve) => {
+  const answer: string = await new Promise((resolve) => {
     rl.question('请输入 "DELETE_ALL_PARKS" 以确认删除所有公园数据: ', (input) => {
       resolve(input.trim());
       rl.close();
@@ -75,7 +84,7 @@ async function confirmDeletion() {
 }
 
 // 删除数据
-async function deleteData(client, counts) {
+async function deleteData(client: PoolClient, counts: DataCounts): Promise<void> {
   // 删除审核提醒（外键关联到 park_applications）
   if (counts.reviewRemindersCount > 0) {
     console.warn('   正在删除审核提醒...');
@@ -117,20 +126,20 @@ async function deleteData(client, counts) {
 }
 
 // 验证删除结果
-async function verifyDeletion(client) {
-  const verifyParkResult = await client.query('SELECT COUNT(*) as count FROM park_applications');
+async function verifyDeletion(client: PoolClient): Promise<void> {
+  const verifyParkResult: QueryResult<{ count: string }> = await client.query('SELECT COUNT(*) as count FROM park_applications');
   const verifyParkCount = parseInt(verifyParkResult.rows[0].count);
 
-  const verifyUnprocessedResult = await client.query('SELECT COUNT(*) as count FROM pota_unprocessed_parks');
+  const verifyUnprocessedResult: QueryResult<{ count: string }> = await client.query('SELECT COUNT(*) as count FROM pota_unprocessed_parks');
   const verifyUnprocessedCount = parseInt(verifyUnprocessedResult.rows[0].count);
 
-  const verifySyncLogsResult = await client.query('SELECT COUNT(*) as count FROM pota_sync_logs');
+  const verifySyncLogsResult: QueryResult<{ count: string }> = await client.query('SELECT COUNT(*) as count FROM pota_sync_logs');
   const verifySyncLogsCount = parseInt(verifySyncLogsResult.rows[0].count);
 
-  const verifyRemindersResult = await client.query('SELECT COUNT(*) as count FROM review_reminders');
+  const verifyRemindersResult: QueryResult<{ count: string }> = await client.query('SELECT COUNT(*) as count FROM review_reminders');
   const verifyRemindersCount = parseInt(verifyRemindersResult.rows[0].count);
 
-  const verifyAuditResult = await client.query('SELECT COUNT(*) as count FROM application_audit_logs');
+  const verifyAuditResult: QueryResult<{ count: string }> = await client.query('SELECT COUNT(*) as count FROM application_audit_logs');
   const verifyAuditCount = parseInt(verifyAuditResult.rows[0].count);
 
   console.warn(`✅ 删除后剩余数据:`);
@@ -141,7 +150,7 @@ async function verifyDeletion(client) {
   console.warn(`   - 审核日志: ${verifyAuditCount}`);
 }
 
-async function deleteAllParks() {
+async function deleteAllParks(): Promise<void> {
   console.warn('⚠️  警告：此脚本将删除系统中的所有公园数据！');
   console.warn('⚠️  此操作不可逆，请确认您了解后果。');
   console.warn('');
@@ -187,7 +196,7 @@ async function deleteAllParks() {
     console.warn('');
     console.warn('🎉 所有公园相关数据已成功删除！');
   } catch (error) {
-    console.error('❌ 删除过程中发生错误:', error.message);
+    console.error('❌ 删除过程中发生错误:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     await pool.end();
@@ -204,7 +213,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     })
     .catch((error) => {
       console.error('');
-      console.error('❌ 脚本执行失败:', error.message);
+      console.error('❌ 脚本执行失败:', error instanceof Error ? error.message : String(error));
       process.exit(1);
     });
 }

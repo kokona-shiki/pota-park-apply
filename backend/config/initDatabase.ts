@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { query, getOne } from './database.js';
 import { hashPassword, normalizeEmail, normalizeCallsign } from '../utils/auth.js';
 
-const loadRegionData = async () => {
+// 加载区域数据
+const loadRegionData = async (): Promise<Array<{ code: string; name: string }>> => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const regionPath = path.resolve(__dirname, '../../shared/region.json');
@@ -19,7 +20,7 @@ const loadRegionData = async () => {
 };
 
 // 创建所有数据库表
-export const createTables = async () => {
+export const createTables = async (): Promise<void> => {
   console.warn('🚀 开始创建数据库表...');
 
   try {
@@ -413,7 +414,7 @@ export const createTables = async () => {
 };
 
 // 创建索引
-export const createIndexes = async () => {
+export const createIndexes = async (): Promise<void> => {
   console.warn('🔍 开始创建索引...');
 
   try {
@@ -460,9 +461,7 @@ export const createIndexes = async () => {
     await query(
       'CREATE INDEX IF NOT EXISTS idx_audit_action ON application_audit_logs (action, created_at DESC)'
     );
-    await query(
-      'CREATE INDEX IF NOT EXISTS idx_park_pota_id ON park_applications(pota_id)'
-    );
+    await query('CREATE INDEX IF NOT EXISTS idx_park_pota_id ON park_applications(pota_id)');
 
     // 呼号变更申请表索引
     await query(
@@ -525,11 +524,19 @@ export const createIndexes = async () => {
     // 通知表索引
     await query('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)');
     await query('CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)');
-    await query('CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)');
-    await query('CREATE INDEX IF NOT EXISTS idx_notifications_is_global ON notifications(is_global)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_is_global ON notifications(is_global)'
+    );
     await query('CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status)');
-    await query('CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode ON notifications(notification_mode)');
-    await query('CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by ON notification_drafts(created_by)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode ON notifications(notification_mode)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by ON notification_drafts(created_by)'
+    );
 
     console.warn('✅ 索引创建完成');
   } catch (error) {
@@ -539,7 +546,7 @@ export const createIndexes = async () => {
 };
 
 // 创建触发器和函数
-export const createFunctionsAndTriggers = async () => {
+export const createFunctionsAndTriggers = async (): Promise<void> => {
   console.warn('⚙️ 开始创建函数和触发器...');
 
   try {
@@ -646,7 +653,7 @@ export const createFunctionsAndTriggers = async () => {
   }
 };
 
-const migrateSchemaFrom2To3 = async () => {
+const migrateSchemaFrom2To3 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
   await query('DROP INDEX IF EXISTS idx_dx_entity');
   await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
@@ -662,7 +669,7 @@ const migrateSchemaFrom2To3 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=3）');
 };
 
-const migrateSchemaFrom3To4 = async () => {
+const migrateSchemaFrom3To4 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
   await query(`
     CREATE TABLE IF NOT EXISTS pota_pkce (
@@ -693,7 +700,7 @@ const migrateSchemaFrom3To4 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=4）');
 };
 
-const migrateSchemaFrom4To5 = async () => {
+const migrateSchemaFrom4To5 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
 
   await query(`
@@ -718,7 +725,7 @@ const migrateSchemaFrom4To5 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=5）');
 };
 
-const migrateSchemaFrom5To6 = async () => {
+const migrateSchemaFrom5To6 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
 
   await query(`
@@ -746,7 +753,7 @@ const migrateSchemaFrom5To6 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=6）');
 };
 
-const migrateSchemaFrom6To7 = async () => {
+const migrateSchemaFrom6To7 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
 
   await query(`
@@ -773,7 +780,7 @@ const migrateSchemaFrom6To7 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=7）');
 };
 
-const migrateSchemaFrom7To8 = async () => {
+const migrateSchemaFrom7To8 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
 
   await query(`
@@ -792,7 +799,7 @@ const migrateSchemaFrom7To8 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=8）');
 };
 
-const migrateSchemaFrom8To9 = async () => {
+const migrateSchemaFrom8To9 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
 
   await query(`
@@ -816,7 +823,7 @@ const migrateSchemaFrom8To9 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=9）');
 };
 
-const migrateSchemaFrom9To10 = async () => {
+const migrateSchemaFrom9To10 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
 
   await query(`
@@ -855,7 +862,7 @@ const migrateSchemaFrom9To10 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=10）');
 };
 
-const migrateSchemaFrom10To11 = async () => {
+const migrateSchemaFrom10To11 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
 
   await query(`
@@ -875,7 +882,7 @@ const migrateSchemaFrom10To11 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=11）');
 };
 
-const migrateSchemaFrom11To12 = async () => {
+const migrateSchemaFrom11To12 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
 
   await query(`
@@ -922,7 +929,7 @@ const migrateSchemaFrom11To12 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=12）');
 };
 
-const migrateSchemaFrom12To13 = async () => {
+const migrateSchemaFrom12To13 = async (): Promise<void> => {
   console.warn('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
 
   await query(`
@@ -1031,16 +1038,22 @@ const migrateSchemaFrom12To13 = async () => {
   console.warn('✅ schema 迁移完成（schema_version=13）');
 };
 
-export const migrateSchemaToLatest = async () => {
+export const migrateSchemaToLatest = async (): Promise<void> => {
   try {
-    const schemaVersion = await getOne(`SELECT value FROM app_meta WHERE key = 'schema_version'`);
+    interface AppMeta {
+      value: string;
+    }
+
+    const schemaVersion = await getOne<AppMeta>(
+      `SELECT value FROM app_meta WHERE key = 'schema_version'`
+    );
     const v = schemaVersion?.value;
 
     if (!v || v === '13') {
       return;
     }
 
-    const migrationMap = {
+    const migrationMap: Record<string, () => Promise<void>> = {
       '2': migrateSchemaFrom2To3,
       '3': migrateSchemaFrom3To4,
       '4': migrateSchemaFrom4To5,
@@ -1051,7 +1064,7 @@ export const migrateSchemaToLatest = async () => {
       '9': migrateSchemaFrom9To10,
       '10': migrateSchemaFrom10To11,
       '11': migrateSchemaFrom11To12,
-      '12': migrateSchemaFrom12To13
+      '12': migrateSchemaFrom12To13,
     };
 
     const migrationFn = migrationMap[v];
@@ -1066,7 +1079,7 @@ export const migrateSchemaToLatest = async () => {
   }
 };
 
-export const ensureInitialSystemAdmin = async () => {
+export const ensureInitialSystemAdmin = async (): Promise<void> => {
   const existingAdmin = await getOne(`
     SELECT id, email, callsign
     FROM users
@@ -1095,7 +1108,13 @@ export const ensureInitialSystemAdmin = async () => {
   const passwordHash = await hashPassword(passwordEnv);
 
   // 若用户已存在（可能是先注册了），则提升为系统管理员并重置密码（以 env 为准）
-  const existingUser = await getOne(
+  interface User {
+    id: string;
+    email: string;
+    callsign: string;
+  }
+
+  const existingUser = await getOne<User>(
     `
       SELECT id, email, callsign
       FROM users
@@ -1136,7 +1155,7 @@ export const ensureInitialSystemAdmin = async () => {
 };
 
 // 初始化基础数据
-export const initializeData = async () => {
+export const initializeData = async (): Promise<void> => {
   console.warn('📝 开始初始化基础数据...');
 
   try {
@@ -1221,12 +1240,7 @@ export const initializeData = async () => {
           return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
         })
         .join(',\n');
-      const params = regions.flatMap((item, index) => [
-        item.code,
-        item.name,
-        item.name,
-        index + 1,
-      ]);
+      const params = regions.flatMap((item, index) => [item.code, item.name, item.name, index + 1]);
 
       await query(
         `
@@ -1249,7 +1263,7 @@ export const initializeData = async () => {
 };
 
 // 完整的数据库初始化
-export const initializeDatabase = async () => {
+export const initializeDatabase = async (): Promise<void> => {
   try {
     await createTables();
     await migrateSchemaToLatest();

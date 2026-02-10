@@ -6,9 +6,9 @@ import {
 } from '../config/initDatabase.js';
 
 // 测试数据库连接
-async function testDatabaseConnection() {
+async function testDatabaseConnection(): Promise<boolean> {
   console.warn('🔍 测试数据库连接...');
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
   let connected = false;
   for (let i = 1; i <= 30; i++) {
@@ -27,7 +27,7 @@ async function testDatabaseConnection() {
 }
 
 // 检查数据库初始化状态
-async function checkDatabaseInitialization() {
+async function checkDatabaseInitialization(): Promise<{ value: string } | false> {
   const forceInit = ['1', 'true', 'yes'].includes(
     String(process.env.FORCE_INIT_DB || '').toLowerCase()
   );
@@ -37,28 +37,28 @@ async function checkDatabaseInitialization() {
   }
 
   try {
-    const regs = await getOne(`
+    const regs = await getOne<{ app_meta: string | null; users: string | null }>(`
       SELECT
         to_regclass('public.app_meta') AS app_meta,
         to_regclass('public.users') AS users
     `);
 
     if (regs?.app_meta && regs?.users) {
-      const schemaVersion = await getOne(
+      const schemaVersion = await getOne<{ value: string }>(
         `SELECT value FROM app_meta WHERE key = 'schema_version'`
       );
 
       return schemaVersion;
     }
   } catch (e) {
-    console.warn('⚠️ 初始化状态检测失败，将继续执行完整初始化：', e?.message || e);
+    console.warn('⚠️ 初始化状态检测失败，将继续执行完整初始化：', e instanceof Error ? e.message : String(e));
   }
 
   return false;
 }
 
 // 处理数据库迁移
-async function handleDatabaseMigration(schemaVersion) {
+async function handleDatabaseMigration(schemaVersion: { value: string }): Promise<boolean> {
   if (schemaVersion?.value === '9' || schemaVersion?.value === '8') {
     console.warn(
       `✅ 检测到数据库已初始化（schema_version=${schemaVersion.value}），执行迁移并确保初始系统管理员存在...`
@@ -96,7 +96,7 @@ async function handleDatabaseMigration(schemaVersion) {
 }
 
 // 完整初始化数据库
-async function initializeDatabaseSchema() {
+async function initializeDatabaseSchema(): Promise<void> {
   console.warn('📝 初始化数据库表结构和数据...');
   await initializeDatabase();
 
@@ -125,7 +125,7 @@ async function initializeDatabaseSchema() {
   console.warn('  - 4 种角色的权限配置');
 }
 
-const init = async () => {
+const init = async (): Promise<void> => {
   console.warn('🚀 开始初始化 POTA 公园申请系统数据库...');
 
   try {
@@ -146,7 +146,7 @@ const init = async () => {
     // 4. 完整初始化数据库
     await initializeDatabaseSchema();
   } catch (error) {
-    console.error('❌ 数据库初始化失败:', error);
+    console.error('❌ 数据库初始化失败:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   } finally {
     // 关键：init-db 是一次性脚本，不关闭连接池会让 Node 进程等待 idleTimeout（默认 30s），看起来像“init-db 很慢”

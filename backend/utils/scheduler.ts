@@ -1,17 +1,22 @@
 import cron from 'node-cron';
 import { autoTriggerPotaImport } from '../services/pota-import/potaImportService.js';
 
+// 定义任务信息接口
+interface JobInfo {
+  name: string;
+  job: cron.ScheduledTask;
+  description: string;
+}
+
 // 定义定时任务
 class Scheduler {
-  constructor() {
-    this.jobs = [];
-    this.timezone = 'Asia/Shanghai'; // UTC+8
-  }
+  private jobs: JobInfo[] = [];
+  private timezone: string = 'Asia/Shanghai'; // UTC+8
 
   /**
    * 初始化所有定时任务
    */
-  async init() {
+  async init(): Promise<void> {
     console.warn('🚀 初始化定时任务调度器...');
 
     // 每天凌晨4点执行POTA公园导入任务 (UTC+8)
@@ -45,7 +50,7 @@ class Scheduler {
 
     // 监听任务事件以获得更多调试信息
     if (potaImportJob.on) {
-      potaImportJob.on('scheduled', (date) => {
+      potaImportJob.on('scheduled', (date: Date) => {
         console.warn(`📅 POTA导入任务下次计划执行时间: ${date}`);
       });
 
@@ -73,7 +78,7 @@ class Scheduler {
   /**
    * 打印所有任务的下次执行时间
    */
-  printNextRunTimes() {
+  printNextRunTimes(): void {
     console.warn('\n📅 定时任务下次执行时间:');
     this.jobs.forEach((jobInfo) => {
       // 根据调试结果显示，当前node-cron版本不支持获取下次执行时间的方法
@@ -86,7 +91,7 @@ class Scheduler {
   /**
    * 手动触发POTA导入任务（用于测试）
    */
-  async triggerPotaImportManually() {
+  async triggerPotaImportManually(): Promise<ReturnType<typeof autoTriggerPotaImport>> {
     console.warn('🕐 手动触发POTA公园导入任务');
     try {
       const results = await autoTriggerPotaImport();
@@ -111,7 +116,7 @@ class Scheduler {
   /**
    * 停止所有定时任务
    */
-  stop() {
+  stop(): void {
     console.warn('🛑 停止所有定时任务...');
     this.jobs.forEach((jobInfo) => {
       jobInfo.job.stop();

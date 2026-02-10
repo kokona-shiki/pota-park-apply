@@ -11,10 +11,78 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 定义系统类型接口
+interface SystemTypeItem {
+  chineseName: string;
+  englishName: string;
+}
+
+interface SystemTypes {
+  chinese_to_english: SystemTypeItem[];
+  english_to_chinese: SystemTypeItem[];
+  pota_only_types?: SystemTypeItem[];
+}
+
+// 定义 POTA 公园接口
+interface PotaPark {
+  reference: string;
+  name: string;
+}
+
+// 定义分析结果接口
+interface AnalysisResult {
+  summary: {
+    totalParks: number;
+    potaChineseTypesCount: number;
+    systemChineseTypesCount: number;
+    potaEnglishTypesCount: number;
+    systemEnglishTypesCount: number;
+    missingChineseTypesCount: number;
+    missingEnglishTypesCount: number;
+  };
+  systemTypes: {
+    chinese: string[];
+    english: string[];
+  };
+  missingChineseTypes: {
+    count: number;
+    types: string[];
+    frequency: Record<string, number>;
+  };
+  missingEnglishTypes: {
+    count: number;
+    types: string[];
+  };
+  potaChineseTypes: {
+    count: number;
+    types: string[];
+    frequencies: Record<string, number>;
+  };
+  systemChineseTypes: {
+    count: number;
+    types: string[];
+  };
+  potaEnglishTypes: {
+    count: number;
+    types: string[];
+  };
+  systemEnglishTypes: {
+    count: number;
+    types: string[];
+  };
+  sampleParks: {
+    reference: string;
+    originalName: string;
+    chinesePart: string;
+    detectedChineseType: string | null;
+    englishPart: string;
+  }[];
+}
+
 // 提取系统中的公园类型
-function extractSystemTypes(systemTypes) {
-  const systemChineseTypes = new Set();
-  const systemEnglishTypes = new Set();
+function extractSystemTypes(systemTypes: SystemTypes): { systemChineseTypes: Set<string>; systemEnglishTypes: Set<string> } {
+  const systemChineseTypes = new Set<string>();
+  const systemEnglishTypes = new Set<string>();
 
   // 添加标准类型
   for (const item of systemTypes.chinese_to_english) {
@@ -39,7 +107,7 @@ function extractSystemTypes(systemTypes) {
 }
 
 // 分析 POTA 公园数据中的类型
-function analyzePotaParkTypes(potaParks) {
+function analyzePotaParkTypes(potaParks: PotaPark[]) {
   // 提取可能的中文公园类型关键词，按长度降序排列以确保较长的匹配优先
   const chineseKeywords = [
     '国家公园',
@@ -183,8 +251,8 @@ function analyzePotaParkTypes(potaParks) {
     'Landscape Reserve',
   ];
 
-  const potaChineseTypes = new Map(); // 使用 Map 来记录出现次数
-  const potaEnglishTypes = new Set();
+  const potaChineseTypes = new Map<string, number>(); // 使用 Map 来记录出现次数
+  const potaEnglishTypes = new Set<string>();
   const parkAnalysis = [];
 
   for (const park of potaParks) {
@@ -200,7 +268,7 @@ function analyzePotaParkTypes(potaParks) {
     for (const keyword of chineseKeywords) {
       if (fullChinese.includes(keyword)) {
         if (potaChineseTypes.has(keyword)) {
-          potaChineseTypes.set(keyword, potaChineseTypes.get(keyword) + 1);
+          potaChineseTypes.set(keyword, potaChineseTypes.get(keyword)! + 1);
         } else {
           potaChineseTypes.set(keyword, 1);
         }
@@ -232,7 +300,7 @@ function analyzePotaParkTypes(potaParks) {
 }
 
 // 分析缺失的类型
-function analyzeMissingTypes(potaChineseTypes, potaEnglishTypes, systemChineseTypes, systemEnglishTypes) {
+function analyzeMissingTypes(potaChineseTypes: Map<string, number>, potaEnglishTypes: Set<string>, systemChineseTypes: Set<string>, systemEnglishTypes: Set<string>) {
   // 分析 POTA 中有但系统中没有的类型
   const potaChineseTypesArray = Array.from(potaChineseTypes.keys()).sort();
   const systemChineseTypesArray = Array.from(systemChineseTypes).sort();
@@ -277,11 +345,11 @@ function analyzeMissingTypes(potaChineseTypes, potaEnglishTypes, systemChineseTy
 }
 
 // 生成分析结果
-function generateAnalysisResult(potaParks, potaChineseTypes, potaEnglishTypes, parkAnalysis, systemChineseTypes, systemEnglishTypes, analysis) {
+function generateAnalysisResult(potaParks: PotaPark[], potaChineseTypes: Map<string, number>, potaEnglishTypes: Set<string>, parkAnalysis: any[], systemChineseTypes: Set<string>, systemEnglishTypes: Set<string>, analysis: any): AnalysisResult {
   const { missingChineseTypes, missingEnglishTypes, systemChineseTypesArray, systemEnglishTypesArray } = analysis;
 
   // 准备输出结果
-  const result = {
+  const result: AnalysisResult = {
     summary: {
       totalParks: potaParks.length,
       potaChineseTypesCount: Array.from(potaChineseTypes.keys()).length,
@@ -301,7 +369,7 @@ function generateAnalysisResult(potaParks, potaChineseTypes, potaEnglishTypes, p
       frequency: missingChineseTypes.reduce((obj, type) => {
         obj[type] = potaChineseTypes.get(type) || 0;
         return obj;
-      }, {}),
+      }, {} as Record<string, number>),
     },
     missingEnglishTypes: {
       count: missingEnglishTypes.length,
@@ -331,7 +399,7 @@ function generateAnalysisResult(potaParks, potaChineseTypes, potaEnglishTypes, p
 }
 
 // 生成文本报告
-function generateTextReport(result) {
+function generateTextReport(result: AnalysisResult): string {
   let textReport = 'POTA 公园类型重新分析报告 (包含最新系统类型)\n';
   textReport += '='.repeat(60) + '\n\n';
   textReport += `📊 总体概况:\n`;
@@ -369,17 +437,17 @@ function generateTextReport(result) {
   return textReport;
 }
 
-async function reanalyzePotaTypesWithNewData() {
+async function reanalyzePotaTypesWithNewData(): Promise<void> {
   try {
     // 读取 POTA 公园数据
     const potaDataPath = path.resolve(__dirname, '../../protocols/china-all-parks.json');
     const potaDataContent = await fs.readFile(potaDataPath, 'utf8');
-    const potaParks = JSON.parse(potaDataContent);
+    const potaParks = JSON.parse(potaDataContent) as PotaPark[];
 
     // 读取系统中的公园类型映射（包含新的 POTA 专用类型）
     const systemTypesPath = path.resolve(__dirname, '../../shared/park_type_mapping.json');
     const systemTypesContent = await fs.readFile(systemTypesPath, 'utf8');
-    const systemTypes = JSON.parse(systemTypesContent);
+    const systemTypes = JSON.parse(systemTypesContent) as SystemTypes;
 
     // 提取系统中所有的类型（包括新的 POTA 专用类型）
     const { systemChineseTypes, systemEnglishTypes } = extractSystemTypes(systemTypes);
@@ -431,7 +499,7 @@ async function reanalyzePotaTypesWithNewData() {
       console.warn(`   - 仍存在 ${result.missingEnglishTypes.types.length} 个英文类型需要添加`);
     }
   } catch (error) {
-    console.error('❌ 分析过程中出错:', error);
+    console.error('❌ 分析过程中出错:', error instanceof Error ? error.message : String(error));
   }
 }
 

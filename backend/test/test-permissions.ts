@@ -3,15 +3,25 @@
  * 验证 system_admin 不再拥有公园审核权限
  */
 
-import { query } from '../config/database.js';
-import { testConnection } from '../config/database.js';
+import { query, testConnection } from '../config/database.js';
+import type { QueryResult } from 'pg';
 
-const testPermissions = async () => {
+interface Permission {
+  permission_code: string;
+  description: string;
+}
+
+interface RolePermissionCount {
+  role: string;
+  permission_count: number;
+}
+
+const testPermissions = async (): Promise<boolean> => {
   console.warn('🧪 开始权限验证测试...\n');
 
   // 1. 验证 system_admin 的权限
   console.warn('1️⃣ 检查 system_admin 的权限:');
-  const systemAdminPerms = await query(
+  const systemAdminPerms: QueryResult<Permission> = await query<Permission>(
     `
     SELECT p.permission_code, p.description
     FROM role_permissions rp
@@ -41,7 +51,7 @@ const testPermissions = async () => {
 
   // 2. 验证 park_reviewer 的权限
   console.warn('\n2️⃣ 检查 park_reviewer 的权限:');
-  const parkReviewerPerms = await query(
+  const parkReviewerPerms: QueryResult<Permission> = await query<Permission>(
     `
     SELECT p.permission_code, p.description
     FROM role_permissions rp
@@ -69,7 +79,7 @@ const testPermissions = async () => {
 
   // 3. 验证 pota_representative 的权限
   console.warn('\n3️⃣ 检查 pota_representative 的权限:');
-  const potaRepPerms = await query(
+  const potaRepPerms: QueryResult<Permission> = await query<Permission>(
     `
     SELECT p.permission_code, p.description
     FROM role_permissions rp
@@ -97,7 +107,7 @@ const testPermissions = async () => {
 
   // 4. 权限统计
   console.warn('\n📊 权限分布统计:');
-  const rolePermissions = await query(
+  const rolePermissions: QueryResult<RolePermissionCount> = await query<RolePermissionCount>(
     `
     SELECT role, COUNT(*) as permission_count
     FROM role_permissions

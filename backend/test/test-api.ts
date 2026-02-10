@@ -4,6 +4,32 @@ import fetch from 'node-fetch';
 const PORT = process.env.PORT || 3101;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
+interface ApiResponse {
+  success?: boolean;
+  message?: string;
+  data?: any;
+  user?: {
+    id: string;
+    email: string;
+    callsign: string;
+    role: string;
+  };
+  token?: string;
+  provinces?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
+}
+
+interface ParkApplicationResponse {
+  message?: string;
+  application?: {
+    id: string;
+    status: string;
+  };
+}
+
 // 测试基本接口
 async function testBasicEndpoints() {
   console.warn('🧪 测试基础接口...');
@@ -12,19 +38,19 @@ async function testBasicEndpoints() {
     // 测试根路径
     console.warn('1. 测试根路径...');
     const rootResponse = await fetch(`${BASE_URL}/`);
-    const rootData = await rootResponse.json();
+    const rootData = await rootResponse.json() as ApiResponse;
     console.warn('✅ 根路径响应:', rootData);
 
     // 测试健康检查
     console.warn('2. 测试健康检查...');
     const healthResponse = await fetch(`${BASE_URL}/api/health`);
-    const healthData = await healthResponse.json();
+    const healthData = await healthResponse.json() as ApiResponse;
     console.warn('✅ 健康检查响应:', healthData);
 
     // 测试省份列表
     console.warn('3. 测试省份列表...');
     const provincesResponse = await fetch(`${BASE_URL}/api/provinces`);
-    const provincesData = await provincesResponse.json();
+    const provincesData = await provincesResponse.json() as ApiResponse;
     console.warn('✅ 省份列表响应:', {
       count: provincesData.provinces?.length || 0,
       firstProvince: provincesData.provinces?.[0],
@@ -32,16 +58,16 @@ async function testBasicEndpoints() {
 
     console.warn('🎉 基础接口测试完成！');
   } catch (error) {
-    console.error('❌ 基础接口测试失败:', error.message);
+    console.error('❌ 基础接口测试失败:', error instanceof Error ? error.message : error);
 
-    if (error.code === 'ECONNREFUSED') {
+    if ((error as any).code === 'ECONNREFUSED') {
       console.warn('💡 提示: 服务器可能未启动，请先运行: pnpm dev');
     }
   }
 }
 
 // 测试用户注册
-async function testUserRegistration() {
+async function testUserRegistration(): Promise<string | null> {
   console.warn('1. 测试用户注册...');
   const registerResponse = await fetch(`${BASE_URL}/api/register`, {
     method: 'POST',
@@ -54,7 +80,7 @@ async function testUserRegistration() {
   });
 
   if (registerResponse.ok) {
-    const registerData = await registerResponse.json();
+    const registerData = await registerResponse.json() as ApiResponse;
     console.warn('✅ 用户注册成功:', {
       message: registerData.message,
       userId: registerData.user?.id,
@@ -62,7 +88,7 @@ async function testUserRegistration() {
     });
     return registerData.token;
   } else {
-    const errorData = await registerResponse.json();
+    const errorData = await registerResponse.json() as ApiResponse;
     console.warn('❌ 用户注册失败:', errorData);
     return null;
   }
@@ -81,7 +107,7 @@ async function testUserLogin() {
   });
 
   if (loginResponse.ok) {
-    const loginData = await loginResponse.json();
+    const loginData = await loginResponse.json() as ApiResponse;
     console.warn('✅ 用户登录成功:', {
       message: loginData.message,
       userId: loginData.user?.id,
@@ -90,14 +116,14 @@ async function testUserLogin() {
 }
 
 // 测试获取用户信息
-async function testUserInfo(token) {
+async function testUserInfo(token: string) {
   console.warn('3. 测试获取用户信息...');
   const userInfoResponse = await fetch(`${BASE_URL}/api/user-info`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (userInfoResponse.ok) {
-    const userInfoData = await userInfoResponse.json();
+    const userInfoData = await userInfoResponse.json() as ApiResponse;
     console.warn('✅ 获取用户信息成功:', {
       email: userInfoData.user?.email,
       callsign: userInfoData.user?.callsign,
@@ -107,7 +133,7 @@ async function testUserInfo(token) {
 }
 
 // 测试提交公园申请
-async function testParkApplication(token) {
+async function testParkApplication(token: string) {
   console.warn('4. 测试提交公园申请...');
   const applicationResponse = await fetch(`${BASE_URL}/api/park-applications`, {
     method: 'POST',
@@ -128,7 +154,7 @@ async function testParkApplication(token) {
   });
 
   if (applicationResponse.ok) {
-    const applicationData = await applicationResponse.json();
+    const applicationData = await applicationResponse.json() as ParkApplicationResponse;
     console.warn('✅ 提交公园申请成功:', {
       message: applicationData.message,
       applicationId: applicationData.application?.id,
@@ -151,9 +177,9 @@ async function testDatabaseEndpoints() {
     await testUserInfo(token);
     await testParkApplication(token);
   } catch (error) {
-    console.error('❌ 数据库接口测试失败:', error.message);
+    console.error('❌ 数据库接口测试失败:', error instanceof Error ? error.message : error);
 
-    if (error.code === 'ECONNREFUSED') {
+    if ((error as any).code === 'ECONNREFUSED') {
       console.warn('💡 提示: 服务器可能未启动');
     }
   }

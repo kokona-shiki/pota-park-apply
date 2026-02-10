@@ -1,18 +1,35 @@
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import { Express } from 'express';
 
 /**
  * 根据环境变量获取地图服务提供商
  * @returns {string} 地图服务提供商 (osm, amap, baidu)
  */
-const getMapProvider = () => {
+const getMapProvider = (): string => {
   return process.env.MAP_PROVIDER || 'osm'; // 默认 OSM
 };
+
+// 定义代理配置接口
+interface ProxyConfig {
+  key: string;
+  path: string;
+  target: string;
+  options: Options & {
+    onProxyReq?: (proxyReq: any) => void;
+    onProxyRes?: (proxyRes: any) => void;
+  };
+}
+
+// 定义代理配置映射类型
+interface ProxyConfigMap {
+  [key: string]: ProxyConfig[];
+}
 
 /**
  * 代理配置
  * 所有外部服务请求统一通过此配置代理
  */
-const proxyConfigs = {
+const proxyConfigs: ProxyConfigMap = {
   // OpenStreetMap
   osm: [
     {
@@ -25,17 +42,17 @@ const proxyConfigs = {
         secure: true,
         changeOrigin: true,
         pathRewrite: {
-          '^/proxy-api/geocoding/osm': ''
+          '^/proxy-api/geocoding/osm': '',
         },
         headers: {
           'User-Agent': 'POTA-Park-Apply/1.0',
-          'Accept': 'application/json',
-          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+          Accept: 'application/json',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
         onProxyReq: (proxyReq) => {
           proxyReq.setHeader('Connection', 'keep-alive');
-        }
-      }
+        },
+      },
     },
     {
       key: 'osm-tiles',
@@ -51,7 +68,7 @@ const proxyConfigs = {
         secure: true,
         changeOrigin: true,
         pathRewrite: {
-          '^/proxy-api/tiles/osm': ''
+          '^/proxy-api/tiles/osm': '',
         },
         router: (req) => {
           try {
@@ -71,10 +88,10 @@ const proxyConfigs = {
         headers: {
           // OSM 建议设置明确 UA；避免被上游限流/拒绝
           'User-Agent': 'POTA-Park-Apply/1.0',
-          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
-        }
-      }
-    }
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+      },
+    },
   ],
 
   // 高德地图
@@ -89,13 +106,13 @@ const proxyConfigs = {
         secure: true,
         changeOrigin: true,
         pathRewrite: {
-          '^/proxy-api/geocoding/amap': ''
+          '^/proxy-api/geocoding/amap': '',
         },
         headers: {
           'User-Agent': 'POTA-Park-Apply/1.0',
-          'Accept': 'application/json'
-        }
-      }
+          Accept: 'application/json',
+        },
+      },
     },
     {
       key: 'amap-tiles',
@@ -107,10 +124,10 @@ const proxyConfigs = {
         secure: true,
         changeOrigin: true,
         pathRewrite: {
-          '^/proxy-api/tiles/amap': ''
-        }
-      }
-    }
+          '^/proxy-api/tiles/amap': '',
+        },
+      },
+    },
   ],
 
   // POTA API (所有环境通用)
@@ -123,28 +140,31 @@ const proxyConfigs = {
         timeout: 30000,
         proxyTimeout: 30000,
         secure: true,
-        changeOrigin: true
-      }
-    }
-  ]
+        changeOrigin: true,
+      },
+    },
+  ],
 };
 
 /**
  * 初始化代理中间件
- * @param {object} app - Express 应用实例
- * @returns {Array} 已配置的代理列表
+ * @param {Express} app - Express 应用实例
+ * @returns {ProxyConfig[]} 已配置的代理列表
  */
-const initProxies = (app) => {
+const initProxies = (app: Express): ProxyConfig[] => {
   const provider = getMapProvider();
-  const configs = [
-    ...proxyConfigs[provider] || [],
-    ...proxyConfigs.pota // POTA API 始终启用
+  const configs: ProxyConfig[] = [
+    ...(proxyConfigs[provider] || []),
+    ...proxyConfigs.pota, // POTA API 始终启用
   ];
 
-  configs.forEach(config => {
+  configs.forEach((config) => {
     const { path, options, key, target } = config;
 
-    const proxyOptions = {
+    const proxyOptions: Options & {
+      onProxyRes?: (proxyRes: any) => void;
+      onError?: (err: any, req: any, res: any) => void;
+    } = {
       target: target,
       ...options,
       onProxyRes: (proxyRes) => {
@@ -158,10 +178,10 @@ const initProxies = (app) => {
           res.status(500).json({
             error: 'Proxy Error',
             message: `Failed to proxy request to ${key}`,
-            details: err.message
+            details: err.message,
           });
         }
-      }
+      },
     };
 
     app.use(path, createProxyMiddleware(proxyOptions));
