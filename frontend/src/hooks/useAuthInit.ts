@@ -6,7 +6,7 @@ import {
 
 interface UseAuthInitParams {
   isAuthPage: boolean;
-  isTokenFresh: (token: string) => boolean;
+  isTokenFresh: () => boolean;
   ensureValidAccessToken: () => Promise<string | null>;
   readAuthData: () => { accessToken: string; user: unknown } | null;
   setUser: (user: unknown | null) => void;
@@ -39,7 +39,7 @@ export function useAuthInit({
 
     const stored = readAuthData();
 
-    if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
+    if (stored?.accessToken && isTokenFresh()) {
       apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
       setAccessToken(stored.accessToken);
       setUser(stored.user);

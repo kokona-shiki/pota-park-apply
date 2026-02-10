@@ -148,13 +148,13 @@ export const useUnreadNotifications = () => {
 };
 
 export const usePopupNotification = () => {
-  const { user } = useAuth();
+  const { user, isTokenReady } = useAuth();
   const [popupNotification, setPopupNotification] = useState<Notification | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchPopupNotification = async () => {
-      if (!user) return;
+      if (!user || !isTokenReady) return;
 
       setLoading(true);
       try {
@@ -170,7 +170,7 @@ export const usePopupNotification = () => {
     };
 
     fetchPopupNotification();
-  }, [user]);
+  }, [user, isTokenReady]);
 
   const dismissPopup = async () => {
     if (!popupNotification) return;

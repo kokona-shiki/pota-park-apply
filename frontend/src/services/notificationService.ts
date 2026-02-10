@@ -37,13 +37,15 @@ const notificationService = {
   getPopupNotifications: async () => {
     return requestWithSchema(
       apiClient.get('/api/notifications/popup'),
-      z.array(z.object({
-        id: z.number(),
-        title: z.string(),
-        content: z.string(),
-        type: z.string(),
-        created_at: z.string(),
-      }))
+      z.object({
+        notification: z.object({
+          id: z.number(),
+          title: z.string(),
+          content: z.string(),
+          type: z.string(),
+          created_at: z.string(),
+        }).nullable()
+      })
     );
   },
 

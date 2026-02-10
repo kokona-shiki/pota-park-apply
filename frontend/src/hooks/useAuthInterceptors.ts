@@ -2,13 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AxiosResponse } from 'axios';
 import { apiClient } from '../services/apiClient';
-import {
-  REDIRECT_KEY,
-} from '../auth/constants';
+import { REDIRECT_KEY } from '../auth/constants';
 
 interface UseAuthInterceptorsParams {
   getCurrentAccessToken: () => string | null;
-  isTokenFresh: (token: string) => boolean;
+  isTokenFresh: () => boolean;
   ensureValidAccessToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
   logout: () => void;
 }
@@ -30,7 +28,9 @@ const isPublicRequest = (url: string) => {
 };
 
 const shouldSkipAuth = (url: string) => {
-  return isAuthRequest(url) || isRefreshRequest(url) || isLogoutRequest(url) || isPublicRequest(url);
+  return (
+    isAuthRequest(url) || isRefreshRequest(url) || isLogoutRequest(url) || isPublicRequest(url)
+  );
 };
 
 interface SuccessResponse {
@@ -40,11 +40,19 @@ interface SuccessResponse {
 }
 
 const isSuccessResponse = (payload: unknown): payload is SuccessResponse => {
-  return typeof payload === 'object' && payload !== null && 'code' in payload && (payload as { code?: unknown }).code === 0;
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'code' in payload &&
+    (payload as { code?: unknown }).code === 0
+  );
 };
 
 const createBusinessError = (res: unknown, payload: { code?: number; message?: string }): Error => {
-  const bizRes = { ...(typeof res === 'object' && res !== null ? res : {}), data: { ...payload, error: payload.message } };
+  const bizRes = {
+    ...(typeof res === 'object' && res !== null ? res : {}),
+    data: { ...payload, error: payload.message },
+  };
   const bizErr: Error & {
     isBusinessError?: boolean;
     code?: number;
@@ -56,7 +64,9 @@ const createBusinessError = (res: unknown, payload: { code?: number; message?: s
   return bizErr;
 };
 
-const handleResponseSuccess = (res: AxiosResponse<unknown, unknown, object>): AxiosResponse<unknown, unknown, object> | Promise<AxiosResponse<unknown, unknown, object>> => {
+const handleResponseSuccess = (
+  res: AxiosResponse<unknown, unknown, object>
+): AxiosResponse<unknown, unknown, object> | Promise<AxiosResponse<unknown, unknown, object>> => {
   const payload = res.data as {
     code?: number;
     message?: string;
@@ -64,7 +74,7 @@ const handleResponseSuccess = (res: AxiosResponse<unknown, unknown, object>): Ax
     pagination?: unknown;
     [key: string]: unknown;
   };
-  
+
   if (payload && typeof payload === 'object' && 'code' in payload && 'data' in payload) {
     if (isSuccessResponse(payload)) {
       if (payload.data && typeof payload.data === 'object' && 'pagination' in payload.data) {
@@ -96,7 +106,10 @@ const handleTokenRefreshFailure = (
   navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
 };
 
-const updateAuthHeader = (request: { headers?: Record<string, string> }, token: string | null): void => {
+const updateAuthHeader = (
+  request: { headers?: Record<string, string> },
+  token: string | null
+): void => {
   if (token) {
     request.headers = {
       ...(request.headers || {}),
@@ -124,7 +137,7 @@ const handleResponseError = (
     __retried?: boolean;
     headers?: Record<string, string>;
   } = (err as { config?: { [key: string]: unknown } })?.config || {};
-  
+
   if (originalRequest.__retried) {
     handleTokenRefreshFailure(locationRef, logout, navigate);
     return Promise.reject(err);
@@ -187,7 +200,7 @@ export function useAuthInterceptors({
       }
 
       const token = getCurrentAccessToken();
-      if (token && isTokenFresh(token)) {
+      if (token && isTokenFresh()) {
         addAuthHeader(config, token);
         return config;
       }
@@ -196,9 +209,8 @@ export function useAuthInterceptors({
       return config;
     });
 
-    const responseInterceptor = apiClient.interceptors.response.use(
-      handleResponseSuccess,
-      (err) => handleResponseError(err, locationRef, ensureValidAccessToken, logout, navigate)
+    const responseInterceptor = apiClient.interceptors.response.use(handleResponseSuccess, (err) =>
+      handleResponseError(err, locationRef, ensureValidAccessToken, logout, navigate)
     );
 
     return () => {

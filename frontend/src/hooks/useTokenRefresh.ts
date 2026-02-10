@@ -9,7 +9,7 @@ interface UseTokenRefreshParams {
   performRefreshAsLeader: () => Promise<string | null>;
   readRefreshLock: () => { owner: string; ts: number } | null;
   isLockExpired: (lock: { owner: string; ts: number }) => boolean;
-  isTokenFresh: (token: string) => boolean;
+  isTokenFresh: () => boolean;
   getJwtIatMs: (token: string) => number | null;
   writeAuthData: (data: unknown) => void;
   rejectAllWaiters: (err: Error) => void;
@@ -21,21 +21,21 @@ interface UseTokenRefreshParams {
 const shouldUseCurrentToken = (
   current: string | null,
   forceRefresh: boolean,
-  isTokenFresh: (token: string) => boolean
+  isTokenFresh: () => boolean
 ): boolean => {
-  return current !== null && !forceRefresh && isTokenFresh(current);
+  return current !== null && !forceRefresh && isTokenFresh();
 };
 
 const refreshWithLock = async (
   getCurrentAccessToken: () => string | null,
-  isTokenFresh: (token: string) => boolean,
+  isTokenFresh: () => boolean,
   getJwtIatMs: (token: string) => number | null,
   performRefreshAsLeader: () => Promise<string | null>,
   forceRefresh: boolean
 ): Promise<string | null> => {
   const latest = getCurrentAccessToken();
 
-  if (latest && isTokenFresh(latest)) {
+  if (latest && isTokenFresh()) {
     if (!forceRefresh) return latest;
 
     const iatMs = getJwtIatMs(latest);
@@ -84,13 +84,13 @@ const refreshWithLocalStorageLock = async (
 const waitForTokenFromOtherTabs = async (
   waitForTokenFromOtherTab: () => Promise<string | null>,
   getCurrentAccessToken: () => string | null,
-  isTokenFresh: (token: string) => boolean
+  isTokenFresh: () => boolean
 ): Promise<string | null> => {
   const token = await waitForTokenFromOtherTab();
-  if (token && isTokenFresh(token)) return token;
+  if (token && isTokenFresh()) return token;
 
   const latestToken = getCurrentAccessToken();
-  if (latestToken && isTokenFresh(latestToken)) return latestToken;
+  if (latestToken && isTokenFresh()) return latestToken;
 
   throw new Error('等待刷新完成后仍无有效 token');
 };

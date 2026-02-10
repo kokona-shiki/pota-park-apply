@@ -29,6 +29,19 @@ const authService = {
   },
 
   /**
+   * 刷新 token
+   */
+  refreshToken: async () => {
+    return requestWithSchema(
+      apiClient.post('/api/refresh-token', {}),
+      z.object({
+        accessToken: z.string(),
+        user: AuthUserSchema
+      })
+    );
+  },
+
+  /**
    * 获取用户权限
    */
   getUserPermissions: async () => {

@@ -98,7 +98,7 @@ function App() {
       const accessToken = data?.accessToken || null;
       return accessToken;
     },
-    readRefreshLock: () => null, // Zustand 持久化已经处理了状态同步
+    readRefreshLock: () => null,
     isLockExpired: () => true,
     isTokenFresh,
     getJwtIatMs,

@@ -38,6 +38,8 @@ model User {
   reviewed_callsign_change_requests CallsignChangeRequest[] @relation("CallsignChangeRequestReviewer")
   admin_audit_logs_as_operator UserAdminAuditLog[] @relation("UserAdminAuditLogOperator")
   admin_audit_logs_as_target UserAdminAuditLog[] @relation("UserAdminAuditLogTarget")
+
+  @@map("users")
 }
 
 model Permission {
@@ -47,6 +49,8 @@ model Permission {
 
   // 关系
   role_permissions RolePermission[]
+
+  @@map("permissions")
 }
 
 model RolePermission {
@@ -56,6 +60,8 @@ model RolePermission {
 
   // 关系
   permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@map("role_permissions")
 }
 
 model RefreshToken {
@@ -75,6 +81,8 @@ model RefreshToken {
 
   // 关系
   user              User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
 }
 
 model Province {
@@ -84,7 +92,7 @@ model Province {
   is_active Boolean @default(true)
   sort_order Int    @default(0)
 
-
+  @@map("provinces")
 }
 
 model ParkApplication {
@@ -114,6 +122,8 @@ model ParkApplication {
   pota_synced_user     User?             @relation(name: "ParkApplicationSyncedBy", fields: [pota_synced_by], references: [id])
   audit_logs           ApplicationAuditLog[]
   review_reminders     ReviewReminder[]
+
+  @@map("park_applications")
 }
 
 model ApplicationAuditLog {
@@ -130,6 +140,8 @@ model ApplicationAuditLog {
   // 关系
   application   ParkApplication @relation(fields: [application_id], references: [id], onDelete: Cascade)
   operator      User            @relation(fields: [operator_id], references: [id], onDelete: Cascade)
+
+  @@map("application_audit_logs")
 }
 
 model ReviewReminder {
@@ -147,6 +159,8 @@ model ReviewReminder {
   application    ParkApplication @relation(fields: [application_id], references: [id], onDelete: Cascade)
   reminder       User            @relation(fields: [reminded_by], references: [id], onDelete: Cascade)
   reminded       User?           @relation("RemindedTo", fields: [reminded_to], references: [id])
+
+  @@map("review_reminders")
 }
 
 model PotaSyncLog {
@@ -157,6 +171,8 @@ model PotaSyncLog {
   status       String
   message      String?
   created_at   DateTime @default(now())
+
+  @@map("pota_sync_logs")
 }
 
 model PotaUnprocessedPark {
@@ -172,6 +188,8 @@ model PotaUnprocessedPark {
   notes       String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+
+  @@map("pota_unprocessed_parks")
 }
 
 model EmailVerification {
@@ -184,6 +202,8 @@ model EmailVerification {
 
   // 关系
   user         User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
 }
 
 model Notification {
@@ -199,6 +219,8 @@ model Notification {
 
   // 关系
   user         User? @relation(fields: [user_id], references: [id])
+
+  @@map("notifications")
 }
 
 model UserInfoChange {
@@ -212,6 +234,8 @@ model UserInfoChange {
 
   // 关系
   user          User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_info_changes")
 }
 
 model CallsignChangeRequest {
@@ -228,6 +252,8 @@ model CallsignChangeRequest {
   // 关系
   user              User @relation(name: "CallsignChangeRequestUser", fields: [user_id], references: [id], onDelete: Cascade)
   reviewer          User? @relation(name: "CallsignChangeRequestReviewer", fields: [reviewer_id], references: [id])
+
+  @@map("callsign_change_requests")
 }
 
 model UserAdminAuditLog {
@@ -246,5 +272,7 @@ model UserAdminAuditLog {
   // 关系
   operator      User @relation(name: "UserAdminAuditLogOperator", fields: [operator_id], references: [id], onDelete: Cascade)
   target_user   User @relation(name: "UserAdminAuditLogTarget", fields: [target_user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_admin_audit_logs")
 }
 

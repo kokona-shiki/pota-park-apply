@@ -13,7 +13,7 @@ interface UseMultiTabSyncParams {
   rejectAllWaiters: (err: Error) => void;
   resolveAllWaiters: (token: string | null) => void;
   readAuthData: () => { accessToken: string; user: unknown } | null;
-  isTokenFresh: (token: string) => boolean;
+  isTokenFresh: () => boolean;
 }
 
 const handleLogoutEvent = (
@@ -56,12 +56,12 @@ const handleAuthDataEvent = (
 
 const handleRefreshLockEvent = (
   readAuthData: () => { accessToken: string; user: unknown } | null,
-  isTokenFresh: (token: string) => boolean,
+  isTokenFresh: () => boolean,
   resolveAllWaiters: (token: string | null) => void,
   rejectAllWaiters: (err: Error) => void
 ) => {
   const latest = readAuthData();
-  if (latest?.accessToken && isTokenFresh(latest.accessToken)) {
+  if (latest?.accessToken && isTokenFresh()) {
     resolveAllWaiters(latest.accessToken);
   } else {
     rejectAllWaiters(new Error('刷新锁已释放但无有效 token'));
