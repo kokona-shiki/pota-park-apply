@@ -26,25 +26,26 @@ export function useAuthInit({
   hasInitializedRef,
 }: UseAuthInitParams) {
   useEffect(() => {
-    if (isAuthPage) {
-      const timeout = setTimeout(() => setIsAuthLoading(false), 0);
-      return () => clearTimeout(timeout);
+    if (hasInitializedRef.current) {
+      return;
     }
 
-    if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
 
+    if (isAuthPage) {
+      setIsAuthLoading(false);
+      return;
+    }
+
     const stored = readAuthData();
+
     if (stored?.accessToken && isTokenFresh(stored.accessToken)) {
-      console.log('[App] 从 localStorage 恢复登录态（token 有效）');
       apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
       setAccessToken(stored.accessToken);
       setUser(stored.user);
       setIsAuthLoading(false);
       return;
     }
-
-    console.log('[App] localStorage 无有效 token，尝试 refresh-token（带跨标签页锁）');
 
     ensureValidAccessToken()
       .then((token) => {
@@ -57,7 +58,6 @@ export function useAuthInit({
         }
       })
       .catch((err) => {
-        console.error('[App] 刷新 token 失败:', err?.response?.status, err?.response?.data);
         setUser(null);
         setAccessToken(null);
         localStorage.removeItem(AUTH_DATA_KEY);
@@ -73,6 +73,5 @@ export function useAuthInit({
     setUser,
     setAccessToken,
     setIsAuthLoading,
-    hasInitializedRef,
   ]);
 }

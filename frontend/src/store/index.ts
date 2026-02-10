@@ -1,1 +1,5 @@
-export { default as useAuthStore } from './authStore';
+import { shallow } from 'zustand/shallow';
+import useAuthStore from './authStore';
+
+export { useAuthStore };
+export { shallow };

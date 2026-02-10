@@ -67,6 +67,13 @@ const useAuthStore = create<AuthState>()(
       },
 
       refreshSession: async () => {
+        const currentToken = get().accessToken;
+
+        if (!currentToken) {
+          set({ isAuthLoading: false, isTokenReady: false });
+          throw new Error('No token available');
+        }
+
         try {
           set({ isAuthLoading: true });
           const user = await authService.getUserInfo();

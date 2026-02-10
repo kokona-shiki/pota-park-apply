@@ -114,6 +114,7 @@ function Home() {
         }),
         PotaParksResponseSchema
       );
+
       setParks(response.parks);
       setFilteredParks(response.parks);
       setTotal(response.total);

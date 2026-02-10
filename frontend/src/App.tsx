@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, Toolbar, Typography } from '@mui/material';
 import TopBar from './components/TopBar';
@@ -12,6 +12,23 @@ import { useMultiTabSync } from './hooks/useMultiTabSync';
 import { useAuthInit } from './hooks/useAuthInit';
 import { AppRoutes } from './AppRoutes';
 import { useAuthStore } from './store';
+
+function getJwtIatMs(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (base64.length % 4)) % 4;
+    const json = atob(base64 + '='.repeat(padLen));
+    const parsed = JSON.parse(json);
+    const iat = parsed?.iat;
+    if (typeof iat !== 'number') return null;
+    return iat * 1000;
+  } catch {
+    return null;
+  }
+}
 
 // 在模块加载时生成唯一的 tabId
 const tabId = Math.random().toString(36).substring(2, 9);
@@ -47,8 +64,26 @@ function App() {
     refreshSession,
     getCurrentAccessToken,
     isTokenFresh,
-    readAuthData,
   } = useAuthStore();
+
+  const readAuthData = useCallback((): { accessToken: string; user: unknown } | null => {
+    const { user, accessToken } = useAuthStore.getState();
+    if (!user && !accessToken) return null;
+    return { user, accessToken } as { accessToken: string; user: unknown };
+  }, []);
+
+  const stableSetUser = useCallback(
+    (user: unknown | null) => setUser(user as AuthUser | null),
+    [setUser]
+  );
+  const stableSetAccessToken = useCallback(
+    (token: string | null) => setAccessToken(token),
+    [setAccessToken]
+  );
+  const stableSetIsAuthLoading = useCallback(
+    (loading: boolean) => setIsAuthLoading(loading),
+    [setIsAuthLoading]
+  );
 
   // 使用模块级别的 tabId 变量
   const tabIdRef = useRef(tabId);
@@ -56,17 +91,29 @@ function App() {
   const { ensureValidAccessToken } = useTokenRefresh({
     getCurrentAccessToken,
     performRefreshAsLeader: async () => {
-      await refreshSession();
-      const { accessToken } = readAuthData();
-      return accessToken;
+      console.log('[DEBUG App] performRefreshAsLeader 开始执行');
+      try {
+        await refreshSession();
+        const data = readAuthData();
+        const accessToken = data?.accessToken || null;
+        console.log(
+          '[DEBUG App] performRefreshAsLeader 完成，token:',
+          accessToken ? '存在' : '不存在'
+        );
+        return accessToken;
+      } catch (error) {
+        console.error('[DEBUG App] performRefreshAsLeader 失败:', error);
+        throw error;
+      }
     },
     readRefreshLock: () => null, // Zustand 持久化已经处理了状态同步
     isLockExpired: () => true,
     isTokenFresh,
-    getJwtIatMs: () => Date.now(),
+    getJwtIatMs,
     writeAuthData: (data: unknown) => {
       if (data && typeof data === 'object' && 'user' in data) setUser(data.user as AuthUser | null);
-      if (data && typeof data === 'object' && 'accessToken' in data) setAccessToken(data.accessToken as string);
+      if (data && typeof data === 'object' && 'accessToken' in data)
+        setAccessToken(data.accessToken as string);
     },
     rejectAllWaiters: () => {},
     resolveAllWaiters: () => {},
@@ -82,14 +129,11 @@ function App() {
   });
 
   useMultiTabSync({
-    setUser: (user) => setUser(user as AuthUser | null),
-    setAccessToken,
+    setUser: stableSetUser,
+    setAccessToken: stableSetAccessToken,
     rejectAllWaiters: () => {},
     resolveAllWaiters: () => {},
-    readAuthData: () => {
-      const { user, accessToken } = useAuthStore.getState();
-      return { user, accessToken } as { accessToken: string; user: unknown } | null;
-    },
+    readAuthData,
     isTokenFresh,
   });
 
@@ -97,13 +141,10 @@ function App() {
     isAuthPage: isAuthPage(location.pathname),
     isTokenFresh,
     ensureValidAccessToken,
-    readAuthData: () => {
-      const { user, accessToken } = useAuthStore.getState();
-      return { user, accessToken } as { accessToken: string; user: unknown } | null;
-    },
-    setUser: (user) => setUser(user as AuthUser | null),
-    setAccessToken,
-    setIsAuthLoading,
+    readAuthData,
+    setUser: stableSetUser,
+    setAccessToken: stableSetAccessToken,
+    setIsAuthLoading: stableSetIsAuthLoading,
     hasInitializedRef,
   });
 
@@ -150,9 +191,7 @@ function AppContent({
 }) {
   return (
     <Box sx={{ display: 'flex' }}>
-      {!isAuthPage && (
-        <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-      )}
+      {!isAuthPage && <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
       {!isAuthPage && (
         <SideBar
           isOpen={isSidebarOpen}
