@@ -10,7 +10,7 @@ import {
   revokeAllRefreshTokensForUser,
 } from '../utils/auth.js';
 import * as notificationService from './notificationService.js';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@db';
 
 const prisma = new PrismaClient();
 
