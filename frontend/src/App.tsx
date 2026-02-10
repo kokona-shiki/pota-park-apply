@@ -91,18 +91,12 @@ function App() {
   const { ensureValidAccessToken } = useTokenRefresh({
     getCurrentAccessToken,
     performRefreshAsLeader: async () => {
-      console.log('[DEBUG App] performRefreshAsLeader 开始执行');
       try {
         await refreshSession();
         const data = readAuthData();
         const accessToken = data?.accessToken || null;
-        console.log(
-          '[DEBUG App] performRefreshAsLeader 完成，token:',
-          accessToken ? '存在' : '不存在'
-        );
         return accessToken;
       } catch (error) {
-        console.error('[DEBUG App] performRefreshAsLeader 失败:', error);
         throw error;
       }
     },
