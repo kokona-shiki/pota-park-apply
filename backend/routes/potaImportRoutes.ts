@@ -162,7 +162,7 @@ router.post(
       }
 
       // 获取用户信息
-      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]) as { id: number; role: string };
       if (!userInfo) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
@@ -231,7 +231,7 @@ router.post(
       }
 
       // 获取用户信息
-      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]) as { id: number; role: string };
       if (!userInfo) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
@@ -363,7 +363,7 @@ router.put(
       }
 
       // 获取用户信息
-      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]);
+      const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [req.user?.id]) as { id: number; role: string };
       if (!userInfo) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }

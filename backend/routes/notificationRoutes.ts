@@ -9,6 +9,30 @@ import {
   NotificationDraftUpdateSchema,
 } from '../../shared/schemas/notification.js';
 
+// 定义通知类型
+type Notification = {
+  id: number;
+  user_id: number | null;
+  type: string;
+  title: string;
+  description: string;
+  link_url: string | null;
+  is_global: boolean;
+  is_read: boolean;
+  is_popup_dismissed: boolean;
+  notification_mode: string;
+  metadata: string | null;
+  scheduled_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  published_by: number | null;
+  withdrawn_at: string | null;
+  withdrawn_by: number | null;
+  withdrawal_reason: string | null;
+};
+
 const router = express.Router();
 
 // 解析通知列表查询参数
@@ -139,7 +163,7 @@ router.get('/api/notifications/:id', authenticateToken, async (req, res) => {
       return sendBizError(res, 'INVALID_PARAMETER', '无效的通知ID', null);
     }
 
-    const notification = await notificationService.getNotificationById(notificationId);
+    const notification = await notificationService.getNotificationById(notificationId) as Notification;
 
     if (!notification) {
       return sendBizError(res, 'NOT_FOUND', '通知不存在', null);

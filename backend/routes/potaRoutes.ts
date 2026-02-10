@@ -52,7 +52,7 @@ router.post('/api/pota/login', authenticateToken, requirePotaImportPermission, a
     const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
 
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]) as { password_hash: string };
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
@@ -126,7 +126,7 @@ router.post(
       const { code, state } = parsed.data;
 
       // 从数据库获取保存的 PKCE 参数
-      const pkceData = await potaAuthService.getPKCE(req.user?.id, state);
+      const pkceData = await potaAuthService.getPKCE(req.user?.id, state) as { code_verifier: string };
 
       if (!pkceData) {
         return sendBizError(res, 'INVALID_STATE', '无效的状态参数或已过期', null);
@@ -139,7 +139,7 @@ router.post(
       const tokenInfo = potaAuthService.decodeJWT(tokens.idToken);
 
       // 获取用户密码哈希
-      const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
+      const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]) as { password_hash: string };
       if (!user) {
         return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
       }
@@ -177,7 +177,7 @@ router.post(
 router.get('/api/pota/token', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]) as { password_hash: string };
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
@@ -236,7 +236,7 @@ router.delete(
 router.get('/api/pota/status', authenticateToken, requirePotaImportPermission, async (req, res) => {
   try {
     // 获取用户密码哈希
-    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]);
+    const user = await getOne('SELECT password_hash FROM users WHERE id = $1', [req.user?.id]) as { password_hash: string };
     if (!user) {
       return sendBizError(res, 'USER_NOT_FOUND', '用户不存在', null);
     }
@@ -306,7 +306,7 @@ router.get('/api/pota/parks', async (req, res) => {
       FROM park_applications
       ${searchConditions}
     `;
-    const countResult = await getOne(countQuery, searchParams);
+    const countResult = await getOne(countQuery, searchParams) as { total: string };
     const total = parseInt(countResult.total, 10);
     
     // 查询公园列表
@@ -329,7 +329,18 @@ router.get('/api/pota/parks', async (req, res) => {
     `;
     
     const parksParams = [...searchParams, pageSize, offset];
-    const parks = await getMany(parksQuery, parksParams);
+    const parks = await getMany(parksQuery, parksParams) as Array<{
+      id: number;
+      pota_id: string;
+      park_name: string;
+      park_type: string;
+      provinces: string;
+      latitude: string | null;
+      longitude: string | null;
+      website: string | null;
+      description: string | null;
+      pota_synced_at: string;
+    }>;
     
     // 处理经纬度精度，限制为4位小数
     const processedParks = parks.map((park) => {
