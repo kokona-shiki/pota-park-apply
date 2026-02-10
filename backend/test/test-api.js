@@ -6,43 +6,43 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // 测试基本接口
 async function testBasicEndpoints() {
-  console.log('🧪 测试基础接口...');
+  console.warn('🧪 测试基础接口...');
 
   try {
     // 测试根路径
-    console.log('1. 测试根路径...');
+    console.warn('1. 测试根路径...');
     const rootResponse = await fetch(`${BASE_URL}/`);
     const rootData = await rootResponse.json();
-    console.log('✅ 根路径响应:', rootData);
+    console.warn('✅ 根路径响应:', rootData);
 
     // 测试健康检查
-    console.log('2. 测试健康检查...');
+    console.warn('2. 测试健康检查...');
     const healthResponse = await fetch(`${BASE_URL}/api/health`);
     const healthData = await healthResponse.json();
-    console.log('✅ 健康检查响应:', healthData);
+    console.warn('✅ 健康检查响应:', healthData);
 
     // 测试省份列表
-    console.log('3. 测试省份列表...');
+    console.warn('3. 测试省份列表...');
     const provincesResponse = await fetch(`${BASE_URL}/api/provinces`);
     const provincesData = await provincesResponse.json();
-    console.log('✅ 省份列表响应:', {
+    console.warn('✅ 省份列表响应:', {
       count: provincesData.provinces?.length || 0,
       firstProvince: provincesData.provinces?.[0],
     });
 
-    console.log('🎉 基础接口测试完成！');
+    console.warn('🎉 基础接口测试完成！');
   } catch (error) {
     console.error('❌ 基础接口测试失败:', error.message);
 
     if (error.code === 'ECONNREFUSED') {
-      console.log('💡 提示: 服务器可能未启动，请先运行: pnpm dev');
+      console.warn('💡 提示: 服务器可能未启动，请先运行: pnpm dev');
     }
   }
 }
 
 // 测试用户注册
 async function testUserRegistration() {
-  console.log('1. 测试用户注册...');
+  console.warn('1. 测试用户注册...');
   const registerResponse = await fetch(`${BASE_URL}/api/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,7 +55,7 @@ async function testUserRegistration() {
 
   if (registerResponse.ok) {
     const registerData = await registerResponse.json();
-    console.log('✅ 用户注册成功:', {
+    console.warn('✅ 用户注册成功:', {
       message: registerData.message,
       userId: registerData.user?.id,
       role: registerData.user?.role,
@@ -63,14 +63,14 @@ async function testUserRegistration() {
     return registerData.token;
   } else {
     const errorData = await registerResponse.json();
-    console.log('❌ 用户注册失败:', errorData);
+    console.warn('❌ 用户注册失败:', errorData);
     return null;
   }
 }
 
 // 测试用户登录
 async function testUserLogin() {
-  console.log('2. 测试用户登录...');
+  console.warn('2. 测试用户登录...');
   const loginResponse = await fetch(`${BASE_URL}/api/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ async function testUserLogin() {
 
   if (loginResponse.ok) {
     const loginData = await loginResponse.json();
-    console.log('✅ 用户登录成功:', {
+    console.warn('✅ 用户登录成功:', {
       message: loginData.message,
       userId: loginData.user?.id,
     });
@@ -91,14 +91,14 @@ async function testUserLogin() {
 
 // 测试获取用户信息
 async function testUserInfo(token) {
-  console.log('3. 测试获取用户信息...');
+  console.warn('3. 测试获取用户信息...');
   const userInfoResponse = await fetch(`${BASE_URL}/api/user-info`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (userInfoResponse.ok) {
     const userInfoData = await userInfoResponse.json();
-    console.log('✅ 获取用户信息成功:', {
+    console.warn('✅ 获取用户信息成功:', {
       email: userInfoData.user?.email,
       callsign: userInfoData.user?.callsign,
       role: userInfoData.user?.role,
@@ -108,7 +108,7 @@ async function testUserInfo(token) {
 
 // 测试提交公园申请
 async function testParkApplication(token) {
-  console.log('4. 测试提交公园申请...');
+  console.warn('4. 测试提交公园申请...');
   const applicationResponse = await fetch(`${BASE_URL}/api/park-applications`, {
     method: 'POST',
     headers: {
@@ -129,7 +129,7 @@ async function testParkApplication(token) {
 
   if (applicationResponse.ok) {
     const applicationData = await applicationResponse.json();
-    console.log('✅ 提交公园申请成功:', {
+    console.warn('✅ 提交公园申请成功:', {
       message: applicationData.message,
       applicationId: applicationData.application?.id,
       status: applicationData.application?.status,
@@ -139,7 +139,7 @@ async function testParkApplication(token) {
 
 // 测试需要数据库的接口（需要先初始化数据库）
 async function testDatabaseEndpoints() {
-  console.log('🧪 测试需要数据库的接口...');
+  console.warn('🧪 测试需要数据库的接口...');
 
   try {
     const token = await testUserRegistration();
@@ -154,23 +154,23 @@ async function testDatabaseEndpoints() {
     console.error('❌ 数据库接口测试失败:', error.message);
 
     if (error.code === 'ECONNREFUSED') {
-      console.log('💡 提示: 服务器可能未启动');
+      console.warn('💡 提示: 服务器可能未启动');
     }
   }
 }
 
 // 运行测试
 async function runTests() {
-  console.log('🚀 开始 API 测试...');
-  console.log('📍 服务器地址:', BASE_URL);
-  console.log('');
+  console.warn('🚀 开始 API 测试...');
+  console.warn('📍 服务器地址:', BASE_URL);
+  console.warn('');
 
   await testBasicEndpoints();
-  console.log('');
+  console.warn('');
   await testDatabaseEndpoints();
 
-  console.log('');
-  console.log('✨ 测试完成！');
+  console.warn('');
+  console.warn('✨ 测试完成！');
 }
 
 // 如果直接运行此脚本

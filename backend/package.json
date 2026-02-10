@@ -10,8 +10,7 @@
     "start": "tsx index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "cd .. && npx eslint ./backend/",
-    "lint:fix": "cd .. && npx eslint ./backend/ --fix",
+    "lint": "eslint .",
     "init-db": "node scripts/initDatabase.js",
     "migrate:remove-admin-review-permissions": "node migrations/001-remove-system-admin-review-permissions.js",
     "migrate:add-notifications-table": "node migrations/014-add-notifications-table.js",
@@ -50,8 +49,13 @@
     "@types/express-rate-limit": "^6.0.2",
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^7.0.9",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
     "nodemon": "^3.0.1",
+    "prettier": "^3.8.1",
     "tsx": "^4.21.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.52.0"
   }
 }

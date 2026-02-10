@@ -60,7 +60,7 @@ export const buildQueryParkFailureReason = (attempts: number, error: unknown) =>
  */
 export const fetchAllChineseParks = async (): Promise<PotaPark[]> => {
   try {
-    console.log('开始从 POTA API 获取中国公园数据...');
+    console.warn('开始从 POTA API 获取中国公园数据...');
 
     // 使用正确的 API 端点: /entity/parks/318
     // 后端可以直接访问外部 API，不需要代理
@@ -82,17 +82,17 @@ export const fetchAllChineseParks = async (): Promise<PotaPark[]> => {
         });
 
         if (response && Array.isArray(response.data)) {
-          console.log(`成功获取 ${response.data.length} 个中国公园数据 (第 ${attempt} 次尝试)`);
+          console.warn(`成功获取 ${response.data.length} 个中国公园数据 (第 ${attempt} 次尝试)`);
           return response.data;
         }
       } catch (error) {
         lastError = error;
-        console.log(`获取 POTA 公园数据失败 (第 ${attempt} 次尝试): ${error.message}`);
+        console.warn(`获取 POTA 公园数据失败 (第 ${attempt} 次尝试): ${error.message}`);
 
         // 如果不是最后一次尝试，等待一段时间再重试
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // 指数退避
-          console.log(`等待 ${delay}ms 后重试...`);
+          console.warn(`等待 ${delay}ms 后重试...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
@@ -108,7 +108,7 @@ export const fetchAllChineseParks = async (): Promise<PotaPark[]> => {
 
     // 为了系统的健壮性，返回空数组而不是抛出异常
     // 这样可以让导入过程继续，只是没有新公园被导入
-    console.log('返回空数组，因为无法连接到 POTA API');
+    console.warn('返回空数组，因为无法连接到 POTA API');
     return [];
   }
 };
@@ -138,7 +138,7 @@ export const fetchPotaParkDetail = async (reference: string) => {
       }
     } catch (error) {
       lastError = error;
-      console.log(
+      console.warn(
         `查询 POTA 公园失败 (第 ${attempt} 次尝试, ${reference}): ${formatQueryParkError(error)}`
       );
     }

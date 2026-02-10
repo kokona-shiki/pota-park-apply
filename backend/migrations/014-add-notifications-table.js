@@ -8,7 +8,7 @@
 import { query } from '../config/database.js';
 
 export const addNotificationsTable = async () => {
-  console.log('🚀 开始迁移：创建通知表和全局通知草稿表...');
+  console.warn('🚀 开始迁移：创建通知表和全局通知草稿表...');
 
   try {
     await query(`
@@ -114,7 +114,7 @@ export const addNotificationsTable = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('✅ 迁移完成：通知表和全局通知草稿表创建成功');
+    console.warn('✅ 迁移完成：通知表和全局通知草稿表创建成功');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

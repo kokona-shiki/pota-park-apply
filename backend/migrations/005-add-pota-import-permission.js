@@ -8,11 +8,11 @@
 import { query } from '../config/database.js';
 
 export const addPotaImportPermission = async () => {
-  console.log('🔄 开始添加 POTA 导入权限...');
+  console.warn('🔄 开始添加 POTA 导入权限...');
 
   try {
     // 1. 添加 pota_import 权限
-    console.log('  ➕ 添加 pota_import 权限...');
+    console.warn('  ➕ 添加 pota_import 权限...');
     await query(`
       INSERT INTO permissions (permission_code, description)
       VALUES ('pota_import', 'POTA 公园数据导入权限')
@@ -20,7 +20,7 @@ export const addPotaImportPermission = async () => {
     `);
 
     // 2. 为 pota_representative 角色分配 pota_import 权限
-    console.log('  👥 为 POTA 代表分配导入权限...');
+    console.warn('  👥 为 POTA 代表分配导入权限...');
     await query(`
       INSERT INTO role_permissions (role, permission_id)
       SELECT 'pota_representative', p.id
@@ -38,12 +38,12 @@ export const addPotaImportPermission = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('✅ POTA 导入权限添加完成!');
+    console.warn('✅ POTA 导入权限添加完成!');
 
-    console.log('💡 权限说明:');
-    console.log('   - 权限代码: pota_import');
-    console.log('   - 权限描述: POTA 公园数据导入权限');
-    console.log('   - 授权角色: pota_representative');
+    console.warn('💡 权限说明:');
+    console.warn('   - 权限代码: pota_import');
+    console.warn('   - 权限描述: POTA 公园数据导入权限');
+    console.warn('   - 授权角色: pota_representative');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

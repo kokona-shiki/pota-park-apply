@@ -31,7 +31,7 @@ export const getUnprocessedParks = async () => {
   ) as Array<{ payload?: Record<string, unknown> }>;
 
   const parks = rows.map((row) => row.payload || {});
-  console.log('获取未处理公园列表，当前数量:', parks.length);
+  console.warn('获取未处理公园列表，当前数量:', parks.length);
   return parks;
 };
 
@@ -45,7 +45,7 @@ export const setUnprocessedParks = async (parks: UnprocessedPark[]) => {
     await client.query('DELETE FROM pota_unprocessed_parks');
 
     if (normalizedParks.length === 0) {
-      console.log('设置未处理公园列表，数量: 0');
+      console.warn('设置未处理公园列表，数量: 0');
       return [];
     }
 
@@ -66,7 +66,7 @@ export const setUnprocessedParks = async (parks: UnprocessedPark[]) => {
       values
     );
 
-    console.log('设置未处理公园列表，数量:', normalizedParks.length);
+    console.warn('设置未处理公园列表，数量:', normalizedParks.length);
     return normalizedParks;
   });
 };
@@ -76,7 +76,7 @@ export const setUnprocessedParks = async (parks: UnprocessedPark[]) => {
  */
 export const clearUnprocessedParks = async () => {
   await query('DELETE FROM pota_unprocessed_parks');
-  console.log('清空未处理公园列表');
+  console.warn('清空未处理公园列表');
   return [];
 };
 
@@ -89,7 +89,7 @@ export const processUnprocessedPark = async (
   operatorRole: string
 ) => {
   try {
-    console.log(`处理未处理公园: ${parkData.reference}, 指定类型: ${parkData.manualType}`);
+    console.warn(`处理未处理公园: ${parkData.reference}, 指定类型: ${parkData.manualType}`);
 
     const manualTypeId = await resolveParkTypeId(parkData.manualType);
     if (!manualTypeId) {
@@ -115,7 +115,7 @@ export const processUnprocessedPark = async (
 
     await removeUnprocessedPark(parkData.reference);
 
-    console.log(`成功处理公园: ${parkData.reference} (ID: ${createdPark.id})`);
+    console.warn(`成功处理公园: ${parkData.reference} (ID: ${createdPark.id})`);
 
     return {
       success: true,

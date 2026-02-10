@@ -166,7 +166,7 @@ const initProxies = (app) => {
 
     app.use(path, createProxyMiddleware(proxyOptions));
 
-    console.log(`[Proxy] ${path} → ${target}`);
+    console.warn(`[Proxy] ${path} → ${target}`);
   });
 
   return configs;

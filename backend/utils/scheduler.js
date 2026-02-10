@@ -12,25 +12,25 @@ class Scheduler {
    * 初始化所有定时任务
    */
   async init() {
-    console.log('🚀 初始化定时任务调度器...');
+    console.warn('🚀 初始化定时任务调度器...');
 
     // 每天凌晨4点执行POTA公园导入任务 (UTC+8)
     // Cron表达式: 0 4 * * * 表示每天4点0分执行
     const potaImportJob = cron.schedule(
       '0 4 * * *',
       async () => {
-        console.log(`🕐 [${new Date().toISOString()}] 开始执行POTA公园自动导入任务`);
+        console.warn(`🕐 [${new Date().toISOString()}] 开始执行POTA公园自动导入任务`);
         try {
           const results = await autoTriggerPotaImport();
 
           if (results.error) {
             console.error('❌ POTA公园自动导入任务执行失败:', results.error);
           } else if (results.skipped && results.reason === 'queue_full') {
-            console.log('⏸️ POTA公园自动导入任务队列已满，本次跳过');
+            console.warn('⏸️ POTA公园自动导入任务队列已满，本次跳过');
           } else if (results.queued) {
-            console.log('✅ POTA公园自动导入任务已入队:', results.task?.id);
+            console.warn('✅ POTA公园自动导入任务已入队:', results.task?.id);
           } else {
-            console.log('✅ POTA公园自动导入任务执行完成:', results);
+            console.warn('✅ POTA公园自动导入任务执行完成:', results);
           }
         } catch (error) {
           console.error('🚨 POTA公园自动导入任务发生异常:', error);
@@ -46,15 +46,15 @@ class Scheduler {
     // 监听任务事件以获得更多调试信息
     if (potaImportJob.on) {
       potaImportJob.on('scheduled', (date) => {
-        console.log(`📅 POTA导入任务下次计划执行时间: ${date}`);
+        console.warn(`📅 POTA导入任务下次计划执行时间: ${date}`);
       });
 
       potaImportJob.on('started', () => {
-        console.log('▶️ POTA导入任务开始执行');
+        console.warn('▶️ POTA导入任务开始执行');
       });
 
       potaImportJob.on('completed', () => {
-        console.log('⏹️ POTA导入任务执行完成');
+        console.warn('⏹️ POTA导入任务执行完成');
       });
     }
 
@@ -64,7 +64,7 @@ class Scheduler {
       description: '每日凌晨4点自动导入POTA公园数据',
     });
 
-    console.log(`✅ 成功启动 ${this.jobs.length} 个定时任务`);
+    console.warn(`✅ 成功启动 ${this.jobs.length} 个定时任务`);
 
     // 立即打印下次执行时间
     this.printNextRunTimes();
@@ -74,31 +74,31 @@ class Scheduler {
    * 打印所有任务的下次执行时间
    */
   printNextRunTimes() {
-    console.log('\n📅 定时任务下次执行时间:');
+    console.warn('\n📅 定时任务下次执行时间:');
     this.jobs.forEach((jobInfo) => {
       // 根据调试结果显示，当前node-cron版本不支持获取下次执行时间的方法
       // 只显示基本的Cron表达式信息
-      console.log(`  ${jobInfo.name}: ${jobInfo.description} (Cron: 0 4 * * *, TZ: Asia/Shanghai)`);
+      console.warn(`  ${jobInfo.name}: ${jobInfo.description} (Cron: 0 4 * * *, TZ: Asia/Shanghai)`);
     });
-    console.log('');
+    console.warn('');
   }
 
   /**
    * 手动触发POTA导入任务（用于测试）
    */
   async triggerPotaImportManually() {
-    console.log('🕐 手动触发POTA公园导入任务');
+    console.warn('🕐 手动触发POTA公园导入任务');
     try {
       const results = await autoTriggerPotaImport();
 
       if (results.error) {
         console.error('❌ POTA公园手动导入任务执行失败:', results.error);
       } else if (results.skipped && results.reason === 'queue_full') {
-        console.log('⏸️ POTA公园导入任务队列已满，本次跳过');
+        console.warn('⏸️ POTA公园导入任务队列已满，本次跳过');
       } else if (results.queued) {
-        console.log('✅ POTA公园导入任务已入队:', results.task?.id);
+        console.warn('✅ POTA公园导入任务已入队:', results.task?.id);
       } else {
-        console.log('✅ POTA公园手动导入任务执行完成:', results);
+        console.warn('✅ POTA公园手动导入任务执行完成:', results);
       }
 
       return results;
@@ -112,13 +112,13 @@ class Scheduler {
    * 停止所有定时任务
    */
   stop() {
-    console.log('🛑 停止所有定时任务...');
+    console.warn('🛑 停止所有定时任务...');
     this.jobs.forEach((jobInfo) => {
       jobInfo.job.stop();
-      console.log(`  已停止任务: ${jobInfo.name}`);
+      console.warn(`  已停止任务: ${jobInfo.name}`);
     });
     this.jobs = [];
-    console.log('✅ 所有定时任务已停止');
+    console.warn('✅ 所有定时任务已停止');
   }
 }
 

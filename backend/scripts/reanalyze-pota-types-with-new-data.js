@@ -384,8 +384,8 @@ async function reanalyzePotaTypesWithNewData() {
     // 提取系统中所有的类型（包括新的 POTA 专用类型）
     const { systemChineseTypes, systemEnglishTypes } = extractSystemTypes(systemTypes);
 
-    console.log('系统中存在的中文类型:', Array.from(systemChineseTypes));
-    console.log('系统中存在的英文类型:', Array.from(systemEnglishTypes));
+    console.warn('系统中存在的中文类型:', Array.from(systemChineseTypes));
+    console.warn('系统中存在的英文类型:', Array.from(systemEnglishTypes));
 
     // 分析 POTA 公园数据中的类型
     const { potaChineseTypes, potaEnglishTypes, parkAnalysis } = analyzePotaParkTypes(potaParks);
@@ -409,26 +409,26 @@ async function reanalyzePotaTypesWithNewData() {
     const textReportPath = path.join(outputDir, 'reanalyze-pota-types-with-new-data-summary.txt');
     await fs.writeFile(textReportPath, textReport, 'utf8');
 
-    console.log('✅ 结合最新系统类型重新分析 POTA 数据完成!');
-    console.log(`📄 详细结果已保存到: ${outputPath}`);
-    console.log(`📄 简明报告已保存到: ${textReportPath}`);
-    console.log(`📈 统计信息:`);
-    console.log(`   - POTA 公园总数: ${result.summary.totalParks}`);
-    console.log(`   - 缺失中文类型: ${result.missingChineseTypes.count} 种`);
-    console.log(`   - 缺失英文类型: ${result.missingEnglishTypes.count} 种`);
+    console.warn('✅ 结合最新系统类型重新分析 POTA 数据完成!');
+    console.warn(`📄 详细结果已保存到: ${outputPath}`);
+    console.warn(`📄 简明报告已保存到: ${textReportPath}`);
+    console.warn(`📈 统计信息:`);
+    console.warn(`   - POTA 公园总数: ${result.summary.totalParks}`);
+    console.warn(`   - 缺失中文类型: ${result.missingChineseTypes.count} 种`);
+    console.warn(`   - 缺失英文类型: ${result.missingEnglishTypes.count} 种`);
 
     // 输出一些关键发现
-    console.log('\n🔍 关键发现:');
+    console.warn('\n🔍 关键发现:');
     if (result.missingChineseTypes.types.length === 0) {
-      console.log('   - 恭喜！目前没有发现系统缺失的中文公园类型');
+      console.warn('   - 恭喜！目前没有发现系统缺失的中文公园类型');
     } else {
-      console.log(`   - 仍存在 ${result.missingChineseTypes.types.length} 个中文类型需要添加`);
+      console.warn(`   - 仍存在 ${result.missingChineseTypes.types.length} 个中文类型需要添加`);
     }
 
     if (result.missingEnglishTypes.types.length === 0) {
-      console.log('   - 恭喜！目前没有发现系统缺失的英文公园类型');
+      console.warn('   - 恭喜！目前没有发现系统缺失的英文公园类型');
     } else {
-      console.log(`   - 仍存在 ${result.missingEnglishTypes.types.length} 个英文类型需要添加`);
+      console.warn(`   - 仍存在 ${result.missingEnglishTypes.types.length} 个英文类型需要添加`);
     }
   } catch (error) {
     console.error('❌ 分析过程中出错:', error);

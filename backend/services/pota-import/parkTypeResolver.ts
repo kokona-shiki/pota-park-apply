@@ -110,7 +110,7 @@ const identifyParkTypeByChinese = (
   // 首先检查标准类型
   for (const mapping of mappings.chinese_to_english) {
     if (chinesePart.includes(mapping.chineseName)) {
-      console.log(`通过中文关键词识别公园类型: ${mapping.chineseName} -> ${mapping.englishName}`);
+      console.warn(`通过中文关键词识别公园类型: ${mapping.chineseName} -> ${mapping.englishName}`);
       return mapping.id || null;
     }
   }
@@ -119,7 +119,7 @@ const identifyParkTypeByChinese = (
   if (mappings.pota_only_types) {
     for (const mapping of mappings.pota_only_types) {
       if (chinesePart.includes(mapping.chineseName)) {
-        console.log(
+        console.warn(
           `通过POTA专用中文关键词识别公园类型: ${mapping.chineseName} -> ${mapping.englishName}`
         );
         return mapping.id || null;
@@ -210,13 +210,13 @@ const selectBestEnglishTypeMatch = (
   const longestMatches = possibleTypes.filter((item) => item.length === maxLength);
 
   if (longestMatches.length === 1) {
-    console.log(`通过英文部分识别公园类型: ${longestMatches[0].englishName}`);
+    console.warn(`通过英文部分识别公园类型: ${longestMatches[0].englishName}`);
     return longestMatches[0].typeId || null;
   }
 
   // 如果有多个相同长度的匹配，返回第一个
   const matchedTypes = longestMatches.map((item) => item.englishName);
-  console.log(`发现多个相同长度的匹配类型: ${matchedTypes.join(', ')}`);
+  console.warn(`发现多个相同长度的匹配类型: ${matchedTypes.join(', ')}`);
   return longestMatches[0].typeId || null;
 };
 
@@ -234,14 +234,14 @@ const identifyParkTypeByDefault = (
   }
 
   if (chinesePart.includes(defaultPotaType.chineseName)) {
-    console.log(
+    console.warn(
       `通过默认中文关键词识别公园类型: ${defaultPotaType.chineseName} -> ${defaultPotaType.englishName}`
     );
     return defaultPotaType.id || null;
   }
 
   if (englishPart.includes(defaultPotaType.englishName)) {
-    console.log(
+    console.warn(
       `通过默认英文关键词识别公园类型: ${defaultPotaType.englishName} -> ${defaultPotaType.chineseName}`
     );
     return defaultPotaType.id || null;
@@ -282,7 +282,7 @@ export const identifyParkType = async (potaPark: PotaPark) => {
   }
 
   // 如果没有匹配的类型，返回 null
-  console.log(
+  console.warn(
     `无法识别公园类型，英文部分: ${englishPart || 'N/A'}，中文部分: ${chinesePart || 'N/A'}`
   );
   return null;
@@ -330,6 +330,6 @@ const identifyParkTypeByEnglishPart = (
     return englishMatch;
   }
 
-  console.log(`英文部分无法匹配任何类型: ${englishPart}`);
+  console.warn(`英文部分无法匹配任何类型: ${englishPart}`);
   return null;
 };

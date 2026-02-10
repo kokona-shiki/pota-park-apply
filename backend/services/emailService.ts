@@ -172,7 +172,7 @@ export const sendVerificationEmail = async (data: EmailVerificationData): Promis
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ 验证邮件已发送至: ${data.email}`);
+    console.warn(`✅ 验证邮件已发送至: ${data.email}`);
   } catch (error) {
     console.error('❌ 发送验证邮件失败:', error);
     throw new Error('发送验证邮件失败，请稍后重试');
@@ -183,7 +183,7 @@ export const testEmailConnection = async (): Promise<boolean> => {
   try {
     const transporter = getTransporter();
     await transporter.verify();
-    console.log('✅ SMTP 连接测试成功');
+    console.warn('✅ SMTP 连接测试成功');
     return true;
   } catch (error) {
     console.error('❌ SMTP 连接测试失败:', error);

@@ -7,14 +7,14 @@
 import { query, testConnection } from '../config/database.js';
 
 export const updatePotaImportedAction = async () => {
-  console.log('🔄 开始更新审核日志 action...');
+  console.warn('🔄 开始更新审核日志 action...');
 
   try {
     await query(`
       ALTER TABLE application_audit_logs
       DROP CONSTRAINT IF EXISTS application_audit_logs_action_check
     `);
-    console.log('✅ 删除旧的 CHECK 约束');
+    console.warn('✅ 删除旧的 CHECK 约束');
 
     const result = await query(`
       UPDATE application_audit_logs
@@ -22,14 +22,14 @@ export const updatePotaImportedAction = async () => {
       WHERE action = 'pota_synced'
     `);
 
-    console.log(`✅ 更新了 ${result.rowCount} 条审核日志记录`);
+    console.warn(`✅ 更新了 ${result.rowCount} 条审核日志记录`);
 
     await query(`
       ALTER TABLE application_audit_logs
       ADD CONSTRAINT application_audit_logs_action_check
       CHECK (action IN ('submitted', 'approved', 'rejected', 'reverted_approved', 'reverted_rejected', 'pota_imported'))
     `);
-    console.log('✅ 添加新的 CHECK 约束');
+    console.warn('✅ 添加新的 CHECK 约束');
 
     await query(`
       INSERT INTO app_meta (key, value)
@@ -39,10 +39,10 @@ export const updatePotaImportedAction = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('✅ schema 迁移完成（schema_version=11）');
-    console.log('💡 更新说明:');
-    console.log('   - 将审核日志 action 从 "pota_synced" 更新为 "pota_imported"');
-    console.log('   - 用于区分 POTA 导入和后续的 POTA 同步功能');
+    console.warn('✅ schema 迁移完成（schema_version=11）');
+    console.warn('💡 更新说明:');
+    console.warn('   - 将审核日志 action 从 "pota_synced" 更新为 "pota_imported"');
+    console.warn('   - 用于区分 POTA 导入和后续的 POTA 同步功能');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

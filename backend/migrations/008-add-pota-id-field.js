@@ -3,7 +3,7 @@
 
 const addPotaIdField = async (db) => {
   try {
-    console.log('Starting migration: Add pota_id field to park_applications table');
+    console.warn('Starting migration: Add pota_id field to park_applications table');
     
     // Step 1: Add pota_id field
     await db.query(`
@@ -11,7 +11,7 @@ const addPotaIdField = async (db) => {
       ADD COLUMN IF NOT EXISTS pota_id VARCHAR(20) UNIQUE;
     `);
     
-    console.log('✓ Added pota_id field to park_applications table');
+    console.warn('✓ Added pota_id field to park_applications table');
     
     // Step 2: Add index to pota_id field
     await db.query(`
@@ -19,9 +19,9 @@ const addPotaIdField = async (db) => {
       ON park_applications(pota_id);
     `);
     
-    console.log('✓ Added index to pota_id field');
+    console.warn('✓ Added index to pota_id field');
     
-    console.log('Migration completed successfully');
+    console.warn('Migration completed successfully');
     return true;
   } catch (error) {
     console.error('Error during migration:', error);

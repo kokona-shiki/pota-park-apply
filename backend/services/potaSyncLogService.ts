@@ -51,7 +51,7 @@ export const logPotaSync = async (
       [operator, operationType, parksImported, status, details]
     ) as { id: number };
 
-    console.log(
+    console.warn(
       `POTA同步日志记录成功: ID ${logEntry.id}, 操作人: ${operator}, 类型: ${operationType}, 状态: ${status}`
     );
 

@@ -8,11 +8,11 @@
 import { query } from '../config/database.js';
 
 export const removeOldProvinceField = async () => {
-  console.log('🔄 开始移除旧的 province_iso_code 字段...');
+  console.warn('🔄 开始移除旧的 province_iso_code 字段...');
 
   try {
     // 1. 确保所有记录都有新的 provinces 字段数据
-    console.log('  🔄 确保所有记录都有新的省份数据...');
+    console.warn('  🔄 确保所有记录都有新的省份数据...');
     await query(`
       UPDATE park_applications 
       SET provinces = jsonb_build_array(province_iso_code)
@@ -20,13 +20,13 @@ export const removeOldProvinceField = async () => {
     `);
 
     // 2. 移除旧的 province_iso_code 字段
-    console.log('  ➖ 移除旧的 province_iso_code 字段...');
+    console.warn('  ➖ 移除旧的 province_iso_code 字段...');
     await query(`
       ALTER TABLE park_applications DROP COLUMN IF EXISTS province_iso_code
     `);
 
     // 3. 更新相关索引
-    console.log('  🗂️ 更新相关索引...');
+    console.warn('  🗂️ 更新相关索引...');
     await query(`
       DROP INDEX IF EXISTS idx_province_status
     `);
@@ -39,12 +39,12 @@ export const removeOldProvinceField = async () => {
       FROM park_applications
     `);
 
-    console.log(
+    console.warn(
       `  📊 迁移统计: 总共 ${stats.rows[0].total_records} 条记录, ${stats.rows[0].records_with_new_provinces} 条记录已更新新省份数据`
     );
 
-    console.log('✅ 旧省份字段移除完成!');
-    console.log('💡 提示: 请确保所有应用程序代码都已更新以使用新的 provinces 字段');
+    console.warn('✅ 旧省份字段移除完成!');
+    console.warn('💡 提示: 请确保所有应用程序代码都已更新以使用新的 provinces 字段');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

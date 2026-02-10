@@ -8,11 +8,11 @@
 import { query, testConnection } from '../config/database.js';
 
 export const addPotaUnprocessedParksTable = async () => {
-  console.log('🔄 开始添加 POTA 未处理公园表...');
+  console.warn('🔄 开始添加 POTA 未处理公园表...');
 
   try {
     // 1. 创建未处理公园表
-    console.log('  ➕ 创建 pota_unprocessed_parks 表...');
+    console.warn('  ➕ 创建 pota_unprocessed_parks 表...');
     await query(`
       CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
         reference TEXT PRIMARY KEY,
@@ -22,7 +22,7 @@ export const addPotaUnprocessedParksTable = async () => {
     `);
 
     // 2. 创建索引
-    console.log('  🔍 创建相关索引...');
+    console.warn('  🔍 创建相关索引...');
     await query(`
       CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at
       ON pota_unprocessed_parks (created_at DESC)
@@ -37,7 +37,7 @@ export const addPotaUnprocessedParksTable = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('✅ POTA 未处理公园表创建完成!');
+    console.warn('✅ POTA 未处理公园表创建完成!');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

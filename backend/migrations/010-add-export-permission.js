@@ -7,7 +7,7 @@
 import { query } from '../config/database.js';
 
 export const addExportPermission = async () => {
-  console.log('🔄 开始添加导出权限和审计日志表...');
+  console.warn('🔄 开始添加导出权限和审计日志表...');
 
   try {
     await query(`
@@ -43,12 +43,12 @@ export const addExportPermission = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('✅ 导出权限和审计日志表添加完成!');
-    console.log('💡 权限说明:');
-    console.log('   - 权限代码: export_parks');
-    console.log('   - 权限描述: 导出公园数据权限');
-    console.log('   - 授权角色: pota_representative');
-    console.log('📊 审计日志表: export_audit_logs');
+    console.warn('✅ 导出权限和审计日志表添加完成!');
+    console.warn('💡 权限说明:');
+    console.warn('   - 权限代码: export_parks');
+    console.warn('   - 权限描述: 导出公园数据权限');
+    console.warn('   - 授权角色: pota_representative');
+    console.warn('📊 审计日志表: export_audit_logs');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

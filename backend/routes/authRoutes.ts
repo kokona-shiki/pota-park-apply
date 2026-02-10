@@ -278,7 +278,7 @@ router.post('/api/refresh-token', authLimiter, async (req: Request, res: express
   try {
     if (process.env.NODE_ENV !== 'production') {
       const tabId = req.get('X-Tab-Id') || null;
-      console.log('[refresh-token]', { tabId, ip: req.ip });
+      console.warn('[refresh-token]', { tabId, ip: req.ip });
     }
 
     const refreshToken = getCookie(req, REFRESH_COOKIE_NAME) || req.get('X-Refresh-Token');

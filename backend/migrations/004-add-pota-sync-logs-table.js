@@ -8,11 +8,11 @@
 import { query } from '../config/database.js';
 
 export const addPotaSyncLogsTable = async () => {
-  console.log('🔄 开始添加 POTA 同步日志表...');
+  console.warn('🔄 开始添加 POTA 同步日志表...');
 
   try {
     // 1. 创建 POTA 同步日志表
-    console.log('  ➕ 创建 pota_sync_logs 表...');
+    console.warn('  ➕ 创建 pota_sync_logs 表...');
     await query(`
       CREATE TABLE IF NOT EXISTS pota_sync_logs (
         id SERIAL PRIMARY KEY,
@@ -29,7 +29,7 @@ export const addPotaSyncLogsTable = async () => {
     `);
 
     // 2. 创建索引
-    console.log('  🔍 创建相关索引...');
+    console.warn('  🔍 创建相关索引...');
     await query(`
       CREATE INDEX IF NOT EXISTS idx_pota_sync_logs_operator 
       ON pota_sync_logs (operator)
@@ -45,7 +45,7 @@ export const addPotaSyncLogsTable = async () => {
       ON pota_sync_logs (sync_date)
     `);
 
-    console.log('✅ POTA 同步日志表创建完成!');
+    console.warn('✅ POTA 同步日志表创建完成!');
 
     // 3. 更新 schema 版本
     await query(`
@@ -56,15 +56,15 @@ export const addPotaSyncLogsTable = async () => {
           updated_at = CURRENT_TIMESTAMP
     `);
 
-    console.log('💡 表结构说明:');
-    console.log('   - id: 日志记录ID');
-    console.log('   - operator: 操作人（用户名或"系统自动"）');
-    console.log('   - operation_type: 操作类型（auto/manual）');
-    console.log('   - sync_date: 同步日期');
-    console.log('   - parks_imported: 导入的公园列表（JSONB格式）');
-    console.log('   - status: 同步状态（success/partial_success/failed）');
-    console.log('   - details: 详细信息');
-    console.log('   - created_at: 创建时间');
+    console.warn('💡 表结构说明:');
+    console.warn('   - id: 日志记录ID');
+    console.warn('   - operator: 操作人（用户名或"系统自动"）');
+    console.warn('   - operation_type: 操作类型（auto/manual）');
+    console.warn('   - sync_date: 同步日期');
+    console.warn('   - parks_imported: 导入的公园列表（JSONB格式）');
+    console.warn('   - status: 同步状态（success/partial_success/failed）');
+    console.warn('   - details: 详细信息');
+    console.warn('   - created_at: 创建时间');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

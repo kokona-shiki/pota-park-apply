@@ -656,7 +656,7 @@ export const publishScheduledNotifications = async () => {
     []
   );
 
-  console.log(`发布定时通知: ${result.rows.length} 条`);
+  console.warn(`发布定时通知: ${result.rows.length} 条`);
 
   for (const notification of result.rows) {
     const users = await getMany(

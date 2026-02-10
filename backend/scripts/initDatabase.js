@@ -7,14 +7,14 @@ import {
 
 // 测试数据库连接
 async function testDatabaseConnection() {
-  console.log('🔍 测试数据库连接...');
+  console.warn('🔍 测试数据库连接...');
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   let connected = false;
   for (let i = 1; i <= 30; i++) {
     connected = await testConnection();
     if (connected) break;
-    console.log(`⏳ 数据库尚未就绪，稍后重试... (${i}/30)`);
+    console.warn(`⏳ 数据库尚未就绪，稍后重试... (${i}/30)`);
     await sleep(2000);
   }
 
@@ -60,27 +60,27 @@ async function checkDatabaseInitialization() {
 // 处理数据库迁移
 async function handleDatabaseMigration(schemaVersion) {
   if (schemaVersion?.value === '9' || schemaVersion?.value === '8') {
-    console.log(
+    console.warn(
       `✅ 检测到数据库已初始化（schema_version=${schemaVersion.value}），执行迁移并确保初始系统管理员存在...`
     );
     await migrateSchemaToLatest();
     await ensureInitialSystemAdmin();
-    console.log('🎉 数据库检查完成！');
+    console.warn('🎉 数据库检查完成！');
     return true;
   }
 
   if (schemaVersion?.value === '2') {
-    console.log(
+    console.warn(
       '🛠️ 检测到旧数据库（schema_version=2），执行迁移（移除 dx_entity）后跳过建表/建索引...'
     );
     await migrateSchemaToLatest();
     await ensureInitialSystemAdmin();
-    console.log('🎉 数据库迁移完成！');
+    console.warn('🎉 数据库迁移完成！');
     return true;
   }
 
   if (schemaVersion?.value === '3') {
-    console.log(
+    console.warn(
       '🛠️ 检测到数据库版本 3，需要升级到版本 9（添加 POTA 认证表、权限、未处理公园表、pota_park_type 字段、pota_id 字段）...'
     );
     // 继续执行初始化，会创建新表并更新版本号
@@ -88,45 +88,45 @@ async function handleDatabaseMigration(schemaVersion) {
   }
 
   // For any other version, run migrations
-  console.log(`🛠️ 检测到数据库版本 ${schemaVersion?.value}，执行迁移到最新版本...`);
+  console.warn(`🛠️ 检测到数据库版本 ${schemaVersion?.value}，执行迁移到最新版本...`);
   await migrateSchemaToLatest();
   await ensureInitialSystemAdmin();
-  console.log('🎉 数据库迁移完成！');
+  console.warn('🎉 数据库迁移完成！');
   return true;
 }
 
 // 完整初始化数据库
 async function initializeDatabaseSchema() {
-  console.log('📝 初始化数据库表结构和数据...');
+  console.warn('📝 初始化数据库表结构和数据...');
   await initializeDatabase();
 
-  console.log('🎉 数据库初始化完成！');
-  console.log('');
-  console.log('📋 创建的表:');
-  console.log('  - users (用户表)');
-  console.log('  - permissions (权限表)');
-  console.log('  - role_permissions (角色权限表)');
-  console.log('  - provinces (省份表)');
-  console.log('  - callsign_change_requests (呼号变更申请表)');
-  console.log('  - user_info_changes (用户信息修改记录表)');
-  console.log('  - park_applications (公园申请表)');
-  console.log('  - application_audit_logs (申请审核记录表)');
-  console.log('  - review_reminders (审核提醒表)');
-  console.log('');
-  console.log('⚙️  创建的功能:');
-  console.log('  - 地理空间索引 (PostGIS)');
-  console.log('  - 全文搜索索引');
-  console.log('  - 权限验证函数');
-  console.log('  - 自动更新时间戳触发器');
-  console.log('');
-  console.log('👥 初始数据:');
-  console.log('  - 34 个省份数据');
-  console.log('  - 13 个权限项');
-  console.log('  - 4 种角色的权限配置');
+  console.warn('🎉 数据库初始化完成！');
+  console.warn('');
+  console.warn('📋 创建的表:');
+  console.warn('  - users (用户表)');
+  console.warn('  - permissions (权限表)');
+  console.warn('  - role_permissions (角色权限表)');
+  console.warn('  - provinces (省份表)');
+  console.warn('  - callsign_change_requests (呼号变更申请表)');
+  console.warn('  - user_info_changes (用户信息修改记录表)');
+  console.warn('  - park_applications (公园申请表)');
+  console.warn('  - application_audit_logs (申请审核记录表)');
+  console.warn('  - review_reminders (审核提醒表)');
+  console.warn('');
+  console.warn('⚙️  创建的功能:');
+  console.warn('  - 地理空间索引 (PostGIS)');
+  console.warn('  - 全文搜索索引');
+  console.warn('  - 权限验证函数');
+  console.warn('  - 自动更新时间戳触发器');
+  console.warn('');
+  console.warn('👥 初始数据:');
+  console.warn('  - 34 个省份数据');
+  console.warn('  - 13 个权限项');
+  console.warn('  - 4 种角色的权限配置');
 }
 
 const init = async () => {
-  console.log('🚀 开始初始化 POTA 公园申请系统数据库...');
+  console.warn('🚀 开始初始化 POTA 公园申请系统数据库...');
 
   try {
     // 1. 测试连接

@@ -1,7 +1,7 @@
 import { query } from '../config/database.js';
 
 export const up = async () => {
-  console.log('🚀 开始迁移：创建通知表和全局通知草稿表...');
+  console.warn('🚀 开始迁移：创建通知表和全局通知草稿表...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS notifications (
@@ -106,11 +106,11 @@ export const up = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ 迁移完成：通知表和全局通知草稿表创建成功');
+  console.warn('✅ 迁移完成：通知表和全局通知草稿表创建成功');
 };
 
 export const down = async () => {
-  console.log('🔄 回滚迁移：删除通知表和全局通知草稿表...');
+  console.warn('🔄 回滚迁移：删除通知表和全局通知草稿表...');
 
   await query(`DELETE FROM role_permissions WHERE permission_id IN (
     SELECT id FROM permissions WHERE permission_code IN (
@@ -149,5 +149,5 @@ export const down = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ 回滚完成：通知表和全局通知草稿表已删除');
+  console.warn('✅ 回滚完成：通知表和全局通知草稿表已删除');
 };

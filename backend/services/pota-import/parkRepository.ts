@@ -20,7 +20,7 @@ export const checkParkExistsByPotaId = async (potaId: string) => {
   ) as ParkQueryResult;
 
   if (existingParkByPotaId) {
-    console.log(`公园 ${potaId} 已存在于系统中，ID: ${existingParkByPotaId.id}`);
+    console.warn(`公园 ${potaId} 已存在于系统中，ID: ${existingParkByPotaId.id}`);
     return existingParkByPotaId;
   }
 
@@ -31,7 +31,7 @@ export const checkParkExistsByPotaId = async (potaId: string) => {
   ) as ParkQueryResult;
 
   if (existingParkByNotes) {
-    console.log(
+    console.warn(
       `公园 ${potaId} 已存在于系统中（通过 pota_notes 匹配），ID: ${existingParkByNotes.id}`
     );
     return existingParkByNotes;

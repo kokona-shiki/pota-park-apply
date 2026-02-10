@@ -20,7 +20,7 @@ const loadRegionData = async () => {
 
 // 创建所有数据库表
 export const createTables = async () => {
-  console.log('🚀 开始创建数据库表...');
+  console.warn('🚀 开始创建数据库表...');
 
   try {
     // 0. 扩展与全文检索配置
@@ -405,7 +405,7 @@ export const createTables = async () => {
       )
     `);
 
-    console.log('✅ 数据库表创建完成');
+    console.warn('✅ 数据库表创建完成');
   } catch (error) {
     console.error('❌ 创建数据库表失败:', error);
     throw error;
@@ -414,7 +414,7 @@ export const createTables = async () => {
 
 // 创建索引
 export const createIndexes = async () => {
-  console.log('🔍 开始创建索引...');
+  console.warn('🔍 开始创建索引...');
 
   try {
     // 用户表索引
@@ -531,7 +531,7 @@ export const createIndexes = async () => {
     await query('CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode ON notifications(notification_mode)');
     await query('CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by ON notification_drafts(created_by)');
 
-    console.log('✅ 索引创建完成');
+    console.warn('✅ 索引创建完成');
   } catch (error) {
     console.error('❌ 创建索引失败:', error);
     throw error;
@@ -540,7 +540,7 @@ export const createIndexes = async () => {
 
 // 创建触发器和函数
 export const createFunctionsAndTriggers = async () => {
-  console.log('⚙️ 开始创建函数和触发器...');
+  console.warn('⚙️ 开始创建函数和触发器...');
 
   try {
     // 1. 自动更新 updated_at 的函数
@@ -639,7 +639,7 @@ export const createFunctionsAndTriggers = async () => {
       $$ LANGUAGE plpgsql
     `);
 
-    console.log('✅ 函数和触发器创建完成');
+    console.warn('✅ 函数和触发器创建完成');
   } catch (error) {
     console.error('❌ 创建函数和触发器失败:', error);
     throw error;
@@ -647,7 +647,7 @@ export const createFunctionsAndTriggers = async () => {
 };
 
 const migrateSchemaFrom2To3 = async () => {
-  console.log('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
+  console.warn('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
   await query('DROP INDEX IF EXISTS idx_dx_entity');
   await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
 
@@ -659,11 +659,11 @@ const migrateSchemaFrom2To3 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=3）');
+  console.warn('✅ schema 迁移完成（schema_version=3）');
 };
 
 const migrateSchemaFrom3To4 = async () => {
-  console.log('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
+  console.warn('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
   await query(`
     CREATE TABLE IF NOT EXISTS pota_pkce (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -690,11 +690,11 @@ const migrateSchemaFrom3To4 = async () => {
     SET value = EXCLUDED.value,
         updated_at = CURRENT_TIMESTAMP
   `);
-  console.log('✅ schema 迁移完成（schema_version=4）');
+  console.warn('✅ schema 迁移完成（schema_version=4）');
 };
 
 const migrateSchemaFrom4To5 = async () => {
-  console.log('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
+  console.warn('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
 
   await query(`
     ALTER TABLE users 
@@ -715,11 +715,11 @@ const migrateSchemaFrom4To5 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=5）');
+  console.warn('✅ schema 迁移完成（schema_version=5）');
 };
 
 const migrateSchemaFrom5To6 = async () => {
-  console.log('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
+  console.warn('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
 
   await query(`
     INSERT INTO permissions (permission_code, description)
@@ -743,11 +743,11 @@ const migrateSchemaFrom5To6 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=6）');
+  console.warn('✅ schema 迁移完成（schema_version=6）');
 };
 
 const migrateSchemaFrom6To7 = async () => {
-  console.log('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
+  console.warn('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
@@ -770,11 +770,11 @@ const migrateSchemaFrom6To7 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=7）');
+  console.warn('✅ schema 迁移完成（schema_version=7）');
 };
 
 const migrateSchemaFrom7To8 = async () => {
-  console.log('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
+  console.warn('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
 
   await query(`
     ALTER TABLE park_applications 
@@ -789,11 +789,11 @@ const migrateSchemaFrom7To8 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=8）');
+  console.warn('✅ schema 迁移完成（schema_version=8）');
 };
 
 const migrateSchemaFrom8To9 = async () => {
-  console.log('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
+  console.warn('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
 
   await query(`
     ALTER TABLE park_applications 
@@ -813,11 +813,11 @@ const migrateSchemaFrom8To9 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=9）');
+  console.warn('✅ schema 迁移完成（schema_version=9）');
 };
 
 const migrateSchemaFrom9To10 = async () => {
-  console.log('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
+  console.warn('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS export_audit_logs (
@@ -852,11 +852,11 @@ const migrateSchemaFrom9To10 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=10）');
+  console.warn('✅ schema 迁移完成（schema_version=10）');
 };
 
 const migrateSchemaFrom10To11 = async () => {
-  console.log('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
+  console.warn('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
 
   await query(`
     UPDATE application_audit_logs
@@ -872,11 +872,11 @@ const migrateSchemaFrom10To11 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=11）');
+  console.warn('✅ schema 迁移完成（schema_version=11）');
 };
 
 const migrateSchemaFrom11To12 = async () => {
-  console.log('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
+  console.warn('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS email_verification_tokens (
@@ -919,11 +919,11 @@ const migrateSchemaFrom11To12 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=12）');
+  console.warn('✅ schema 迁移完成（schema_version=12）');
 };
 
 const migrateSchemaFrom12To13 = async () => {
-  console.log('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
+  console.warn('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS notifications (
@@ -1028,7 +1028,7 @@ const migrateSchemaFrom12To13 = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ schema 迁移完成（schema_version=13）');
+  console.warn('✅ schema 迁移完成（schema_version=13）');
 };
 
 export const migrateSchemaToLatest = async () => {
@@ -1118,7 +1118,7 @@ export const ensureInitialSystemAdmin = async () => {
       [existingUser.id, passwordHash]
     );
 
-    console.log(
+    console.warn(
       `✅ 已将用户提升为初始系统管理员: ${existingUser.callsign} <${existingUser.email}>`
     );
     return;
@@ -1132,12 +1132,12 @@ export const ensureInitialSystemAdmin = async () => {
     [email, callsign, passwordHash]
   );
 
-  console.log(`✅ 已创建初始系统管理员: ${callsign} <${email}>`);
+  console.warn(`✅ 已创建初始系统管理员: ${callsign} <${email}>`);
 };
 
 // 初始化基础数据
 export const initializeData = async () => {
-  console.log('📝 开始初始化基础数据...');
+  console.warn('📝 开始初始化基础数据...');
 
   try {
     // 1. 初始化权限数据
@@ -1241,7 +1241,7 @@ export const initializeData = async () => {
     // 4. 确保存在一个 system_admin（通过 env 配置首次管理员账号）
     await ensureInitialSystemAdmin();
 
-    console.log('✅ 基础数据初始化完成');
+    console.warn('✅ 基础数据初始化完成');
   } catch (error) {
     console.error('❌ 初始化基础数据失败:', error);
     throw error;
@@ -1256,7 +1256,7 @@ export const initializeDatabase = async () => {
     await createIndexes();
     await createFunctionsAndTriggers();
     await initializeData();
-    console.log('🎉 数据库初始化完成！');
+    console.warn('🎉 数据库初始化完成！');
   } catch (error) {
     console.error('❌ 数据库初始化失败:', error);
     throw error;

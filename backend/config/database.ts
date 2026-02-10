@@ -27,7 +27,7 @@ export const testConnection = async (): Promise<boolean> => {
     const client = await pool.connect();
     await client.query('SELECT NOW()');
     client.release();
-    console.log('✅ PostgreSQL 连接成功');
+    console.warn('✅ PostgreSQL 连接成功');
     return true;
   } catch (error) {
     console.error('❌ PostgreSQL 连接失败:', (error as Error).message);
@@ -47,10 +47,10 @@ export const query = async <T>(text: string, params?: unknown[]): Promise<QueryR
     const duration = Date.now() - start;
 
     if (SHOULD_LOG_SQL) {
-      console.log('📊 查询执行:', { text, duration, rows: result.rowCount });
+      console.warn('📊 查询执行:', { text, duration, rows: result.rowCount });
     } else {
       const firstLine = String(text).trim().split('\n')[0]?.slice(0, 120);
-      console.log('📊 查询执行:', { sql: firstLine, duration, rows: result.rowCount });
+      console.warn('📊 查询执行:', { sql: firstLine, duration, rows: result.rowCount });
     }
 
     return result;
@@ -112,7 +112,7 @@ export const transaction = async <T>(callback: (client: PoolClient) => Promise<T
 // 关闭连接池
 export const closePool = async (): Promise<void> => {
   await pool.end();
-  console.log('🔌 数据库连接池已关闭');
+  console.warn('🔌 数据库连接池已关闭');
 };
 
 export default pool;

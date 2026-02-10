@@ -9,17 +9,17 @@
 import { query } from '../config/database.js';
 
 export const migratePotaParkType = async () => {
-  console.log('🔄 开始添加 pota_park_type 字段...');
+  console.warn('🔄 开始添加 pota_park_type 字段...');
 
   try {
     // 添加 pota_park_type 字段
-    console.log('  ➕ 添加 pota_park_type 字段...');
+    console.warn('  ➕ 添加 pota_park_type 字段...');
     await query(`
       ALTER TABLE park_applications 
       ADD COLUMN IF NOT EXISTS pota_park_type VARCHAR(255)
     `);
 
-    console.log('✅ pota_park_type 字段添加完成!');
+    console.warn('✅ pota_park_type 字段添加完成!');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

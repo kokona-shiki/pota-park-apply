@@ -62,7 +62,7 @@ export const importSinglePotaPark = async (
     // 检查公园是否已存在
     const existingPark = await checkParkExistsByPotaId(potaId);
     if (existingPark) {
-      console.log(`公园 ${potaId} 已存在，跳过导入`);
+      console.warn(`公园 ${potaId} 已存在，跳过导入`);
       return { success: true, skipped: true, message: `公园 ${potaId} 已存在，跳过导入` };
     }
 
@@ -77,7 +77,7 @@ export const importSinglePotaPark = async (
       importTime
     );
 
-    console.log(
+    console.warn(
       `成功导入公园: ${potaId} ID: ${createdPark.id} NAME: ${potaPark.name} TYPE: ${resolvedType} POTA_TYPE: ${potaPark.parktypeDesc}`
     );
     return {
@@ -401,7 +401,7 @@ const determineSyncStatus = (results: ImportResult): 'success' | 'partial_succes
  * 执行 POTA 公园批量导入
  */
 export const importPotaParks = async (operatorId: number, operatorRole: string) => {
-  console.log(`开始执行 POTA 公园导入，操作员: ${operatorId}, 角色: ${operatorRole}`);
+  console.warn(`开始执行 POTA 公园导入，操作员: ${operatorId}, 角色: ${operatorRole}`);
 
   const importTime = new Date().toISOString();
   const parksImported: Array<{ reference: string; name: string; status: string; reason?: string; latitude?: number | null; longitude?: number | null }> = [];
@@ -436,7 +436,7 @@ export const importPotaParks = async (operatorId: number, operatorRole: string) 
 const fetchAndNormalizeParksData = async () => {
   const rawParksData = await fetchAllChineseParks();
   const parksData = normalizeParksData(rawParksData);
-  console.log(`准备导入 ${parksData.length} 个公园`);
+  console.warn(`准备导入 ${parksData.length} 个公园`);
   return parksData;
 };
 
@@ -511,7 +511,7 @@ const logImportResults = async (
     `总计: ${results.total}, 导入: ${results.imported}, 跳过: ${results.skipped}, 错误: ${results.errors.length}`
   );
 
-  console.log(
+  console.warn(
     `POTA 公园导入完成: 总计 ${results.total}, 导入 ${results.imported}, 跳过 ${results.skipped}, 错误 ${results.errors.length}`
   );
 };
@@ -595,7 +595,7 @@ export const autoTriggerPotaImport = async () => {
   // 对于自动导入，我们查找一个系统管理员或POTA代表作为操作员
   // 为了标识这是自动导入，我们仍将使用虚拟ID，但在备注中说明
 
-  console.log('开始自动执行 POTA 公园导入...');
+  console.warn('开始自动执行 POTA 公园导入...');
 
   try {
     // 使用虚拟操作员ID表示系统自动操作
@@ -603,7 +603,7 @@ export const autoTriggerPotaImport = async () => {
     const systemOperatorRole = 'system'; // 表示系统自动操作
 
     if (isImportQueueFull()) {
-      console.log('自动 POTA 导入任务队列已满，本次自动导入跳过');
+      console.warn('自动 POTA 导入任务队列已满，本次自动导入跳过');
       return {
         skipped: true,
         reason: 'queue_full',
@@ -621,7 +621,7 @@ export const autoTriggerPotaImport = async () => {
       },
     });
 
-    console.log('自动 POTA 公园导入任务已入队:', task.id);
+    console.warn('自动 POTA 公园导入任务已入队:', task.id);
     return {
       queued: true,
       task: buildTaskResponse(task),

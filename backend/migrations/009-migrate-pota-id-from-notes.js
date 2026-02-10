@@ -3,7 +3,7 @@
 
 const migratePotaIdFromNotes = async (db) => {
   try {
-    console.log('Starting migration: Migrate POTA ID from pota_notes to pota_id field');
+    console.warn('Starting migration: Migrate POTA ID from pota_notes to pota_id field');
     
     // Step 1: Get all parks with pota_notes containing POTA ID
     const parks = await db.query(`
@@ -11,7 +11,7 @@ const migratePotaIdFromNotes = async (db) => {
       WHERE pota_notes IS NOT NULL AND pota_notes != ''
     `);
     
-    console.log(`Found ${parks.rows.length} parks with pota_notes`);
+    console.warn(`Found ${parks.rows.length} parks with pota_notes`);
     
     // Step 2: Process each park
     let processedCount = 0;
@@ -63,11 +63,11 @@ const migratePotaIdFromNotes = async (db) => {
       }
     }
     
-    console.log(`✓ Processed ${processedCount} parks`);
-    console.log(`✓ Updated pota_id for ${updatedCount} parks`);
-    console.log(`✓ Cleaned pota_notes for ${cleanedCount} parks`);
+    console.warn(`✓ Processed ${processedCount} parks`);
+    console.warn(`✓ Updated pota_id for ${updatedCount} parks`);
+    console.warn(`✓ Cleaned pota_notes for ${cleanedCount} parks`);
     
-    console.log('Migration completed successfully');
+    console.warn('Migration completed successfully');
     return true;
   } catch (error) {
     console.error('Error during migration:', error);

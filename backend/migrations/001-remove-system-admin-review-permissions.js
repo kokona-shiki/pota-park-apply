@@ -8,7 +8,7 @@
 import { query } from '../config/database.js';
 
 export const removeSystemAdminReviewPermissions = async () => {
-  console.log('🔄 开始移除 system_admin 的公园审核权限...');
+  console.warn('🔄 开始移除 system_admin 的公园审核权限...');
 
   try {
     // 删除 system_admin 的审核相关权限
@@ -30,9 +30,9 @@ export const removeSystemAdminReviewPermissions = async () => {
       );
 
       if (result.rowCount > 0) {
-        console.log(`  ✅ 已移除权限: ${permissionCode}`);
+        console.warn(`  ✅ 已移除权限: ${permissionCode}`);
       } else {
-        console.log(`  ℹ️  权限不存在: ${permissionCode}`);
+        console.warn(`  ℹ️  权限不存在: ${permissionCode}`);
       }
     }
 
@@ -47,13 +47,13 @@ export const removeSystemAdminReviewPermissions = async () => {
       `
     );
 
-    console.log('\n📋 system_admin 当前权限列表:');
+    console.warn('\n📋 system_admin 当前权限列表:');
     remainingPermissions.rows.forEach((perm) => {
-      console.log(`  - ${perm.permission_code}: ${perm.description}`);
+      console.warn(`  - ${perm.permission_code}: ${perm.description}`);
     });
 
-    console.log('\n✅ 权限调整完成!');
-    console.log('📝 system_admin 现在只拥有用户管理相关权限,不参与公园审核流程。');
+    console.warn('\n✅ 权限调整完成!');
+    console.warn('📝 system_admin 现在只拥有用户管理相关权限,不参与公园审核流程。');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

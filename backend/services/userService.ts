@@ -749,7 +749,7 @@ const handlePotaTokensReencryption = async (userId: number, oldPasswordHash: str
     return await potaAuthService.getStoredTokens(userId, oldPasswordHash);
   } catch (error) {
     // 如果获取不到POTA token（可能是因为密码不匹配或不存在），则跳过重新加密
-    console.log('未能获取当前POTA token，可能未配置或密码不匹配:', error.message);
+    console.warn('未能获取当前POTA token，可能未配置或密码不匹配:', error.message);
     return null;
   }
 };

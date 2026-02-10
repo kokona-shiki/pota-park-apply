@@ -8,17 +8,17 @@
 import { query } from '../config/database.js';
 
 export const migrateProvinces = async () => {
-  console.log('🔄 开始迁移公园申请表的省份字段...');
+  console.warn('🔄 开始迁移公园申请表的省份字段...');
 
   try {
     // 1. 添加新的 provinces JSONB 字段，初始默认值为包含原有 province_iso_code 的数组
-    console.log('  ➕ 添加新的 provinces JSONB 字段...');
+    console.warn('  ➕ 添加新的 provinces JSONB 字段...');
     await query(`
       ALTER TABLE park_applications ADD COLUMN IF NOT EXISTS provinces JSONB
     `);
 
     // 2. 将现有的 province_iso_code 数据迁移到新的 provinces 字段
-    console.log('  🔄 迁移现有省份数据...');
+    console.warn('  🔄 迁移现有省份数据...');
     await query(`
       UPDATE park_applications 
       SET provinces = jsonb_build_array(province_iso_code)
@@ -32,7 +32,7 @@ export const migrateProvinces = async () => {
     `);
 
     // 4. 创建新字段的索引
-    console.log('  🔍 创建新字段索引...');
+    console.warn('  🔍 创建新字段索引...');
     await query(`
       CREATE INDEX IF NOT EXISTS idx_park_applications_provinces 
       ON park_applications USING GIN (provinces)
@@ -46,12 +46,12 @@ export const migrateProvinces = async () => {
       FROM park_applications
     `);
 
-    console.log(
+    console.warn(
       `  📊 迁移统计: 总共 ${stats.rows[0].total_records} 条记录, 已迁移 ${stats.rows[0].migrated_records} 条`
     );
 
-    console.log('✅ 省份字段迁移完成!');
-    console.log('💡 注意: 原有的 province_iso_code 字段暂时保留以确保向后兼容，可在后续版本中移除');
+    console.warn('✅ 省份字段迁移完成!');
+    console.warn('💡 注意: 原有的 province_iso_code 字段暂时保留以确保向后兼容，可在后续版本中移除');
   } catch (error) {
     console.error('❌ 迁移失败:', error);
     throw error;

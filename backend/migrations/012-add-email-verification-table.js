@@ -1,7 +1,7 @@
 import { query } from '../config/database.js';
 
 export const up = async () => {
-  console.log('🚀 开始迁移：创建邮箱验证码表...');
+  console.warn('🚀 开始迁移：创建邮箱验证码表...');
 
   await query(`
     CREATE TABLE IF NOT EXISTS email_verification_tokens (
@@ -44,11 +44,11 @@ export const up = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ 迁移完成：邮箱验证码表创建成功');
+  console.warn('✅ 迁移完成：邮箱验证码表创建成功');
 };
 
 export const down = async () => {
-  console.log('🔄 回滚迁移：删除邮箱验证码表...');
+  console.warn('🔄 回滚迁移：删除邮箱验证码表...');
 
   await query(`DROP INDEX IF EXISTS idx_email_verification_tokens_expires_at`);
   await query(`DROP INDEX IF EXISTS idx_email_verification_tokens_code`);
@@ -64,5 +64,5 @@ export const down = async () => {
         updated_at = CURRENT_TIMESTAMP
   `);
 
-  console.log('✅ 回滚完成：邮箱验证码表已删除');
+  console.warn('✅ 回滚完成：邮箱验证码表已删除');
 };
