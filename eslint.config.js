@@ -35,7 +35,6 @@ const frontendConfig = {
         object: 'JSON',
         property: 'parse',
         message: '请使用 safeParseJsonWithSchema(...) 进行校验解析',
-        selector: '!CallExpression[arguments.0.type="Literal"]:not(:matches(CallExpression[callee.property.name="safeParseJsonWithSchema"], CallExpression[callee.property.name="parseJsonWithSchema"], CallExpression[callee.property.name="safeParseJson"]))',
       },
     ],
   },
