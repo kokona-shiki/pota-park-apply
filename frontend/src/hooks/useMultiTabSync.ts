@@ -50,7 +50,7 @@ const handleAuthDataEvent = (
   }
   setAccessToken(parsed.accessToken);
   setUser(parsed.user);
-  console.log('[App] 从其他标签页同步 token');
+
   resolveAllWaiters(parsed.accessToken || null);
 };
 

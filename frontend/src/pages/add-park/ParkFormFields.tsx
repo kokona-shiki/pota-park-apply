@@ -160,6 +160,7 @@ function ParkFormFields({
             renderTags={(value, getTagProps) =>
               value.map((option, index) => (
                 <Chip
+                  key={option.code}
                   variant="outlined"
                   label={`${option.name} (${option.code})`}
                   size="small"

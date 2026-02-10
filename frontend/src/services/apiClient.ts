@@ -30,12 +30,6 @@ export function log({ level, message, error, metadata, request, response }: LogO
   const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
   
   switch (level) {
-    case LogLevel.DEBUG:
-      console.debug(logMessage, error, metadata, request, response);
-      break;
-    case LogLevel.INFO:
-      console.info(logMessage, error, metadata, request, response);
-      break;
     case LogLevel.WARN:
       console.warn(logMessage, error, metadata, request, response);
       break;
@@ -46,7 +40,7 @@ export function log({ level, message, error, metadata, request, response }: LogO
       console.error(logMessage, error, metadata, request, response);
       break;
     default:
-      console.log(logMessage, error, metadata, request, response);
+      console.warn(logMessage, error, metadata, request, response);
   }
 }
 

@@ -143,9 +143,7 @@ function CallsignChangeRequests() {
         setRequests(processRequestsData(payload.requests));
       }
     } catch (e: unknown) {
-      if (isCanceledError(e)) {
-        console.debug('请求被取消:', (e as Error).message);
-      } else {
+      if (!isCanceledError(e)) {
         setError(getApiErrorMessage(e, '获取呼号变更申请失败'));
       }
     } finally {

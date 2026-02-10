@@ -132,9 +132,7 @@ export function useOnceOnMountWithAbort(
     // 执行异步回调
     callback(controller.signal).catch((error) => {
       // 忽略被取消的请求错误
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.debug('请求被取消:', error.message);
-      } else {
+      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
         console.error('执行回调时出错:', error);
       }
     });

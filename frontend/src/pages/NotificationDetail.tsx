@@ -38,13 +38,9 @@ export const NotificationDetail = () => {
         setLoading(true);
         setError(null);
 
-        console.log('开始获取通知详情，ID:', id);
-        
         const response = await fetchApi(`/api/notifications/${id}`, {
           method: 'GET',
         });
-
-        console.log('通知详情响应:', response);
 
         const notificationData = response.data as Notification | null | undefined;
         
