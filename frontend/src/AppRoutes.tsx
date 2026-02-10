@@ -28,9 +28,7 @@ export function AppRoutes() {
       <Route
         path="/"
         element={
-          <RequireAuth>
-            <Home />
-          </RequireAuth>
+          <Home />
         }
       />
       <Route
