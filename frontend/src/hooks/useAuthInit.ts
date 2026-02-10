@@ -57,7 +57,7 @@ export function useAuthInit({
           }
         }
       })
-      .catch((err) => {
+      .catch(() => {
         setUser(null);
         setAccessToken(null);
         localStorage.removeItem(AUTH_DATA_KEY);
@@ -65,6 +65,7 @@ export function useAuthInit({
       .finally(() => {
         setIsAuthLoading(false);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isAuthPage,
     isTokenFresh,
