@@ -15,8 +15,8 @@ interface ProxyConfig {
   path: string;
   target: string;
   options: Options & {
-    onProxyReq?: (proxyReq: any) => void;
-    onProxyRes?: (proxyRes: any) => void;
+    onProxyReq?: (proxyReq: import('http').ClientRequest) => void;
+    onProxyRes?: (proxyRes: import('http').IncomingMessage) => void;
   };
 }
 
@@ -162,8 +162,12 @@ const initProxies = (app: Express): ProxyConfig[] => {
     const { path, options, key, target } = config;
 
     const proxyOptions: Options & {
-      onProxyRes?: (proxyRes: any) => void;
-      onError?: (err: any, req: any, res: any) => void;
+      onProxyRes?: (proxyRes: import('http').IncomingMessage) => void;
+      onError?: (
+        err: Error,
+        req: import('express').Request,
+        res: import('express').Response
+      ) => void;
     } = {
       target: target,
       ...options,

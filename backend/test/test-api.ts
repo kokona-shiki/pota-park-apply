@@ -7,7 +7,7 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 interface ApiResponse {
   success?: boolean;
   message?: string;
-  data?: any;
+  data?: unknown;
   user?: {
     id: string;
     email: string;
@@ -38,19 +38,19 @@ async function testBasicEndpoints() {
     // 测试根路径
     console.warn('1. 测试根路径...');
     const rootResponse = await fetch(`${BASE_URL}/`);
-    const rootData = await rootResponse.json() as ApiResponse;
+    const rootData = (await rootResponse.json()) as ApiResponse;
     console.warn('✅ 根路径响应:', rootData);
 
     // 测试健康检查
     console.warn('2. 测试健康检查...');
     const healthResponse = await fetch(`${BASE_URL}/api/health`);
-    const healthData = await healthResponse.json() as ApiResponse;
+    const healthData = (await healthResponse.json()) as ApiResponse;
     console.warn('✅ 健康检查响应:', healthData);
 
     // 测试省份列表
     console.warn('3. 测试省份列表...');
     const provincesResponse = await fetch(`${BASE_URL}/api/provinces`);
-    const provincesData = await provincesResponse.json() as ApiResponse;
+    const provincesData = (await provincesResponse.json()) as ApiResponse;
     console.warn('✅ 省份列表响应:', {
       count: provincesData.provinces?.length || 0,
       firstProvince: provincesData.provinces?.[0],
@@ -60,7 +60,7 @@ async function testBasicEndpoints() {
   } catch (error) {
     console.error('❌ 基础接口测试失败:', error instanceof Error ? error.message : error);
 
-    if ((error as any).code === 'ECONNREFUSED') {
+    if ((error as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
       console.warn('💡 提示: 服务器可能未启动，请先运行: pnpm dev');
     }
   }
@@ -80,7 +80,7 @@ async function testUserRegistration(): Promise<string | null> {
   });
 
   if (registerResponse.ok) {
-    const registerData = await registerResponse.json() as ApiResponse;
+    const registerData = (await registerResponse.json()) as ApiResponse;
     console.warn('✅ 用户注册成功:', {
       message: registerData.message,
       userId: registerData.user?.id,
@@ -88,7 +88,7 @@ async function testUserRegistration(): Promise<string | null> {
     });
     return registerData.token;
   } else {
-    const errorData = await registerResponse.json() as ApiResponse;
+    const errorData = (await registerResponse.json()) as ApiResponse;
     console.warn('❌ 用户注册失败:', errorData);
     return null;
   }
@@ -107,7 +107,7 @@ async function testUserLogin() {
   });
 
   if (loginResponse.ok) {
-    const loginData = await loginResponse.json() as ApiResponse;
+    const loginData = (await loginResponse.json()) as ApiResponse;
     console.warn('✅ 用户登录成功:', {
       message: loginData.message,
       userId: loginData.user?.id,
@@ -123,7 +123,7 @@ async function testUserInfo(token: string) {
   });
 
   if (userInfoResponse.ok) {
-    const userInfoData = await userInfoResponse.json() as ApiResponse;
+    const userInfoData = (await userInfoResponse.json()) as ApiResponse;
     console.warn('✅ 获取用户信息成功:', {
       email: userInfoData.user?.email,
       callsign: userInfoData.user?.callsign,
@@ -154,7 +154,7 @@ async function testParkApplication(token: string) {
   });
 
   if (applicationResponse.ok) {
-    const applicationData = await applicationResponse.json() as ParkApplicationResponse;
+    const applicationData = (await applicationResponse.json()) as ParkApplicationResponse;
     console.warn('✅ 提交公园申请成功:', {
       message: applicationData.message,
       applicationId: applicationData.application?.id,
@@ -179,7 +179,7 @@ async function testDatabaseEndpoints() {
   } catch (error) {
     console.error('❌ 数据库接口测试失败:', error instanceof Error ? error.message : error);
 
-    if ((error as any).code === 'ECONNREFUSED') {
+    if ((error as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
       console.warn('💡 提示: 服务器可能未启动');
     }
   }

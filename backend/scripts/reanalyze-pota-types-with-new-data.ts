@@ -80,7 +80,10 @@ interface AnalysisResult {
 }
 
 // 提取系统中的公园类型
-function extractSystemTypes(systemTypes: SystemTypes): { systemChineseTypes: Set<string>; systemEnglishTypes: Set<string> } {
+function extractSystemTypes(systemTypes: SystemTypes): {
+  systemChineseTypes: Set<string>;
+  systemEnglishTypes: Set<string>;
+} {
   const systemChineseTypes = new Set<string>();
   const systemEnglishTypes = new Set<string>();
 
@@ -300,7 +303,12 @@ function analyzePotaParkTypes(potaParks: PotaPark[]) {
 }
 
 // 分析缺失的类型
-function analyzeMissingTypes(potaChineseTypes: Map<string, number>, potaEnglishTypes: Set<string>, systemChineseTypes: Set<string>, systemEnglishTypes: Set<string>) {
+function analyzeMissingTypes(
+  potaChineseTypes: Map<string, number>,
+  potaEnglishTypes: Set<string>,
+  systemChineseTypes: Set<string>,
+  systemEnglishTypes: Set<string>
+) {
   // 分析 POTA 中有但系统中没有的类型
   const potaChineseTypesArray = Array.from(potaChineseTypes.keys()).sort();
   const systemChineseTypesArray = Array.from(systemChineseTypes).sort();
@@ -340,13 +348,45 @@ function analyzeMissingTypes(potaChineseTypes: Map<string, number>, potaEnglishT
     potaEnglishTypesArray,
     systemEnglishTypesArray,
     missingChineseTypes,
-    missingEnglishTypes
+    missingEnglishTypes,
   };
 }
 
+// 定义 parkAnalysis 项接口
+interface ParkAnalysisItem {
+  reference: string;
+  originalName: string;
+  chinesePart: string;
+  detectedChineseType: string | null;
+  englishPart: string;
+}
+
+// 定义 analyzeMissingTypes 返回值接口
+interface MissingTypesAnalysis {
+  potaChineseTypesArray: string[];
+  systemChineseTypesArray: string[];
+  potaEnglishTypesArray: string[];
+  systemEnglishTypesArray: string[];
+  missingChineseTypes: string[];
+  missingEnglishTypes: string[];
+}
+
 // 生成分析结果
-function generateAnalysisResult(potaParks: PotaPark[], potaChineseTypes: Map<string, number>, potaEnglishTypes: Set<string>, parkAnalysis: any[], systemChineseTypes: Set<string>, systemEnglishTypes: Set<string>, analysis: any): AnalysisResult {
-  const { missingChineseTypes, missingEnglishTypes, systemChineseTypesArray, systemEnglishTypesArray } = analysis;
+function generateAnalysisResult(
+  potaParks: PotaPark[],
+  potaChineseTypes: Map<string, number>,
+  potaEnglishTypes: Set<string>,
+  parkAnalysis: ParkAnalysisItem[],
+  systemChineseTypes: Set<string>,
+  systemEnglishTypes: Set<string>,
+  analysis: MissingTypesAnalysis
+): AnalysisResult {
+  const {
+    missingChineseTypes,
+    missingEnglishTypes,
+    systemChineseTypesArray,
+    systemEnglishTypesArray,
+  } = analysis;
 
   // 准备输出结果
   const result: AnalysisResult = {
@@ -366,10 +406,13 @@ function generateAnalysisResult(potaParks: PotaPark[], potaChineseTypes: Map<str
     missingChineseTypes: {
       count: missingChineseTypes.length,
       types: missingChineseTypes,
-      frequency: missingChineseTypes.reduce((obj, type) => {
-        obj[type] = potaChineseTypes.get(type) || 0;
-        return obj;
-      }, {} as Record<string, number>),
+      frequency: missingChineseTypes.reduce(
+        (obj, type) => {
+          obj[type] = potaChineseTypes.get(type) || 0;
+          return obj;
+        },
+        {} as Record<string, number>
+      ),
     },
     missingEnglishTypes: {
       count: missingEnglishTypes.length,
@@ -459,10 +502,23 @@ async function reanalyzePotaTypesWithNewData(): Promise<void> {
     const { potaChineseTypes, potaEnglishTypes, parkAnalysis } = analyzePotaParkTypes(potaParks);
 
     // 分析缺失的类型
-    const analysis = analyzeMissingTypes(potaChineseTypes, potaEnglishTypes, systemChineseTypes, systemEnglishTypes);
+    const analysis = analyzeMissingTypes(
+      potaChineseTypes,
+      potaEnglishTypes,
+      systemChineseTypes,
+      systemEnglishTypes
+    );
 
     // 生成分析结果
-    const result = generateAnalysisResult(potaParks, potaChineseTypes, potaEnglishTypes, parkAnalysis, systemChineseTypes, systemEnglishTypes, analysis);
+    const result = generateAnalysisResult(
+      potaParks,
+      potaChineseTypes,
+      potaEnglishTypes,
+      parkAnalysis,
+      systemChineseTypes,
+      systemEnglishTypes,
+      analysis
+    );
 
     // 创建输出目录
     const outputDir = path.resolve(__dirname, '../../output');

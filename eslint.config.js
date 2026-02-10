@@ -35,6 +35,7 @@ const frontendConfig = {
         object: 'JSON',
         property: 'parse',
         message: '请使用 safeParseJsonWithSchema(...) 进行校验解析',
+        selector: '!CallExpression[arguments.0.type="Literal"]:not(:matches(CallExpression[callee.property.name="safeParseJsonWithSchema"], CallExpression[callee.property.name="parseJsonWithSchema"], CallExpression[callee.property.name="safeParseJson"]))',
       },
     ],
   },
@@ -77,4 +78,11 @@ export default defineConfig([
   },
   frontendConfig,
   backendConfig,
+  // 允许在 parseJson.ts 中使用 JSON.parse
+  {
+    files: ['frontend/src/utils/parseJson.ts'],
+    rules: {
+      'no-restricted-properties': 'off',
+    },
+  },
 ]);
