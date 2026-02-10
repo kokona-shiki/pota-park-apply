@@ -1,12 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, checkUserPermission, findUserById } from '../utils/auth.js';
+import { verifyToken, checkUserPermission, findUserById, JwtPayload } from '../utils/auth.js';
 
 // 扩展 Request 接口，添加 user 属性
-declare module 'express-serve-static-core' {
+declare module 'express' {
   interface Request {
-    user?: {
-      id: number;
-      email: string;
+    user?: JwtPayload & {
       hasPotaImportPermission?: boolean;
       hasReviewPermission?: boolean;
       password_hash?: string;
@@ -23,7 +21,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as JwtPayload;
 
     // 检查用户是否被封禁
     const user = await findUserById(decoded.id);
@@ -33,11 +31,11 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         .json({ code: 'UNAUTHORIZED', message: '用户不存在或已被封禁', data: null });
     }
 
-    req.user = decoded;
-
-    // 检查用户权限并附加到req.user
-    req.user.hasPotaImportPermission = await checkUserPermission(decoded.id, 'pota_import');
-    req.user.hasReviewPermission = await checkUserPermission(decoded.id, 'review_application');
+    req.user = {
+      ...decoded,
+      hasPotaImportPermission: await checkUserPermission(decoded.id, 'pota_import'),
+      hasReviewPermission: await checkUserPermission(decoded.id, 'review_application')
+    };
 
     next();
   } catch (_error) {
