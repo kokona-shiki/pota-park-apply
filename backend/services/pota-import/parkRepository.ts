@@ -5,11 +5,19 @@ import type { InternalPark } from './types.js';
  * 根据 POTA ID 检查公园是否已存在于系统中
  */
 export const checkParkExistsByPotaId = async (potaId: string) => {
+  // 定义公园查询结果类型
+  type ParkQueryResult = {
+    id: number;
+    park_name: string;
+    pota_id: string | null;
+    pota_notes: string | null;
+  };
+
   // 优先使用 pota_id 字段检查公园是否已存在
   const existingParkByPotaId = await getOne(
     'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE pota_id = $1',
     [potaId]
-  );
+  ) as ParkQueryResult;
 
   if (existingParkByPotaId) {
     console.log(`公园 ${potaId} 已存在于系统中，ID: ${existingParkByPotaId.id}`);
@@ -20,7 +28,7 @@ export const checkParkExistsByPotaId = async (potaId: string) => {
   const existingParkByNotes = await getOne(
     'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE pota_notes LIKE $1',
     [`%POTA ID: ${potaId}%`]
-  );
+  ) as ParkQueryResult;
 
   if (existingParkByNotes) {
     console.log(
@@ -33,7 +41,7 @@ export const checkParkExistsByPotaId = async (potaId: string) => {
   const nameMatch = await getOne(
     'SELECT id, park_name, pota_id, pota_notes FROM park_applications WHERE park_name = $1',
     [potaId]
-  );
+  ) as ParkQueryResult;
 
   return nameMatch;
 };

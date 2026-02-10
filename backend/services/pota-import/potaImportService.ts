@@ -383,7 +383,7 @@ const getOperatorName = async (operatorId: number): Promise<string> => {
   if (operatorId === -1) {
     return '系统自动';
   }
-  const userInfo = await getOne('SELECT callsign FROM users WHERE id = $1', [operatorId]);
+  const userInfo = await getOne('SELECT callsign FROM users WHERE id = $1', [operatorId]) as { callsign: string };
   return userInfo ? userInfo.callsign : `用户ID: ${operatorId}`;
 };
 
@@ -650,7 +650,7 @@ export const manualTriggerPotaImport = async (userId: number) => {
   }
 
   // 获取用户信息
-  const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [userId]);
+  const userInfo = await getOne('SELECT id, role FROM users WHERE id = $1', [userId]) as { id: number; role: string };
   if (!userInfo) {
     throw new Error('用户不存在');
   }

@@ -28,7 +28,7 @@ export const getUnprocessedParks = async () => {
       FROM pota_unprocessed_parks
       ORDER BY created_at DESC
     `
-  );
+  ) as Array<{ payload?: Record<string, unknown> }>;
 
   const parks = rows.map((row) => row.payload || {});
   console.log('获取未处理公园列表，当前数量:', parks.length);
