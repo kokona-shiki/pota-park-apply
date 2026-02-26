@@ -20,7 +20,7 @@ import { NotificationCenter } from './pages/NotificationCenter';
 import { NotificationDetail } from './pages/NotificationDetail';
 import { GlobalNotificationEditor } from './pages/GlobalNotificationEditor';
 import { GlobalNotificationManager } from './pages/GlobalNotificationManager';
-import { RequireAuth, RequireNotSysAdmin, RequirePotaPermission, RequireSysAdmin } from './components/auth/RouteGuards';
+import { RequireAuth, RequireNotSysAdmin, RequirePotaPermission, RequireSysAdmin, RequirePermission } from './components/auth/RouteGuards';
 
 export function AppRoutes() {
   return (
@@ -154,17 +154,17 @@ export function AppRoutes() {
       <Route
         path="/global-notification-editor"
         element={
-          <RequirePotaPermission>
+          <RequirePermission requiredPermissions={['create_global_notification']}>
             <GlobalNotificationEditor />
-          </RequirePotaPermission>
+          </RequirePermission>
         }
       />
       <Route
         path="/global-notification-manager"
         element={
-          <RequirePotaPermission>
+          <RequirePermission requiredPermissions={['view_global_notifications']}>
             <GlobalNotificationManager />
-          </RequirePotaPermission>
+          </RequirePermission>
         }
       />
       <Route path="/login" element={<Login />} />

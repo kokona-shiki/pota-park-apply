@@ -48,7 +48,7 @@ type UserAdminAuditLog = {
 };
 
 function AdminPanel() {
-  const { user: currentUser, isAuthLoading } = useAuth();
+  const { user: currentUser, isAuthLoading, isTokenReady } = useAuth();
   const [tab, setTab] = useState(0);
 
   const [users, setUsers] = useState<User[]>([]);
@@ -92,11 +92,11 @@ function AdminPanel() {
   };
 
   useOnceOnMount(() => {
-    // 等待认证加载完成，且用户已登录时才发起请求
-    if (isAuthLoading || !currentUser) return;
+    // 等待认证加载完成，且用户已登录且 token 准备好时才发起请求
+    if (isAuthLoading || !isTokenReady || !currentUser) return;
     loadUsers();
     loadLogs();
-  }, [isAuthLoading, currentUser]);
+  }, [isAuthLoading, isTokenReady, currentUser]);
 
   const handleRoleChange = async (targetUser: User, newRole: string) => {
     const reason = window.prompt('请输入修改角色理由（必填）');

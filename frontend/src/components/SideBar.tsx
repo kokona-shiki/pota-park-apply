@@ -44,7 +44,7 @@ function SideBar({ isOpen, isSysAdmin, isPotaRepresentative }: SideBarProps) {
               <AdminMenu />
             ) : isPotaRepresentative ? (
               // POTA 代表
-              <PotaMenu isSysAdmin={isSysAdmin} />
+              <PotaMenu />
             ) : (
               // 普通登录用户
               <UserMenu />

@@ -28,8 +28,7 @@ function TopBar({ isSidebarOpen, setIsSidebarOpen }: TopBarProps) {
   const handleNotificationClose = () => setNotificationAnchorEl(null);
 
   const handleLogout = () => {
-    logout();
-    navigate('/');
+    logout(() => navigate('/'));
   };
 
   const displayName = user?.callsign || user?.email || '';

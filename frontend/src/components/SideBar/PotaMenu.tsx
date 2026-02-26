@@ -22,11 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from '../PotaAuthDialog';
 import { usePermission } from '../../hooks/usePermission';
 
-interface PotaMenuProps {
-  isSysAdmin: boolean;
-}
-
-const PotaMenu = ({ isSysAdmin }: PotaMenuProps) => {
+const PotaMenu = () => {
   const navigate = useNavigate();
   const [potaAuthDialogOpen, setPotaAuthDialogOpen] = useState(false);
   const [potaMenuOpen, setPotaMenuOpen] = useState(false);
@@ -72,14 +68,12 @@ const PotaMenu = ({ isSysAdmin }: PotaMenuProps) => {
           </ListItemButton>
         )}
 
-        {isSysAdmin && (
-          <ListItemButton onClick={() => navigate('/notifications')}>
-            <ListItemIcon>
-              <NotificationsIcon />
-            </ListItemIcon>
-            <ListItemText primary="通知中心" />
-          </ListItemButton>
-        )}
+        <ListItemButton onClick={() => navigate('/notifications')}>
+          <ListItemIcon>
+            <NotificationsIcon />
+          </ListItemIcon>
+          <ListItemText primary="通知中心" />
+        </ListItemButton>
 
         <ListItemButton onClick={() => setPotaMenuOpen(!potaMenuOpen)}>
           <ListItemIcon>
