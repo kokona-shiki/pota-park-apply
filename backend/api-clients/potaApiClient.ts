@@ -2,8 +2,8 @@ import axios from 'axios';
 import http from 'node:http';
 import https from 'node:https';
 import type { PotaPark } from '../services/pota-import/types.js';
+import parkTypeMapping from '../../protocols/park_type_mapping.json' with { type: 'json' };
 
-// POTA API 基础 URL
 export const POTA_API_BASE_URL = 'https://api.pota.app';
 export const QUERY_PARK_MAX_RETRIES = 3;
 export const QUERY_PARK_MIN_DELAY_MS = 1000;
@@ -54,6 +54,103 @@ const formatQueryParkError = (error: unknown) => {
 
 export const buildQueryParkFailureReason = (attempts: number, error: unknown) =>
   `查询 POTA 公园 失败（${attempts}/${QUERY_PARK_MAX_RETRIES}次）：${formatQueryParkError(error)}`;
+
+export type PotaSearchResult = {
+  type: string;
+  id: number;
+  display: string;
+  value: string;
+};
+
+export type PotaCreateParkRequest = {
+  prefix: string;
+  entity: string;
+  name: string;
+  parktype: string;
+  locations: string[];
+  latitude: string;
+  longitude: string;
+  website: string;
+  accessMethods: string[];
+  activationMethods: string[];
+  comments: string;
+  active: boolean;
+};
+
+export type PotaCreateParkResponse = {
+  reference: string;
+  parkId: number;
+};
+
+export const mapChineseParkTypeToEnglish = (chineseType: string): string => {
+  const mapping = (parkTypeMapping.chinese_to_english as Array<{ chineseName: string; englishName: string }>).find(
+    (item) => item.chineseName === chineseType
+  );
+  return mapping?.englishName || chineseType;
+};
+
+export const searchPotaPark = async (name: string, size: number = 10): Promise<PotaSearchResult[]> => {
+  try {
+    const response = await axios.get(`${POTA_API_BASE_URL}/lookup`, {
+      params: {
+        search: name,
+        size,
+      },
+      timeout: 30000,
+      httpAgent: new http.Agent({ keepAlive: true }),
+      httpsAgent: new https.Agent({ keepAlive: true }),
+      headers: {
+        'User-Agent': 'POTA-Park-Importer/1.0',
+        Accept: 'application/json',
+        Referer: 'https://pota.app/',
+      },
+    });
+
+    return response.data || [];
+  } catch (error) {
+    console.error('搜索 POTA 公园失败:', formatQueryParkError(error));
+    throw new Error(`搜索 POTA 公园失败: ${formatQueryParkError(error)}`);
+  }
+};
+
+export const createPotaPark = async (
+  data: PotaCreateParkRequest,
+  idToken: string
+): Promise<PotaCreateParkResponse> => {
+  try {
+    const response = await axios.post(`${POTA_API_BASE_URL}/admin/park/create`, data, {
+      timeout: 30000,
+      httpAgent: new http.Agent({ keepAlive: true }),
+      httpsAgent: new https.Agent({ keepAlive: true }),
+      headers: {
+        'User-Agent': 'POTA-Park-Importer/1.0',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: idToken,
+        Origin: 'https://pota.app',
+        Referer: 'https://pota.app/',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    const errorLike = error as ErrorLike;
+    const status = errorLike.response?.status;
+    const errorData = errorLike.response?.data;
+    let errorMessage = formatQueryParkError(error);
+    
+    if (status === 401 || status === 403) {
+      errorMessage = 'POTA 认证已过期，请重新登录';
+    } else if (status === 400) {
+      errorMessage = `请求参数错误: ${typeof errorData === 'string' ? errorData : JSON.stringify(errorData)}`;
+    } else if (status === 409) {
+      errorMessage = '公园已存在';
+    }
+    
+    console.error('创建 POTA 公园失败:', errorMessage);
+    throw new Error(`创建 POTA 公园失败: ${errorMessage}`);
+  }
+};
 
 /**
  * 从 POTA API 获取所有中国公园数据

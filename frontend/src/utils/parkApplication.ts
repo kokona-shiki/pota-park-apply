@@ -24,9 +24,17 @@ export function getStatusMeta(status: ApplicationStatus) {
     case 'pending':
       return { label: '待审核', color: 'warning' as const };
     case 'approved':
-      return { label: '已通过（待上传）', color: 'info' as const };
+      return { label: '待上传', color: 'info' as const };
+    case 'pota_pending_upload':
+      return { label: '队列中', color: 'warning' as const };
+    case 'pota_uploading':
+      return { label: '上传中', color: 'info' as const };
+    case 'pota_upload_failed':
+      return { label: '上传失败', color: 'error' as const };
+    case 'pota_uploaded':
+      return { label: '已上传', color: 'success' as const };
     case 'pota_synced':
-      return { label: '已上传 POTA', color: 'success' as const };
+      return { label: '已同步', color: 'success' as const };
     case 'rejected':
       return { label: '未通过', color: 'error' as const };
     default:
@@ -60,8 +68,12 @@ export function toFiniteNumber(value: unknown): number | null {
 const STATUS_RANK: Record<ApplicationStatus, number> = {
   pending: 1,
   approved: 2,
-  pota_synced: 3,
-  rejected: 4
+  pota_pending_upload: 3,
+  pota_uploading: 4,
+  pota_upload_failed: 5,
+  pota_uploaded: 6,
+  pota_synced: 7,
+  rejected: 8
 };
 
 /**

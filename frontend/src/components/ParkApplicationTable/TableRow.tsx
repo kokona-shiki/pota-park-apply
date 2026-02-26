@@ -12,6 +12,7 @@ interface ParkAppTableRowProps {
   onDetailClick: (app: ParkApplication) => void;
   onFlowClick?: (app: ParkApplication) => void;
   onReviewClick?: (app: ParkApplication) => void;
+  onUploadSuccess?: (app: ParkApplication) => void;
 }
 
 function getNotes(app: ParkApplication) {
@@ -37,6 +38,7 @@ function ParkAppTableRow({
   onDetailClick,
   onFlowClick,
   onReviewClick,
+  onUploadSuccess,
 }: ParkAppTableRowProps) {
   const statusMeta = getStatusMeta(app.status);
   const notes = getNotes(app);
@@ -115,6 +117,7 @@ function ParkAppTableRow({
             onDetailClick={onDetailClick}
             onFlowClick={onFlowClick}
             onReviewClick={onReviewClick}
+            onUploadSuccess={onUploadSuccess}
           />
         </TableCell>
       )}

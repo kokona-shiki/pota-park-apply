@@ -26,6 +26,7 @@ interface ParkApplicationTableProps {
   onDetailClick: (app: ParkApplication) => void;
   onFlowClick?: (app: ParkApplication) => void;
   onReviewClick?: (app: ParkApplication) => void;
+  onUploadSuccess?: (app: ParkApplication) => void;
   emptyMessage?: string;
   searchQuery?: string;
 }
@@ -79,6 +80,7 @@ export function ParkApplicationTable({
   onDetailClick,
   onFlowClick,
   onReviewClick,
+  onUploadSuccess,
   emptyMessage = '暂无符合条件的申请',
   searchQuery,
 }: ParkApplicationTableProps) {
@@ -119,6 +121,7 @@ export function ParkApplicationTable({
                   onDetailClick={onDetailClick}
                   onFlowClick={onFlowClick}
                   onReviewClick={getOnReviewClick(showReviewButton, app.status, onReviewClick)}
+                  onUploadSuccess={onUploadSuccess}
                 />
               ))
             )}

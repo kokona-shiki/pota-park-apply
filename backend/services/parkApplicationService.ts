@@ -8,7 +8,7 @@ import * as notificationService from './notificationService.js';
 
 type AppError = Error & { status?: number; code?: string };
 
-type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_synced';
+type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'pota_pending_upload' | 'pota_uploading' | 'pota_upload_failed' | 'pota_uploaded' | 'pota_synced';
 
 type ParkApplicationSubmitInput = {
   park_name: string;
@@ -499,6 +499,7 @@ export const getApplicationById = async (userId: number, applicationId: number) 
     [applicationId]
   ) as {
     applicant_id: number;
+    status: string;
   };
 
   if (!application) {
@@ -932,4 +933,43 @@ export const getReviewReminders = async (
   query += ` ORDER BY rr.created_at DESC`;
 
   return await getMany(query, params);
+};
+
+// 获取上传队列中的公园列表
+export const getParksInUploadQueue = async (offset: number, limit: number) => {
+  return await getMany(
+    `
+    SELECT pa.*, 
+           u.email as applicant_email, u.callsign as applicant_callsign,
+           COALESCE(p.zh_name, '') as province_name, 
+           COALESCE(p.en_name, '') as province_en_name
+    FROM park_applications pa
+    JOIN users u ON pa.applicant_id = u.id
+    LEFT JOIN provinces p ON p.iso_code = (pa.provinces->>0)
+    WHERE pa.status IN ('approved', 'pota_pending_upload', 'pota_uploading', 'pota_upload_failed')
+    ORDER BY 
+      CASE pa.status
+        WHEN 'pota_uploading' THEN 1
+        WHEN 'pota_pending_upload' THEN 2
+        WHEN 'pota_upload_failed' THEN 3
+        WHEN 'approved' THEN 4
+      END,
+      pa.updated_at DESC
+    OFFSET $1 LIMIT $2
+    `,
+    [offset, limit]
+  );
+};
+
+// 获取上传队列中公园的总数
+export const getParksInUploadQueueCount = async () => {
+  const result = await getOne(
+    `
+    SELECT COUNT(*) as total
+    FROM park_applications
+    WHERE status IN ('approved', 'pota_pending_upload', 'pota_uploading', 'pota_upload_failed')
+    `
+  ) as { total: string };
+
+  return parseInt(result.total, 10);
 };

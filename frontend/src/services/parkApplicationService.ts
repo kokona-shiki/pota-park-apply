@@ -138,6 +138,44 @@ const parkApplicationService = {
       }))
     );
   },
+
+  /**
+   * 将公园加入 POTA 上传队列
+   */
+  addToUploadQueue: async (id: number) => {
+    return requestWithSchema(
+      apiClient.post(`/api/park-applications/${id}/upload`),
+      z.object({
+        parkId: z.number(),
+        queuePosition: z.number(),
+        queueLength: z.number(),
+      })
+    );
+  },
+
+  /**
+   * 将公园移出 POTA 上传队列
+   */
+  removeFromUploadQueue: async (id: number) => {
+    return requestWithSchema(
+      apiClient.post(`/api/park-applications/${id}/remove-from-queue`),
+      z.object({
+        parkId: z.number(),
+      })
+    );
+  },
+
+  /**
+   * 批量重试上传失败的公园
+   */
+  batchRetryUpload: async (parkIds: number[]) => {
+    return requestWithSchema(
+      apiClient.post('/api/park-applications/batch-retry', { parkIds }),
+      z.object({
+        count: z.number(),
+      })
+    );
+  },
 };
 
 export default parkApplicationService;

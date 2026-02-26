@@ -5,6 +5,10 @@ export const ApplicationStatusSchema = z.union([
   z.literal('pending'),
   z.literal('approved'),
   z.literal('rejected'),
+  z.literal('pota_pending_upload'),
+  z.literal('pota_uploading'),
+  z.literal('pota_upload_failed'),
+  z.literal('pota_uploaded'),
   z.literal('pota_synced'),
 ]);
 
@@ -21,6 +25,9 @@ export const ParkApplicationSchema = z.object({
   rejection_reason: z.string().nullable().optional(),
   pota_notes: z.string().nullable().optional(),
   pota_synced_at: z.string().nullable().optional(),
+  pota_id: z.string().nullable().optional(),
+  upload_retry_count: z.number().optional(),
+  upload_failure_reason: z.string().nullable().optional(),
 });
 
 export const ParkApplicationDetailSchema = ParkApplicationSchema.extend({

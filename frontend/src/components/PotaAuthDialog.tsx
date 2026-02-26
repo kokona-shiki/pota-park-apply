@@ -25,9 +25,10 @@ type PotaStatus = z.infer<typeof PotaStatusSchema>;
 interface PotaAuthDialogProps {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
+function PotaAuthDialog({ open, onClose, onSuccess }: PotaAuthDialogProps) {
   const { user } = useAuth();
   const [status, setStatus] = useState<PotaStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,6 +96,7 @@ function PotaAuthDialog({ open, onClose }: PotaAuthDialogProps) {
   const handleAuthSuccess = () => {
     setAuthDialogOpen(false);
     loadStatus();
+    onSuccess?.();
   };
 
   const handleAuthError = (error: string) => {

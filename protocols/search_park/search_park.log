@@ -1,0 +1,25 @@
+curl 'https://api.pota.app/lookup?search=%E5%8C%97%E4%BA%AC%E6%9C%9D%E9%98%B3%E9%BB%91%E6%A1%A5%E5%85%AC%E5%9B%AD&size=10' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: zh-CN,zh;q=0.9,ar-EG;q=0.8,ar;q=0.7,zh-TW;q=0.6,en-US;q=0.5,en;q=0.4,zh-HK;q=0.3,ja-JP;q=0.2,ja;q=0.1' \
+  -H 'cache-control: no-cache' \
+  -H 'dnt: 1' \
+  -H 'origin: https://pota.app' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://pota.app/' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-site' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+
+[
+    {
+        "type": "park",
+        "id": 88376,
+        "display": "CN-0386  北京朝阳黑桥公园 Park",
+        "value": "CN-0386"
+    }
+]

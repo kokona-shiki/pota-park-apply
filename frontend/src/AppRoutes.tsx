@@ -14,6 +14,7 @@ import CallsignChangeRequests from './pages/CallsignChangeRequests';
 import PotaImport from './pages/PotaImport';
 import PotaUnprocessedParks from './pages/PotaUnprocessedParks';
 import PotaSyncLogs from './pages/PotaSyncLogs';
+import PotaUploadQueue from './pages/PotaUploadQueue';
 import ParkTypeAlignment from './pages/ParkTypeAlignment';
 import ExportAuditLogs from './pages/ExportAuditLogs';
 import { NotificationCenter } from './pages/NotificationCenter';
@@ -117,6 +118,14 @@ export function AppRoutes() {
           <RequirePotaPermission>
             <PotaSyncLogs />
           </RequirePotaPermission>
+        }
+      />
+      <Route
+        path="/pota-upload-queue"
+        element={
+          <RequirePermission requiredPermissions={['sync_to_pota']}>
+            <PotaUploadQueue />
+          </RequirePermission>
         }
       />
       <Route

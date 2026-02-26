@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticateToken } from '../middleware/authenticateToken.js';
 import { requirePermission } from '../middleware/requirePermission.js';
 import * as parkApplicationService from '../services/parkApplicationService.js';
+import potaUploadQueue from '../services/potaUploadQueue.js';
 import { sendBizError, sendError, sendOk } from '../utils/response.js';
 import { ParkApplicationSubmitRequestSchema } from '../../shared/schemas/parkApplication.js';
 
@@ -291,5 +292,115 @@ router.get('/api/review-reminders', authenticateToken, async (req, res) => {
     });
   }
 });
+
+// 将公园加入 POTA 上传队列
+router.post(
+  '/api/park-applications/:id/upload',
+  authenticateToken,
+  requirePermission('sync_to_pota'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parkId = parseInt(Array.isArray(id) ? id[0] : id, 10);
+
+      const application = await parkApplicationService.getApplicationById(req.user?.id, parkId);
+
+      if (!application) {
+        return sendBizError(res, 'NOT_FOUND', '公园申请不存在', null);
+      }
+
+      if (application.status !== 'approved') {
+        return sendBizError(res, 'INVALID_STATUS', '只有审核通过的公园才能上传', null);
+      }
+
+      await potaUploadQueue.addToUploadQueue(parkId, req.user?.id);
+
+      return sendOk(res, { 
+        parkId,
+        queuePosition: potaUploadQueue.getQueuePosition(parkId),
+        queueLength: potaUploadQueue.getQueueLength(),
+      }, '已加入上传队列');
+    } catch (error) {
+      console.error('加入上传队列失败:', error);
+      return sendError(res, error, { bizMessage: '加入上传队列失败' });
+    }
+  }
+);
+
+// 将公园移出 POTA 上传队列
+router.post(
+  '/api/park-applications/:id/remove-from-queue',
+  authenticateToken,
+  requirePermission('sync_to_pota'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parkId = parseInt(Array.isArray(id) ? id[0] : id, 10);
+
+      const removed = await potaUploadQueue.removeFromQueue(parkId);
+
+      if (!removed) {
+        return sendBizError(res, 'NOT_IN_QUEUE', '公园不在上传队列中', null);
+      }
+
+      return sendOk(res, { parkId }, '已移出上传队列');
+    } catch (error) {
+      console.error('移出上传队列失败:', error);
+      return sendError(res, error, { bizMessage: '移出上传队列失败' });
+    }
+  }
+);
+
+// 批量重试上传失败的公园
+router.post(
+  '/api/park-applications/batch-retry',
+  authenticateToken,
+  requirePermission('sync_to_pota'),
+  async (req, res) => {
+    try {
+      const { parkIds } = req.body;
+
+      if (!Array.isArray(parkIds) || parkIds.length === 0) {
+        return sendBizError(res, 'INVALID_PARAMS', '请选择要重试的公园', null);
+      }
+
+      await potaUploadQueue.batchRetry(parkIds, req.user?.id);
+
+      return sendOk(res, { count: parkIds.length }, '批量重试已提交');
+    } catch (error) {
+      console.error('批量重试失败:', error);
+      return sendError(res, error, { bizMessage: '批量重试失败' });
+    }
+  }
+);
+
+// 获取 POTA 上传队列状态
+router.get(
+  '/api/pota/upload-queue',
+  authenticateToken,
+  requirePermission('sync_to_pota'),
+  async (req, res) => {
+    try {
+      const { page = 0, pageSize = 20 } = req.query;
+      const offset = parseInt(page as string, 10) * parseInt(pageSize as string, 10);
+      const limit = parseInt(pageSize as string, 10);
+
+      const parks = await parkApplicationService.getParksInUploadQueue(offset, limit);
+      const total = await parkApplicationService.getParksInUploadQueueCount();
+
+      return sendOk(res, { 
+        parks,
+        total,
+        page: parseInt(page as string, 10),
+        pageSize: limit,
+        totalPages: Math.ceil(total / limit),
+        queueStatus: potaUploadQueue.getUploadQueueStatus(),
+      }, 'ok');
+    } catch (error) {
+      console.error('获取上传队列失败:', error);
+      return sendError(res, error, { bizMessage: '获取上传队列失败' });
+    }
+  }
+);
 
 export default router;

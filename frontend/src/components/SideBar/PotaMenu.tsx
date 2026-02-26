@@ -18,6 +18,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import InfoIcon from '@mui/icons-material/Info';
+import QueueIcon from '@mui/icons-material/Queue';
 import { useNavigate } from 'react-router-dom';
 import PotaAuthDialog from '../PotaAuthDialog';
 import { usePermission } from '../../hooks/usePermission';
@@ -119,6 +120,15 @@ const PotaMenu = () => {
                 <HistoryIcon />
               </ListItemIcon>
               <ListItemText primary="同步日志" />
+            </ListItemButton>
+            <ListItemButton
+              sx={{ pl: 4 }}
+              onClick={() => navigate('/pota-upload-queue')}
+            >
+              <ListItemIcon>
+                <QueueIcon />
+              </ListItemIcon>
+              <ListItemText primary="上传队列" />
             </ListItemButton>
             <ListItemButton
               sx={{ pl: 4 }}
