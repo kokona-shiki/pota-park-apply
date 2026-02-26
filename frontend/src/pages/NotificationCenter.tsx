@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications } from '../hooks/useNotifications';
+import { useNotifications, useUnreadNotifications } from '../hooks/useNotifications';
 import { fetchApi } from '../services/apiClient';
 import { truncateMarkdown } from '../utils/markdown';
 
@@ -31,6 +31,7 @@ export const NotificationCenter = () => {
     page,
     pageSize,
   });
+  const { refetch: refetchUnreadCount } = useUnreadNotifications();
 
   const handleNotificationClick = async (notification: { id: number; is_read: boolean }) => {
     if (!notification.is_read) {
@@ -39,6 +40,7 @@ export const NotificationCenter = () => {
           method: 'PUT',
         });
         refetch();
+        refetchUnreadCount();
       } catch (err) {
         console.error('标记已读失败:', err);
       }
@@ -53,6 +55,7 @@ export const NotificationCenter = () => {
         method: 'PUT',
       });
       refetch();
+      refetchUnreadCount();
     } catch (err) {
       console.error('全部标记已读失败:', err);
     }

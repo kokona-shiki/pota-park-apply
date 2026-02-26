@@ -27,7 +27,7 @@ export const useNotifications = (filters: {
   page?: number;
   pageSize?: number;
 } = {}) => {
-  const { user } = useAuth();
+  const { user, isTokenReady } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export const useNotifications = (filters: {
   };
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isTokenReady) return;
 
     setLoading(true);
     setError(null);
@@ -91,28 +91,30 @@ export const useNotifications = (filters: {
     } finally {
       setLoading(false);
     }
-  }, [user, filters]);
+  }, [user, isTokenReady, filters]);
 
   useEffect(() => {
     const filtersChanged = JSON.stringify(filters) !== JSON.stringify(filtersRef.current);
     if (initializedRef.current && !filtersChanged) return;
-    
-    initializedRef.current = true;
-    filtersRef.current = filters;
-    fetchNotifications();
-  }, [fetchNotifications, filters]);
+
+    if (user && isTokenReady) {
+      initializedRef.current = true;
+      filtersRef.current = filters;
+      fetchNotifications();
+    }
+  }, [fetchNotifications, filters, user, isTokenReady]);
 
   return { notifications, loading, error, pagination, refetch: fetchNotifications };
 };
 
 export const useUnreadNotifications = () => {
-  const { user } = useAuth();
+  const { user, isTokenReady } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const userRef = useRef<AuthUser | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isTokenReady) return;
 
     setLoading(true);
     try {
@@ -136,20 +138,18 @@ export const useUnreadNotifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isTokenReady]);
 
   useEffect(() => {
-    // 当 user 从 null 变为非 null 或者 user 对象的 id 发生变化时，重新获取未读数量
-    if (user) {
+    if (user && isTokenReady) {
       if (!userRef.current || user.id !== userRef.current.id) {
         fetchUnreadCount();
         userRef.current = user;
       }
     }
-    // 无论 user 是否变化，都设置定期轮询
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount, user]);
+  }, [fetchUnreadCount, user, isTokenReady]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };

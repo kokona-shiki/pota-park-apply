@@ -114,7 +114,7 @@ export const getNotifications = async (
 ) => {
   const { type, isRead, page = 1, pageSize = 20 } = filters;
 
-  let whereClause = 'WHERE user_id = $1';
+  let whereClause = 'WHERE user_id = $1 AND (status IS NULL OR status != \'withdrawn\')';
   const params: (string | number | boolean)[] = [userId];
   let paramIndex = 2;
 
@@ -212,7 +212,7 @@ export const getGlobalNotifications = async (filters: {
 export const getNotificationById = async (notificationId: number) => {
   const notification = await getOne(
     `
-    SELECT * FROM notifications WHERE id = $1
+    SELECT * FROM notifications WHERE id = $1 AND (status IS NULL OR status != 'withdrawn')
     `,
     [notificationId]
   );
@@ -225,7 +225,7 @@ export const getUnreadCount = async (userId: number) => {
     `
     SELECT COUNT(*) as unread_count 
     FROM notifications 
-    WHERE user_id = $1 AND is_read = false
+    WHERE user_id = $1 AND is_read = false AND (status IS NULL OR status != 'withdrawn')
     `,
     [userId]
   );
@@ -262,7 +262,7 @@ export const markAllAsRead = async (userId: number) => {
     `
     UPDATE notifications 
     SET is_read = true 
-    WHERE user_id = $1 AND is_read = false
+    WHERE user_id = $1 AND is_read = false AND (status IS NULL OR status != 'withdrawn')
     `,
     [userId]
   );
@@ -302,6 +302,7 @@ export const getPopupNotification = async (userId: number) => {
       AND notification_mode = 'popup' 
       AND popup_dismissed = false 
       AND is_read = false
+      AND (status IS NULL OR status != 'withdrawn')
     ORDER BY created_at DESC
     LIMIT 1
     `,
