@@ -39,7 +39,7 @@ type FilterValue = 'all' | 'pending' | 'approved' | 'rejected' | 'uploaded';
 type DialogMode = 'detail' | 'review';
 
 function ApplicationsList() {
-  const { user, isAuthLoading } = useAuth();
+  const { user, isAuthLoading, isTokenReady } = useAuth();
   const { hasPermission } = usePermission('review_application');
 
   const [applications, setApplications] = useState<ParkApplication[]>([]);
@@ -82,9 +82,9 @@ function ApplicationsList() {
   }, []);
 
   useOnceOnMount(() => {
-    if (isAuthLoading || !user) return;
+    if (isAuthLoading || !isTokenReady || !user) return;
     load();
-  }, [isAuthLoading, user, load]);
+  }, [isAuthLoading, isTokenReady, user, load]);
 
   const filteredApps = useMemo(() => {
     return applications.filter((app) => {

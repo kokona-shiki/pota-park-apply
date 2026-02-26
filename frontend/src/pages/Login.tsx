@@ -11,12 +11,10 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthPayloadSchema, LoginRequestSchema } from '../../../shared/schemas/auth';
 import { apiClient, requestWithSchema } from '../services/apiClient';
-import { REDIRECT_KEY } from '../auth/context';
+import { REDIRECT_KEY } from '../auth/constants';
 import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../utils/error';
 import LoginFormData from './Login/LoginForm';
-
-const AUTH_DATA_KEY = 'pota_auth_data';
 
 function Login() {
   const [submitting, setSubmitting] = useState(false);
@@ -61,12 +59,6 @@ function Login() {
       .then((payload) => {
         setAccessToken(payload.accessToken);
         setUser(payload.user);
-
-        const authData = {
-          accessToken: payload.accessToken,
-          user: payload.user
-        };
-        localStorage.setItem(AUTH_DATA_KEY, JSON.stringify(authData));
         localStorage.removeItem(REDIRECT_KEY);
         navigate(redirectTo, { replace: true });
       })

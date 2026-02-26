@@ -70,7 +70,7 @@ function PotaAuthDialog({
 }
 
 function PotaAuth() {
-  const { user } = useAuth();
+  const { user, isAuthLoading, isTokenReady } = useAuth();
   const [status, setStatus] = useState<PotaStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,10 +99,9 @@ function PotaAuth() {
   };
 
   useOnceOnMount(() => {
-    if (isPotaRepresentative) {
-      loadStatus();
-    }
-  }, [isPotaRepresentative]);
+    if (isAuthLoading || !isTokenReady || !isPotaRepresentative) return;
+    loadStatus();
+  }, [isAuthLoading, isTokenReady, isPotaRepresentative]);
 
   const disconnect = async () => {
     try {

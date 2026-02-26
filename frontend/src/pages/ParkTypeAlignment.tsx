@@ -33,7 +33,7 @@ import { getApiErrorMessage } from '../utils/error';
 type ParkTypeMismatch = z.infer<typeof ParkTypeMismatchSchema>;
 
 const ParkTypeAlignment: React.FC = () => {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, isAuthLoading, isTokenReady } = useAuth();
   const [mismatches, setMismatches] = useState<ParkTypeMismatch[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,10 +112,9 @@ const ParkTypeAlignment: React.FC = () => {
   }, [accessToken, setLoading, setError, setMismatches, setHasPermission, setSelectedParkTypes]);
 
   useOnceOnMount(() => {
-    if (user) {
-      fetchMismatches();
-    }
-  }, [user, fetchMismatches]);
+    if (isAuthLoading || !isTokenReady || !user) return;
+    fetchMismatches();
+  }, [isAuthLoading, isTokenReady, user, fetchMismatches]);
 
   const handleParkTypeChange = useCallback((parkId: number, typeId: string) => {
     setSelectedParkTypes((prev) => ({

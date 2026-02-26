@@ -30,14 +30,13 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
   useEffect(() => {
     if (!isAuthLoading && !isTokenReady && !user) {
-      // 保存当前路径，登录后重定向
       localStorage.setItem('pota_redirect_after_login', location.pathname);
       navigate('/login');
     }
   }, [user, isAuthLoading, isTokenReady, navigate, location.pathname]);
 
-  if (isAuthLoading || (!isTokenReady && !user)) {
-    return null; // 或者返回加载指示器
+  if (isAuthLoading || !isTokenReady || !user) {
+    return null;
   }
 
   return <>{children}</>;
@@ -50,24 +49,22 @@ export function RequirePermission({ children, requiredPermissions }: RequirePerm
 
   useEffect(() => {
     if (!isAuthLoading && !isTokenReady && !user) {
-      // 保存当前路径，登录后重定向
       localStorage.setItem('pota_redirect_after_login', location.pathname);
       navigate('/login');
       return;
     }
 
     if (user && !user.permissions?.some(permission => requiredPermissions.includes(permission))) {
-      // 没有权限，重定向到首页
       navigate('/');
     }
   }, [user, isAuthLoading, isTokenReady, requiredPermissions, navigate, location.pathname]);
 
-  if (isAuthLoading || (!isTokenReady && !user)) {
-    return null; // 或者返回加载指示器
+  if (isAuthLoading || !isTokenReady || !user) {
+    return null;
   }
 
   if (!user?.permissions?.some(permission => requiredPermissions.includes(permission))) {
-    return null; // 或者返回权限不足提示
+    return null;
   }
 
   return <>{children}</>;
@@ -80,24 +77,22 @@ export function RequireNotSysAdmin({ children }: RequireNotSysAdminProps) {
 
   useEffect(() => {
     if (!isAuthLoading && !isTokenReady && !user) {
-      // 保存当前路径，登录后重定向
       localStorage.setItem('pota_redirect_after_login', location.pathname);
       navigate('/login');
       return;
     }
 
     if (user && user.permissions?.includes('view_all_users')) {
-      // 系统管理员，重定向到管理员面板
       navigate('/admin-panel');
     }
   }, [user, isAuthLoading, isTokenReady, navigate, location.pathname]);
 
-  if (isAuthLoading || (!isTokenReady && !user)) {
-    return null; // 或者返回加载指示器
+  if (isAuthLoading || !isTokenReady || !user) {
+    return null;
   }
 
   if (user?.permissions?.includes('view_all_users')) {
-    return null; // 或者返回权限不足提示
+    return null;
   }
 
   return <>{children}</>;
@@ -110,24 +105,22 @@ export function RequirePotaPermission({ children }: RequirePotaPermissionProps) 
 
   useEffect(() => {
     if (!isAuthLoading && !isTokenReady && !user) {
-      // 保存当前路径，登录后重定向
       localStorage.setItem('pota_redirect_after_login', location.pathname);
       navigate('/login');
       return;
     }
 
     if (user && !user.permissions?.includes('pota_import')) {
-      // 没有 POTA 权限，重定向到首页
       navigate('/');
     }
   }, [user, isAuthLoading, isTokenReady, navigate, location.pathname]);
 
-  if (isAuthLoading || (!isTokenReady && !user)) {
-    return null; // 或者返回加载指示器
+  if (isAuthLoading || !isTokenReady || !user) {
+    return null;
   }
 
   if (!user?.permissions?.includes('pota_import')) {
-    return null; // 或者返回权限不足提示
+    return null;
   }
 
   return <>{children}</>;
@@ -140,24 +133,22 @@ export function RequireSysAdmin({ children }: RequireSysAdminProps) {
 
   useEffect(() => {
     if (!isAuthLoading && !isTokenReady && !user) {
-      // 保存当前路径，登录后重定向
       localStorage.setItem('pota_redirect_after_login', location.pathname);
       navigate('/login');
       return;
     }
 
     if (user && !user.permissions?.includes('view_all_users')) {
-      // 不是系统管理员，重定向到首页
       navigate('/');
     }
   }, [user, isAuthLoading, isTokenReady, navigate, location.pathname]);
 
-  if (isAuthLoading || (!isTokenReady && !user)) {
-    return null; // 或者返回加载指示器
+  if (isAuthLoading || !isTokenReady || !user) {
+    return null;
   }
 
   if (!user?.permissions?.includes('view_all_users')) {
-    return null; // 或者返回权限不足提示
+    return null;
   }
 
   return <>{children}</>;

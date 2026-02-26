@@ -44,7 +44,7 @@ interface CallsignChangeRequest {
 }
 
 function CallsignChangeRequests() {
-  const { user: currentUser, isAuthLoading } = useAuth();
+  const { user: currentUser, isAuthLoading, isTokenReady } = useAuth();
   const [tab, setTab] = useState(0);
   const [requests, setRequests] = useState<CallsignChangeRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ function CallsignChangeRequests() {
   };
 
   const loadRequests = async (statusFilter: 'pending' | 'approved' | 'rejected' | null = null) => {
-    if (isAuthLoading || !currentUser) return;
+    if (isAuthLoading || !isTokenReady || !currentUser) return;
 
     setLoading(true);
     setError(null);
@@ -120,7 +120,7 @@ function CallsignChangeRequests() {
   };
 
   useOnceOnMountWithAbort(async (signal) => {
-    if (isAuthLoading || !currentUser) return;
+    if (isAuthLoading || !isTokenReady || !currentUser) return;
 
     setLoading(true);
     setError(null);

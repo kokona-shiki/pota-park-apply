@@ -34,7 +34,7 @@ type Order = 'asc' | 'desc';
 type OrderBy = 'created_at' | 'park_name' | 'province_name' | 'status';
 
 function MyUploads() {
-  const { user, isAuthLoading } = useAuth();
+  const { user, isAuthLoading, isTokenReady } = useAuth();
 
   const [uploads, setUploads] = useState<ParkApplication[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,10 +70,9 @@ function MyUploads() {
   }, []);
 
   useOnceOnMount(() => {
-    // 等待认证加载完成，且用户已登录时才发起请求
-    if (isAuthLoading || !user) return;
+    if (isAuthLoading || !isTokenReady || !user) return;
     load();
-  }, [isAuthLoading, user, load]);
+  }, [isAuthLoading, isTokenReady, user, load]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

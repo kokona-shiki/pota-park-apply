@@ -15,7 +15,3 @@ export type AuthContextValue = {
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
-
-export const LOGOUT_BROADCAST_KEY = 'pota_logout';
-export const REDIRECT_KEY = 'pota_redirect_after_login';
-export const AUTH_DATA_KEY = 'pota_auth_data';

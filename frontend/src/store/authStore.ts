@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { AuthUser } from '../auth/context';
 import { authService } from '../services';
 import { safeParseJsonWithSchema } from '../utils/parseJson';
+import { AUTH_DATA_KEY, TOKEN_EXP_SKEW_MS } from '../auth/constants';
 
 interface AuthState {
   // 状态
@@ -106,7 +107,7 @@ const useAuthStore = create<AuthState>()(
           const payload = safeParseJsonWithSchema(jwtPayloadSchema, payloadStr);
           if (!payload) return false;
           const now = Date.now() / 1000;
-          return payload.exp > now;
+          return payload.exp > now + TOKEN_EXP_SKEW_MS / 1000;
         } catch {
           return false;
         }
@@ -122,7 +123,7 @@ const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'pota-auth-storage',
+      name: AUTH_DATA_KEY,
       storage: createJSONStorage(() => localStorage as StateStorage),
       partialize: (state) => ({
         user: state.user,

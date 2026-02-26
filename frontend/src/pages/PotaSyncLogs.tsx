@@ -40,7 +40,7 @@ import SearchIcon from '@mui/icons-material/Search';
 type PotaSyncLog = z.infer<typeof PotaSyncLogSchema>;
 
 const PotaSyncLogs: React.FC = () => {
-  const { user } = useAuth(); // 检查用户权限
+  const { user, isAuthLoading, isTokenReady } = useAuth();
   const { hasPermission } = usePermission('pota_import');
 
   const translateReason = (reason: string | undefined): string => {
@@ -120,8 +120,9 @@ const PotaSyncLogs: React.FC = () => {
 
   // 使用 useOnceOnMount 替换 useEffect，防止在 StrictMode 下重复执行
   useOnceOnMount(() => {
+    if (isAuthLoading || !isTokenReady || !user) return;
     fetchLogs();
-  }, [fetchLogs]);
+  }, [isAuthLoading, isTokenReady, user, fetchLogs]);
 
   // 处理查看日志详情
   const handleViewDetails = (log: PotaSyncLog) => {

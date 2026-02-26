@@ -280,7 +280,7 @@ const useColumns = (
 };
 
 const PotaUnprocessedParks: React.FC = () => {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, isAuthLoading, isTokenReady } = useAuth();
   const [unprocessedParks, setUnprocessedParks] = useState<UnprocessedPark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -409,10 +409,9 @@ const PotaUnprocessedParks: React.FC = () => {
   const columns = useColumns(allParkTypes, selectedType, handleTypeChange, provinceByCode);
 
   useOnceOnMount(() => {
-    if (user) {
-      fetchUnprocessedParks();
-    }
-  }, [user]);
+    if (isAuthLoading || !isTokenReady || !user) return;
+    fetchUnprocessedParks();
+  }, [isAuthLoading, isTokenReady, user]);
 
   if (loading || hasPermission === null) {
     return (

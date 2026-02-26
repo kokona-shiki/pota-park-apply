@@ -81,7 +81,7 @@ function getRefreshButtonState(statusLoading: boolean) {
 }
 
 function PotaImport() {
-  const { user, isAuthLoading } = useAuth();
+  const { user, isAuthLoading, isTokenReady } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -170,10 +170,10 @@ function PotaImport() {
   }, [task, loadLatestTask]);
 
   useOnceOnMount(() => {
-    if (!user) return;
+    if (isAuthLoading || !isTokenReady || !user) return;
     loadStatus();
     loadLatestTask();
-  }, [user, loadStatus, loadLatestTask]);
+  }, [isAuthLoading, isTokenReady, user, loadStatus, loadLatestTask]);
 
   useEffect(() => {
     if (!user || !canImport) return;
