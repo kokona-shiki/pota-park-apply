@@ -5,7 +5,8 @@ export const TileProviderType = {
   OSM: 'osm',
   AMap: 'amap',
   BaiduMap: 'baidu',
-  TencentMap: 'tencent'
+  TencentMap: 'tencent',
+  Tianditu: 'tianditu'
 } as const;
 
 export type TileProviderType = typeof TileProviderType[keyof typeof TileProviderType];
@@ -20,6 +21,7 @@ export interface TileConfig {
   maxZoom?: number;
   minZoom?: number;
   tileSize?: number;
+  overlayUrl?: string;
 }
 
 /**

@@ -3,7 +3,7 @@ import { Express } from 'express';
 
 /**
  * 根据环境变量获取地图服务提供商
- * @returns {string} 地图服务提供商 (osm, amap, baidu)
+ * @returns {string} 地图服务提供商 (osm, amap, tianditu)
  */
 const getMapProvider = (): string => {
   return process.env.MAP_PROVIDER || 'osm'; // 默认 OSM
@@ -15,7 +15,10 @@ interface ProxyConfig {
   path: string;
   target: string;
   options: Options & {
-    onProxyReq?: (proxyReq: import('http').ClientRequest) => void;
+    onProxyReq?: (
+      proxyReq: import('http').ClientRequest,
+      req: import('express').Request
+    ) => void;
     onProxyRes?: (proxyRes: import('http').IncomingMessage) => void;
   };
 }
@@ -125,6 +128,126 @@ const proxyConfigs: ProxyConfigMap = {
         changeOrigin: true,
         pathRewrite: {
           '^/proxy-api/tiles/amap': '',
+        },
+      },
+    },
+  ],
+
+  // 天地图
+  tianditu: [
+    {
+      key: 'tianditu-geocoding',
+      path: '/proxy-api/geocoding/tianditu',
+      target: 'https://api.tianditu.gov.cn',
+      options: {
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/geocoding/tianditu': '',
+        },
+        headers: {
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          Accept: 'application/json',
+        },
+        onProxyReq: (proxyReq, req) => {
+          const apiKey = process.env.TIANDITU_API_KEY;
+          if (apiKey) {
+            const originalUrl = req.url || '';
+            const separator = originalUrl.includes('?') ? '&' : '?';
+            proxyReq.path = `${proxyReq.path}${separator}tk=${apiKey}`;
+          }
+        },
+      },
+    },
+    {
+      key: 'tianditu-tiles-vec',
+      path: '/proxy-api/tiles/tianditu/vec',
+      target: 'https://t0.tianditu.gov.cn',
+      options: {
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/tiles/tianditu/vec': '',
+        },
+        router: (req) => {
+          try {
+            const m = String(req.url || '').match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
+            if (!m) return 'https://t0.tianditu.gov.cn';
+            const z = Number(m[1]);
+            const x = Number(m[2]);
+            const y = Number(m[3]);
+            const subs = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'];
+            const sub = subs[(z + x + y) % subs.length];
+            return `https://${sub}.tianditu.gov.cn`;
+          } catch {
+            return 'https://t0.tianditu.gov.cn';
+          }
+        },
+        onProxyReq: (proxyReq, req) => {
+          const apiKey = process.env.TIANDITU_API_KEY;
+          if (apiKey) {
+            const originalUrl = req.url || '';
+            const m = originalUrl.match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
+            if (m) {
+              const z = m[1];
+              const x = m[2];
+              const y = m[3];
+              proxyReq.path = `/DataServer?T=vec_w&x=${x}&y=${y}&l=${z}&tk=${apiKey}`;
+            }
+          }
+        },
+        headers: {
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+      },
+    },
+    {
+      key: 'tianditu-tiles-cva',
+      path: '/proxy-api/tiles/tianditu/cva',
+      target: 'https://t0.tianditu.gov.cn',
+      options: {
+        timeout: 30000,
+        proxyTimeout: 30000,
+        secure: true,
+        changeOrigin: true,
+        pathRewrite: {
+          '^/proxy-api/tiles/tianditu/cva': '',
+        },
+        router: (req) => {
+          try {
+            const m = String(req.url || '').match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
+            if (!m) return 'https://t0.tianditu.gov.cn';
+            const z = Number(m[1]);
+            const x = Number(m[2]);
+            const y = Number(m[3]);
+            const subs = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'];
+            const sub = subs[(z + x + y) % subs.length];
+            return `https://${sub}.tianditu.gov.cn`;
+          } catch {
+            return 'https://t0.tianditu.gov.cn';
+          }
+        },
+        onProxyReq: (proxyReq, req) => {
+          const apiKey = process.env.TIANDITU_API_KEY;
+          if (apiKey) {
+            const originalUrl = req.url || '';
+            const m = originalUrl.match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
+            if (m) {
+              const z = m[1];
+              const x = m[2];
+              const y = m[3];
+              proxyReq.path = `/DataServer?T=cva_w&x=${x}&y=${y}&l=${z}&tk=${apiKey}`;
+            }
+          }
+        },
+        headers: {
+          'User-Agent': 'POTA-Park-Apply/1.0',
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         },
       },
     },

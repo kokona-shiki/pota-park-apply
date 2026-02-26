@@ -1,22 +1,28 @@
-// src/components/UnifiedTileLayer.tsx
 import { TileLayer } from 'react-leaflet';
 import { ServiceFactory } from '../services/ServiceFactory';
+import { TileProviderType } from '../services/map/types';
 
-/**
- * 统一的地图瓦片图层组件
- * 使用 mapConfig 统一管理瓦片服务，方便整体替换
- */
 export function UnifiedTileLayer() {
   const mapService = ServiceFactory.createMapService();
   const tileConfig = mapService.getTileConfig();
 
   return (
-    <TileLayer
-      url={tileConfig.url}
-      attribution={tileConfig.attribution}
-      maxZoom={tileConfig.maxZoom}
-      minZoom={tileConfig.minZoom}
-      tileSize={tileConfig.tileSize}
-    />
+    <>
+      <TileLayer
+        url={tileConfig.url}
+        attribution={tileConfig.attribution}
+        maxZoom={tileConfig.maxZoom}
+        minZoom={tileConfig.minZoom}
+        tileSize={tileConfig.tileSize}
+      />
+      {tileConfig.provider === TileProviderType.Tianditu && tileConfig.overlayUrl && (
+        <TileLayer
+          url={tileConfig.overlayUrl}
+          maxZoom={tileConfig.maxZoom}
+          minZoom={tileConfig.minZoom}
+          tileSize={tileConfig.tileSize}
+        />
+      )}
+    </>
   );
 }
