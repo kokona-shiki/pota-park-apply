@@ -1,6 +1,7 @@
 // src/pages/add-park/useSubmitHandler.ts
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import parkTypeMappingData from '../../../../shared/park_type_mapping.json';
 import type { FormState } from './types';
 import { clearFormState } from './useFormState';
 import { useSubmit } from './useSubmit';
@@ -27,6 +28,19 @@ interface SubmitResult {
     };
   };
 }
+
+const PARK_TYPE_MAPPING = parkTypeMappingData as {
+  chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
+  english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
+};
+
+const PARK_TYPE_OPTIONS = PARK_TYPE_MAPPING.chinese_to_english.map(
+  ({ id, chineseName: zh, englishName: en }) => ({
+    id,
+    zh,
+    en,
+  })
+);
 
 function isDuplicateNameError(errorCode?: string): boolean {
   return errorCode?.startsWith('DUPLICATE_NAME') ?? false;
@@ -166,6 +180,22 @@ export const useSubmitHandler = (formState: FormState) => {
   const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
   const { submitting, handleSubmit } = useSubmit();
 
+  const parkTypeById = useMemo(
+    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.id, option])),
+    []
+  );
+  const parkTypeIdByEnglish = useMemo(
+    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.en, option.id])),
+    []
+  );
+
+  const resolveParkTypeId = (value: string) => {
+    if (parkTypeById.has(value)) {
+      return value;
+    }
+    return parkTypeIdByEnglish.get(value) || '';
+  };
+
   // 处理重复名称错误
   const handleDuplicateNameError = (result: SubmitResult, errorCode?: string) => {
     const details = result.errorDetails?.details;
@@ -277,7 +307,11 @@ export const useSubmitHandler = (formState: FormState) => {
     setError(null);
 
     try {
-      const result = await handleSubmit(formState);
+      const resolvedParkType = resolveParkTypeId(formState.parkType);
+      const result = await handleSubmit({
+        ...formState,
+        parkType: resolvedParkType,
+      });
 
       if (result.success) {
         handleSuccessResult();

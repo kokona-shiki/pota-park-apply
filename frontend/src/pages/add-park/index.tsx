@@ -1,7 +1,6 @@
 // src/pages/add-park/index.tsx
 // AddPark Component - 申请添加公园页面
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Autocomplete,
   Box,
@@ -30,17 +29,15 @@ import L from 'leaflet';
 
 import POISelector from './POISelector';
 import SearchButtons from './SearchButtons';
-import { useFormState, clearFormState } from './useFormState';
+import { useFormState } from './useFormState';
 import { useSearch } from './useSearch';
-import { useSubmit } from './useSubmit';
-import type { Province, MapPOI, PotaParkInfo, ParkTypeOption, FormState } from './types';
+import { useSubmitHandler } from './useSubmitHandler';
+import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 import type { ParkApplicationDetail } from '../../types/parkApplication';
-import type { SubmitResult } from './useSubmit';
 
 import AlertDialog from '../../components/AlertDialog';
 import { ParkApplicationDetailDialog } from '../../components/ParkApplicationDetailDialog';
 
-// 修复 Leaflet 默认图标问题
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import shadow from 'leaflet/dist/images/marker-shadow.png';
@@ -54,7 +51,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: shadow,
 });
 
-// 创建选中状态的 marker 图标 - 更大尺寸
 const selectedIcon = new L.Icon({
   iconRetinaUrl: iconRetina,
   iconUrl: icon,
@@ -65,7 +61,6 @@ const selectedIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-// 创建未选中状态的 marker 图标 - 正常尺寸
 const normalIcon = new L.Icon({
   iconRetinaUrl: iconRetina,
   iconUrl: icon,
@@ -76,7 +71,6 @@ const normalIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-// 公园类型映射
 const PARK_TYPE_MAPPING = parkTypeMappingData as {
   chinese_to_english: Array<{ id: string; chineseName: string; englishName: string }>;
   english_to_chinese: Array<{ englishName: string; chineseNames: string[] }>;
@@ -90,7 +84,6 @@ const PARK_TYPE_OPTIONS: ParkTypeOption[] = PARK_TYPE_MAPPING.chinese_to_english
   })
 );
 
-// 地图边界控制器组件
 function MapBoundsController({ bounds }: { bounds: L.LatLngBoundsExpression | null }) {
   const map = useMap();
 
@@ -138,346 +131,28 @@ function MapController({
   return null;
 }
 
-// 辅助函数：检查错误代码是否为重复名称错误
-function isDuplicateNameError(errorCode: string | undefined) {
-  return errorCode?.startsWith('DUPLICATE_NAME');
-}
-
-// 辅助函数：检查错误代码是否为相似名称错误
-function isSimilarNameError(errorCode: string | undefined, errorMessage: string) {
-  return errorCode === 'SIMILAR_NAME' || errorMessage.includes('公园名称相似度高');
-}
-
-// 辅助函数：检查错误代码是否为附近位置错误
-function isNearbyLocationError(errorCode: string | undefined, errorMessage: string) {
-  return errorCode === 'NEARBY_LOCATION' || errorMessage.includes('公园距离过近');
-}
-
-// 辅助函数：检查是否应该显示链接
-function shouldShowParkLink(errorCode: string | undefined) {
-  return errorCode === 'DUPLICATE_NAME_APPROVED' || errorCode === 'DUPLICATE_NAME_POTA_SYNCED';
-}
-
-// 辅助函数：检查旧格式是否应该显示链接
-function shouldShowParkLinkOldFormat(status: string | undefined) {
-  return status === 'approved' || status === 'pota_synced';
-}
-
-// 辅助函数：获取公园列表标题
-function getParkListTitle(status: string | undefined) {
-  return status === 'pota_synced' ? '已存在的公园' : '';
-}
-
-// 辅助函数：处理带确认字段的提交
-async function handleSubmitWithConfirmation(
-  handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  formData: FormState,
-  navigate: (path: string) => void,
-  setError: (error: string) => void,
-  clearFormState: () => void,
-  confirmationField: string
-) {
-  const result = await handleSubmit({
-    ...formData,
-    [confirmationField]: true,
-  } as unknown);
-
-  if (result.success) {
-    clearFormState();
-    navigate('/my-uploads');
-  } else {
-    setError(result.error || '提交失败，请重试');
-  }
-}
-
-// 辅助函数：设置对话框状态
-function setDialogState(
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void,
-  type: 'error' | 'warning',
-  title: string,
-  message: string,
-  parkList: { id: number; name: string }[],
-  parkListTitle: string,
-  confirmAction: (() => void) | null
-) {
-  setDialogType(type);
-  setDialogTitle(title);
-  setDialogMessage(message);
-  setDialogParkList(parkList);
-  setDialogParkListTitle(parkListTitle);
-  setDialogConfirmAction(confirmAction);
-  setDialogOpen(true);
-}
-
-// 辅助函数：处理重复名称错误的新格式
-function getDialogTypeAndTitle(allowRetry: boolean | undefined) {
-  if (allowRetry) {
-    return { type: 'warning' as const, title: '警告' };
-  }
-  return { type: 'error' as const, title: '错误' };
-}
-
-function getDialogParkList(errorCode: string | undefined, existingPark: unknown) {
-  if (shouldShowParkLink(errorCode) && existingPark) {
-    return [
-      { id: (existingPark as { id: number }).id, name: (existingPark as { name: string }).name },
-    ];
-  }
-  return [];
-}
-
-function handleDuplicateNameErrorNewFormat(
-  result: SubmitResult,
-  formData: FormState,
-  handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  navigate: (path: string) => void,
-  setError: (error: string) => void,
-  clearFormState: () => void,
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void
-) {
-  const errorMessage = result.error || '提交失败，请重试';
-  const errorCode = result.errorDetails?.code;
-  const details = result.errorDetails?.details;
-
-  const existingPark = details?.existingPark;
-  const allowRetry = details?.allowRetry;
-
-  const parkList = getDialogParkList(errorCode, existingPark);
-  const { type: dialogType, title: dialogTitle } = getDialogTypeAndTitle(allowRetry);
-
-  const confirmAction = allowRetry
-    ? async () => {
-        await handleSubmitWithConfirmation(
-          handleSubmit,
-          formData,
-          navigate,
-          setError,
-          clearFormState,
-          'confirmedRejectedPark'
-        );
-      }
-    : null;
-
-  setDialogState(
-    setDialogType,
-    setDialogTitle,
-    setDialogMessage,
-    setDialogParkList,
-    setDialogParkListTitle,
-    setDialogConfirmAction,
-    setDialogOpen,
-    dialogType,
-    dialogTitle,
-    errorMessage,
-    parkList,
-    getParkListTitle(existingPark?.status),
-    confirmAction
-  );
-}
-
-// 辅助函数：处理重复名称错误的旧格式
-function handleDuplicateNameErrorOldFormat(
-  result: SubmitResult,
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void
-) {
-  const errorMessage = result.error || '提交失败，请重试';
-  const existingPark = result.errorDetails?.existingPark;
-  const shouldShowLink = shouldShowParkLinkOldFormat(existingPark?.status);
-  const parkList = shouldShowLink ? [{ id: existingPark.id, name: existingPark.name }] : [];
-
-  setDialogState(
-    setDialogType,
-    setDialogTitle,
-    setDialogMessage,
-    setDialogParkList,
-    setDialogParkListTitle,
-    setDialogConfirmAction,
-    setDialogOpen,
-    'error',
-    '错误',
-    errorMessage,
-    parkList,
-    getParkListTitle(existingPark?.status),
-    null
-  );
-}
-
-// 辅助函数：处理重复名称错误
-function handleDuplicateNameError(
-  result: SubmitResult,
-  formData: FormState,
-  handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  navigate: (path: string) => void,
-  setError: (error: string) => void,
-  clearFormState: () => void,
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void
-) {
-  const details = result.errorDetails?.details;
-
-  if (details) {
-    handleDuplicateNameErrorNewFormat(
-      result,
-      formData,
-      handleSubmit,
-      navigate,
-      setError,
-      clearFormState,
-      setDialogType,
-      setDialogTitle,
-      setDialogMessage,
-      setDialogParkList,
-      setDialogParkListTitle,
-      setDialogConfirmAction,
-      setDialogOpen
-    );
-  } else if (result.errorDetails?.existingPark) {
-    handleDuplicateNameErrorOldFormat(
-      result,
-      setDialogType,
-      setDialogTitle,
-      setDialogMessage,
-      setDialogParkList,
-      setDialogParkListTitle,
-      setDialogConfirmAction,
-      setDialogOpen
-    );
-  }
-}
-
-// 辅助函数：处理相似名称错误
-function handleSimilarNameError(
-  result: SubmitResult,
-  formData: FormState,
-  handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  navigate: (path: string) => void,
-  setError: (error: string) => void,
-  clearFormState: () => void,
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void
-) {
-  const parkList = result.errorDetails?.details?.similarParks || [];
-
-  const confirmAction = async () => {
-    await handleSubmitWithConfirmation(
-      handleSubmit,
-      formData,
-      navigate,
-      setError,
-      clearFormState,
-      'confirmedNameSimilarity'
-    );
-  };
-
-  setDialogState(
-    setDialogType,
-    setDialogTitle,
-    setDialogMessage,
-    setDialogParkList,
-    setDialogParkListTitle,
-    setDialogConfirmAction,
-    setDialogOpen,
-    'warning',
-    '警告',
-    '当前填写的公园名称与已有公园名称相似度较高。',
-    parkList,
-    '相似公园列表',
-    confirmAction
-  );
-}
-
-// 辅助函数：处理附近位置错误
-function handleNearbyLocationError(
-  result: SubmitResult,
-  formData: FormState,
-  handleSubmit: (params: unknown) => Promise<SubmitResult>,
-  navigate: (path: string) => void,
-  setError: (error: string) => void,
-  clearFormState: () => void,
-  setDialogType: (type: 'error' | 'warning') => void,
-  setDialogTitle: (title: string) => void,
-  setDialogMessage: (message: string) => void,
-  setDialogParkList: (parkList: { id: number; name: string }[]) => void,
-  setDialogParkListTitle: (title: string) => void,
-  setDialogConfirmAction: (action: (() => void) | null) => void,
-  setDialogOpen: (open: boolean) => void
-) {
-  const parkList = result.errorDetails?.details?.nearbyParks || [];
-
-  const confirmAction = async () => {
-    await handleSubmitWithConfirmation(
-      handleSubmit,
-      formData,
-      navigate,
-      setError,
-      clearFormState,
-      'confirmedNearbyLocation'
-    );
-  };
-
-  setDialogState(
-    setDialogType,
-    setDialogTitle,
-    setDialogMessage,
-    setDialogParkList,
-    setDialogParkListTitle,
-    setDialogConfirmAction,
-    setDialogOpen,
-    'warning',
-    '警告',
-    '当前填写的公园位置与已有公园位置距离较近。',
-    parkList,
-    '附近公园列表',
-    confirmAction
-  );
-}
-
 function AddPark() {
-  const navigate = useNavigate();
   const { formState, updateFormState, resetFormState } = useFormState();
   const { searchingPota, searchingMap, handleSearchPOTA, handleSearchMap } = useSearch();
-  const { submitting, handleSubmit } = useSubmit();
 
-  const [error, setError] = useState<string | null>(null);
+  const {
+    error,
+    setError,
+    dialogOpen,
+    dialogType,
+    dialogTitle,
+    dialogMessage,
+    dialogParkList,
+    dialogParkListTitle,
+    dialogConfirmAction,
+    submitting,
+    handleFormSubmit,
+    handleDialogCancel,
+  } = useSubmitHandler(formState);
+
   const [mapPOIs, setMapPOIs] = useState<MapPOI[]>([]);
   const [selectedPOIId, setSelectedPOIId] = useState<number | null>(null);
   const [potaParks, setPotaParks] = useState<Map<number, PotaParkInfo>>(new Map());
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<'error' | 'warning'>('error');
-  const [dialogTitle, setDialogTitle] = useState('');
-  const [dialogMessage, setDialogMessage] = useState('');
-  const [dialogParkList, setDialogParkList] = useState<{ id: number; name: string }[]>([]);
-  const [dialogParkListTitle, setDialogParkListTitle] = useState('');
-  const [dialogConfirmAction, setDialogConfirmAction] = useState<(() => void) | null>(null);
 
   const [selectedPark, setSelectedPark] = useState<ParkApplicationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -488,7 +163,6 @@ function AddPark() {
   const {
     parkName,
     parkType,
-    province,
     latitude,
     longitude,
     website,
@@ -507,21 +181,6 @@ function AddPark() {
   })();
 
   const [searchResults, setSearchResults] = useState<string[]>([]);
-
-  const parkTypeById = useMemo(
-    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.id, option])),
-    []
-  );
-  const parkTypeIdByEnglish = useMemo(
-    () => new Map(PARK_TYPE_OPTIONS.map((option) => [option.en, option.id])),
-    []
-  );
-  const resolveParkTypeId = (value: string) => {
-    if (parkTypeById.has(value)) {
-      return value;
-    }
-    return parkTypeIdByEnglish.get(value) || '';
-  };
 
   const handleAccessMethodsChange = (e: SelectChangeEvent<string[]>) => {
     const value = e.target.value;
@@ -572,11 +231,6 @@ function AddPark() {
     }
   };
 
-  const handleDialogCancel = () => {
-    setDialogOpen(false);
-    setDialogConfirmAction(null);
-  };
-
   const handleParkClick = async (parkId: number) => {
     setSelectedPark(null);
     setDetailError(null);
@@ -591,93 +245,6 @@ function AddPark() {
       setDetailError((e as Error).message || '获取申请详情失败');
     } finally {
       setDetailLoading(false);
-    }
-  };
-
-  const handleFormSubmit = async () => {
-    setError(null);
-
-    try {
-      const formData: FormState = {
-        parkName,
-        parkType: resolveParkTypeId(parkType),
-        province,
-        provinces: formState.provinces,
-        latitude,
-        longitude,
-        website,
-        accessMethods,
-        activationMethods,
-        confirmed,
-        isPotaPark: formState.isPotaPark,
-        mapCenter: formState.mapCenter,
-        mapZoom: formState.mapZoom,
-      };
-
-      const result = await handleSubmit(formData);
-
-      if (result.success) {
-        clearFormState();
-        navigate('/my-uploads');
-      } else {
-        const errorMessage = result.error || '提交失败，请重试';
-        const errorCode = result.errorDetails?.code;
-
-        if (isDuplicateNameError(errorCode)) {
-          handleDuplicateNameError(
-            result,
-            formData,
-            handleSubmit,
-            navigate,
-            setError,
-            clearFormState,
-            setDialogType,
-            setDialogTitle,
-            setDialogMessage,
-            setDialogParkList,
-            setDialogParkListTitle,
-            setDialogConfirmAction,
-            setDialogOpen
-          );
-        } else if (isSimilarNameError(errorCode, errorMessage)) {
-          handleSimilarNameError(
-            result,
-            formData,
-            handleSubmit,
-            navigate,
-            setError,
-            clearFormState,
-            setDialogType,
-            setDialogTitle,
-            setDialogMessage,
-            setDialogParkList,
-            setDialogParkListTitle,
-            setDialogConfirmAction,
-            setDialogOpen
-          );
-        } else if (isNearbyLocationError(errorCode, errorMessage)) {
-          handleNearbyLocationError(
-            result,
-            formData,
-            handleSubmit,
-            navigate,
-            setError,
-            clearFormState,
-            setDialogType,
-            setDialogTitle,
-            setDialogMessage,
-            setDialogParkList,
-            setDialogParkListTitle,
-            setDialogConfirmAction,
-            setDialogOpen
-          );
-        } else {
-          setError(errorMessage);
-        }
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : '提交失败，请检查网络后重试';
-      setError(errorMessage);
     }
   };
 
@@ -758,7 +325,7 @@ function AddPark() {
                         return;
                       }
                     } catch {
-                      // Ignore Pinyin matching errors and continue with other matching methods
+                      // Ignore Pinyin matching errors
                     }
 
                     if (en.toLowerCase().includes(inputValue.toLowerCase())) {
