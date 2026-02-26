@@ -6,26 +6,34 @@ import {
 
 interface UseAuthInitParams {
   isAuthPage: boolean;
+  hasHydrated: boolean;
   isTokenFresh: () => boolean;
   ensureValidAccessToken: () => Promise<string | null>;
   readAuthData: () => { accessToken: string; user: unknown } | null;
   setUser: (user: unknown | null) => void;
   setAccessToken: (token: string | null) => void;
   setIsAuthLoading: (loading: boolean) => void;
+  setIsTokenReady: (ready: boolean) => void;
   hasInitializedRef: React.MutableRefObject<boolean>;
 }
 
 export function useAuthInit({
   isAuthPage,
+  hasHydrated,
   isTokenFresh,
   ensureValidAccessToken,
   readAuthData,
   setUser,
   setAccessToken,
   setIsAuthLoading,
+  setIsTokenReady,
   hasInitializedRef,
 }: UseAuthInitParams) {
   useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
     if (hasInitializedRef.current) {
       return;
     }
@@ -43,6 +51,7 @@ export function useAuthInit({
       apiClient.defaults.headers.common.Authorization = `Bearer ${stored.accessToken}`;
       setAccessToken(stored.accessToken);
       setUser(stored.user);
+      setIsTokenReady(true);
       setIsAuthLoading(false);
       return;
     }
@@ -54,6 +63,7 @@ export function useAuthInit({
           if (latest?.accessToken) {
             setAccessToken(latest.accessToken);
             setUser(latest.user);
+            setIsTokenReady(true);
           }
         }
       })
@@ -67,6 +77,7 @@ export function useAuthInit({
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    hasHydrated,
     isAuthPage,
     isTokenFresh,
     ensureValidAccessToken,
@@ -74,5 +85,6 @@ export function useAuthInit({
     setUser,
     setAccessToken,
     setIsAuthLoading,
+    setIsTokenReady,
   ]);
 }

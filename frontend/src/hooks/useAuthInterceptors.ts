@@ -8,7 +8,7 @@ interface UseAuthInterceptorsParams {
   getCurrentAccessToken: () => string | null;
   isTokenFresh: () => boolean;
   ensureValidAccessToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
-  logout: () => void;
+  logout: (navigate?: () => void) => void;
 }
 
 const isAuthRequest = (url: string) => {
@@ -95,15 +95,16 @@ const shouldHandleAuthError = (status: number | undefined, url: string): boolean
 
 const handleTokenRefreshFailure = (
   locationRef: React.MutableRefObject<Location>,
-  logout: () => void,
+  logout: (navigate?: () => void) => void,
   navigate: ReturnType<typeof useNavigate>
 ): void => {
   const from = locationRef.current;
   if (from.pathname !== '/login' && from.pathname !== '/register') {
     localStorage.setItem(REDIRECT_KEY, from.pathname + from.search);
   }
-  logout();
-  navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } });
+  logout(() =>
+    navigate('/login', { replace: true, state: { from, reason: '未登录或登录已失效' } })
+  );
 };
 
 const updateAuthHeader = (

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import type { StateStorage } from 'zustand/middleware';
 import { z } from 'zod';
 import type { AuthUser } from '../auth/context';
 import { authService } from '../services';
@@ -11,14 +12,16 @@ interface AuthState {
   accessToken: string | null;
   isAuthLoading: boolean;
   isTokenReady: boolean;
+  _hasHydrated: boolean;
 
   // 操作
   setUser: (user: AuthUser | null) => void;
   setAccessToken: (token: string | null) => void;
   setIsAuthLoading: (loading: boolean) => void;
   setIsTokenReady: (ready: boolean) => void;
+  setHasHydrated: (hydrated: boolean) => void;
   login: (email: string, password: string) => Promise<AuthUser>;
-  logout: () => void;
+  logout: (navigate?: () => void) => void;
   refreshSession: () => Promise<void>;
   getCurrentAccessToken: () => string | null;
   isTokenFresh: () => boolean;
@@ -34,6 +37,7 @@ const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthLoading: true,
       isTokenReady: false,
+      _hasHydrated: false,
 
       // 操作
       setUser: (user) => set({ user }),
@@ -43,6 +47,8 @@ const useAuthStore = create<AuthState>()(
       setIsAuthLoading: (isAuthLoading) => set({ isAuthLoading }),
 
       setIsTokenReady: (isTokenReady) => set({ isTokenReady }),
+
+      setHasHydrated: (_hasHydrated) => set({ _hasHydrated }),
 
       login: async (email, password) => {
         try {
@@ -56,13 +62,14 @@ const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
+      logout: (navigate) => {
         set({ user: null, accessToken: null, isTokenReady: false });
-        // 清除本地存储
         localStorage.removeItem('pota_auth_data');
-        // 广播登出事件
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('pota_logout'));
+        }
+        if (navigate) {
+          navigate();
         }
       },
 
@@ -116,11 +123,14 @@ const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'pota-auth-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => localStorage as StateStorage),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

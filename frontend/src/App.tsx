@@ -59,9 +59,11 @@ function App() {
     accessToken,
     isAuthLoading,
     isTokenReady,
+    _hasHydrated,
     setUser,
     setAccessToken,
     setIsAuthLoading,
+    setIsTokenReady,
     logout,
     refreshSession,
     getCurrentAccessToken,
@@ -131,12 +133,14 @@ function App() {
 
   useAuthInit({
     isAuthPage: isAuthPage(location.pathname),
+    hasHydrated: _hasHydrated,
     isTokenFresh,
     ensureValidAccessToken,
     readAuthData,
     setUser: stableSetUser,
     setAccessToken: stableSetAccessToken,
     setIsAuthLoading: stableSetIsAuthLoading,
+    setIsTokenReady,
     hasInitializedRef,
   });
 
