@@ -132,15 +132,15 @@ export const requestWithSchema = async <T>(
     response = await request;
     responseData = response.data;
     
-    // 检查是否为标准 API 响应格式
     if (typeof responseData === 'object' && responseData !== null) {
       const apiResponse = responseData as { code: string | number; message: string; data: unknown };
       
-      // 如果有 code 字段，检查是否为错误
       if ('code' in apiResponse) {
-        // 如果 code 是字符串且非空，说明是业务错误
-        if (typeof apiResponse.code === 'string' && apiResponse.code.trim() !== '') {
-          // 记录业务错误日志
+        const isErrorCode = 
+          (typeof apiResponse.code === 'number' && apiResponse.code !== 0) ||
+          (typeof apiResponse.code === 'string' && apiResponse.code.trim() !== '');
+        
+        if (isErrorCode) {
           log({
             level: LogLevel.WARN,
             message: 'API business error',
@@ -148,18 +148,14 @@ export const requestWithSchema = async <T>(
             response
           });
           
-          // 直接抛出业务错误，保留完整响应数据
           handleBusinessError(apiResponse.message, response);
         }
-        // 否则是成功响应，解析 data 字段
         return parseApiData(schema, apiResponse.data);
       }
     }
     
-    // 兼容旧格式：直接解析整个响应数据
     return parseApiData(schema, responseData);
   } catch (error) {
-    // 记录错误日志
     log({
       level: LogLevel.ERROR,
       message: 'API request error',
