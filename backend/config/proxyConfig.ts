@@ -1,39 +1,22 @@
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
 import { Express } from 'express';
 
-/**
- * 根据环境变量获取地图服务提供商
- * @returns {string} 地图服务提供商 (osm, amap, tianditu)
- */
 const getMapProvider = (): string => {
-  return process.env.VITE_MAP_PROVIDER || 'osm'; // 默认 OSM
+  return process.env.VITE_MAP_PROVIDER || 'osm';
 };
 
-// 定义代理配置接口
 interface ProxyConfig {
   key: string;
   path: string;
   target: string;
-  options: Options & {
-    onProxyReq?: (
-      proxyReq: import('http').ClientRequest,
-      req: import('express').Request
-    ) => void;
-    onProxyRes?: (proxyRes: import('http').IncomingMessage) => void;
-  };
+  options: Options;
 }
 
-// 定义代理配置映射类型
 interface ProxyConfigMap {
   [key: string]: ProxyConfig[];
 }
 
-/**
- * 代理配置
- * 所有外部服务请求统一通过此配置代理
- */
 const proxyConfigs: ProxyConfigMap = {
-  // OpenStreetMap
   osm: [
     {
       key: 'osm-geocoding',
@@ -52,18 +35,16 @@ const proxyConfigs: ProxyConfigMap = {
           Accept: 'application/json',
           'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
-        onProxyReq: (proxyReq) => {
-          proxyReq.setHeader('Connection', 'keep-alive');
+        on: {
+          proxyReq: (proxyReq) => {
+            proxyReq.setHeader('Connection', 'keep-alive');
+          },
         },
       },
     },
     {
       key: 'osm-tiles',
       path: '/proxy-api/tiles/osm',
-
-      // NOTE: http-proxy-middleware 不会替换 target 里的 {s} 占位符；
-      // 会导致请求落到无效域名并最终 504。
-      // 这里用 router 按 (z,x,y) 选择 a/b/c 子域，既兼容 OSM，又保持同源代理（不放开 CSP 外域）。
       target: 'https://a.tile.openstreetmap.org',
       options: {
         timeout: 30000,
@@ -75,7 +56,6 @@ const proxyConfigs: ProxyConfigMap = {
         },
         router: (req) => {
           try {
-            // req.url 形如：/13/6780/3104.png
             const m = String(req.url || '').match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
             if (!m) return 'https://a.tile.openstreetmap.org';
             const z = Number(m[1]);
@@ -89,15 +69,14 @@ const proxyConfigs: ProxyConfigMap = {
           }
         },
         headers: {
-          // OSM 建议设置明确 UA；避免被上游限流/拒绝
-          'User-Agent': 'POTA-Park-Apply/1.0',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         },
       },
     },
   ],
 
-  // 高德地图
   amap: [
     {
       key: 'amap-geocoding',
@@ -133,7 +112,6 @@ const proxyConfigs: ProxyConfigMap = {
     },
   ],
 
-  // 天地图
   tianditu: [
     {
       key: 'tianditu-geocoding',
@@ -151,13 +129,15 @@ const proxyConfigs: ProxyConfigMap = {
           'User-Agent': 'POTA-Park-Apply/1.0',
           Accept: 'application/json',
         },
-        onProxyReq: (proxyReq, req) => {
-          const apiKey = process.env.TIANDITU_API_KEY;
-          if (apiKey) {
-            const originalUrl = req.url || '';
-            const separator = originalUrl.includes('?') ? '&' : '?';
-            proxyReq.path = `${proxyReq.path}${separator}tk=${apiKey}`;
-          }
+        on: {
+          proxyReq: (proxyReq, req) => {
+            const apiKey = process.env.TIANDITU_API_KEY;
+            if (apiKey) {
+              const originalUrl = req.url || '';
+              const separator = originalUrl.includes('?') ? '&' : '?';
+              proxyReq.path = `${proxyReq.path}${separator}tk=${apiKey}`;
+            }
+          },
         },
       },
     },
@@ -187,22 +167,24 @@ const proxyConfigs: ProxyConfigMap = {
             return 'https://t0.tianditu.gov.cn';
           }
         },
-        onProxyReq: (proxyReq, req) => {
-          const apiKey = process.env.TIANDITU_API_KEY;
-          if (apiKey) {
+        on: {
+          proxyReq: (proxyReq, req) => {
+            const apiKey = process.env.TIANDITU_API_KEY;
             const originalUrl = req.url || '';
             const m = originalUrl.match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
-            if (m) {
+            if (m && apiKey) {
               const z = m[1];
               const x = m[2];
               const y = m[3];
-              proxyReq.path = `/DataServer?T=vec_w&x=${x}&y=${y}&l=${z}&tk=${apiKey}`;
+              proxyReq.path = `/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&tk=${apiKey}`;
             }
-          }
+          },
         },
         headers: {
-          'User-Agent': 'POTA-Park-Apply/1.0',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          Referer: 'https://map.tianditu.gov.cn/',
         },
       },
     },
@@ -232,28 +214,29 @@ const proxyConfigs: ProxyConfigMap = {
             return 'https://t0.tianditu.gov.cn';
           }
         },
-        onProxyReq: (proxyReq, req) => {
-          const apiKey = process.env.TIANDITU_API_KEY;
-          if (apiKey) {
+        on: {
+          proxyReq: (proxyReq, req) => {
+            const apiKey = process.env.TIANDITU_API_KEY;
             const originalUrl = req.url || '';
             const m = originalUrl.match(/^\/(\d+)\/(\d+)\/(\d+)\.png/);
-            if (m) {
+            if (m && apiKey) {
               const z = m[1];
               const x = m[2];
               const y = m[3];
-              proxyReq.path = `/DataServer?T=cva_w&x=${x}&y=${y}&l=${z}&tk=${apiKey}`;
+              proxyReq.path = `/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&tk=${apiKey}`;
             }
-          }
+          },
         },
         headers: {
-          'User-Agent': 'POTA-Park-Apply/1.0',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          Referer: 'https://map.tianditu.gov.cn/',
         },
       },
     },
   ],
 
-  // POTA API (所有环境通用)
   pota: [
     {
       key: 'pota-api',
@@ -269,45 +252,36 @@ const proxyConfigs: ProxyConfigMap = {
   ],
 };
 
-/**
- * 初始化代理中间件
- * @param {Express} app - Express 应用实例
- * @returns {ProxyConfig[]} 已配置的代理列表
- */
 const initProxies = (app: Express): ProxyConfig[] => {
   const provider = getMapProvider();
   const configs: ProxyConfig[] = [
     ...(proxyConfigs[provider] || []),
-    ...proxyConfigs.pota, // POTA API 始终启用
+    ...proxyConfigs.pota,
   ];
 
   configs.forEach((config) => {
     const { path, options, key, target } = config;
 
-    const proxyOptions: Options & {
-      onProxyRes?: (proxyRes: import('http').IncomingMessage) => void;
-      onError?: (
-        err: Error,
-        req: import('express').Request,
-        res: import('express').Response
-      ) => void;
-    } = {
+    const proxyOptions: Options = {
       target: target,
       ...options,
-      onProxyRes: (proxyRes) => {
-        // 添加 CORS 头
-        proxyRes.headers['Access-Control-Allow-Origin'] = '*';
-      },
-      onError: (err, req, res) => {
-        console.error(`[Proxy Error] ${key}:`, err.message);
-        console.error(`[Proxy Error Details] Path: ${req.path}`);
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'Proxy Error',
-            message: `Failed to proxy request to ${key}`,
-            details: err.message,
-          });
-        }
+      on: {
+        ...(options.on || {}),
+        proxyRes: (proxyRes) => {
+          proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+        },
+        error: (err, req, res) => {
+          console.error(`[Proxy Error] ${key}:`, err.message);
+          const httpRes = res as import('http').ServerResponse;
+          if (!httpRes.headersSent) {
+            httpRes.writeHead(500, { 'Content-Type': 'application/json' });
+            httpRes.end(JSON.stringify({
+              error: 'Proxy Error',
+              message: `Failed to proxy request to ${key}`,
+              details: err.message,
+            }));
+          }
+        },
       },
     };
 
