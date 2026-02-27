@@ -33,8 +33,6 @@ interface ParkFormFieldsProps {
   onParkTypeChange: (value: string) => void;
   onProvinceChange: (value: string) => void;
   onProvincesChange: (value: string[]) => void;
-  onLatitudeChange: (value: string) => void;
-  onLongitudeChange: (value: string) => void;
   onWebsiteChange: (value: string) => void;
   onAccessMethodsChange: (value: string[]) => void;
   onActivationMethodsChange: (value: string[]) => void;
@@ -58,8 +56,6 @@ function ParkFormFields({
   onParkTypeChange,
   onProvinceChange,
   onProvincesChange,
-  onLatitudeChange,
-  onLongitudeChange,
   onWebsiteChange,
   onAccessMethodsChange,
   onActivationMethodsChange,
@@ -185,16 +181,22 @@ function ParkFormFields({
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
         <TextField
           label="纬度 (WGS84)"
-          value={latitude}
-          onChange={(e) => onLatitudeChange(e.target.value)}
-          disabled={isPotaPark}
+          value={
+            latitude
+              ? (typeof latitude === 'string' ? parseFloat(latitude) : latitude).toFixed(4)
+              : ''
+          }
+          InputProps={{ readOnly: true }}
           sx={{ flex: 1 }}
         />
         <TextField
           label="经度 (WGS84)"
-          value={longitude}
-          onChange={(e) => onLongitudeChange(e.target.value)}
-          disabled={isPotaPark}
+          value={
+            longitude
+              ? (typeof longitude === 'string' ? parseFloat(longitude) : longitude).toFixed(4)
+              : ''
+          }
+          InputProps={{ readOnly: true }}
           sx={{ flex: 1 }}
         />
       </Box>

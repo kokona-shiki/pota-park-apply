@@ -51,12 +51,26 @@ function ParkInfoFields({ application }: ParkInfoFieldsProps) {
       )}
       <TextField
         label="纬度"
-        value={String(application.latitude ?? '')}
+        value={
+          application.latitude != null
+            ? (typeof application.latitude === 'string'
+                ? parseFloat(application.latitude)
+                : application.latitude
+              ).toFixed(4)
+            : ''
+        }
         InputProps={{ readOnly: true }}
       />
       <TextField
         label="经度"
-        value={String(application.longitude ?? '')}
+        value={
+          application.longitude != null
+            ? (typeof application.longitude === 'string'
+                ? parseFloat(application.longitude)
+                : application.longitude
+              ).toFixed(4)
+            : ''
+        }
         InputProps={{ readOnly: true }}
       />
       {application.website && (

@@ -434,20 +434,22 @@ function AddPark() {
           <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <TextField
               label="纬度 (WGS84)"
-              value={latitude}
-              onChange={(e) => {
-                updateFormState({ latitude: e.target.value });
-              }}
-              disabled={isPotaPark}
+              value={
+                latitude
+                  ? (typeof latitude === 'string' ? parseFloat(latitude) : latitude).toFixed(4)
+                  : ''
+              }
+              InputProps={{ readOnly: true }}
               sx={{ flex: 1 }}
             />
             <TextField
               label="经度 (WGS84)"
-              value={longitude}
-              onChange={(e) => {
-                updateFormState({ longitude: e.target.value });
-              }}
-              disabled={isPotaPark}
+              value={
+                longitude
+                  ? (typeof longitude === 'string' ? parseFloat(longitude) : longitude).toFixed(4)
+                  : ''
+              }
+              InputProps={{ readOnly: true }}
               sx={{ flex: 1 }}
             />
           </Box>
