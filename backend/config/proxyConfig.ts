@@ -6,7 +6,7 @@ import { Express } from 'express';
  * @returns {string} 地图服务提供商 (osm, amap, tianditu)
  */
 const getMapProvider = (): string => {
-  return process.env.MAP_PROVIDER || 'osm'; // 默认 OSM
+  return process.env.VITE_MAP_PROVIDER || 'osm'; // 默认 OSM
 };
 
 // 定义代理配置接口
