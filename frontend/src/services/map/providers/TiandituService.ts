@@ -1,5 +1,5 @@
 import { apiClient, requestWithSchema } from '../../apiClient';
-import { TiandituPoiResponseSchema, TiandituGeocoderResponseSchema } from '../schemas';
+import { TiandituSearchResponseSchema, TiandituGeocoderResponseSchema } from '../schemas';
 import type { IMapService } from '../IMapService';
 import type {
   TileConfig,
@@ -9,6 +9,8 @@ import type {
   GeocodingOptions,
 } from '../types';
 import { TileProviderType, CoordinateSystem } from '../types';
+
+const CHINA_MAP_BOUND = '73.66,3.86,135.05,53.55';
 
 export class TiandituService implements IMapService {
   private readonly GEOCODING_PROXY_PATH = '/proxy-api/geocoding/tianditu';
@@ -48,8 +50,10 @@ export class TiandituService implements IMapService {
     const postStr = JSON.stringify({
       keyWord: query,
       queryType: '1',
-      count: options.limit || 5,
+      count: options.limit || 10,
       start: 0,
+      mapBound: CHINA_MAP_BOUND,
+      level: 12,
     });
 
     const params = new URLSearchParams({
@@ -58,22 +62,26 @@ export class TiandituService implements IMapService {
     });
 
     const payload = await requestWithSchema(
-      apiClient.get(`${this.GEOCODING_PROXY_PATH}/search?${params.toString()}`),
-      TiandituPoiResponseSchema
+      apiClient.get(`${this.GEOCODING_PROXY_PATH}/v2/search?${params.toString()}`),
+      TiandituSearchResponseSchema
     );
 
-    if (payload.status !== '0' || !payload.pois) {
+    const statusInfo = payload.status;
+    if (!statusInfo || statusInfo.infocode !== 1000 || !payload.pois) {
       return [];
     }
 
-    return payload.pois.map((poi) => ({
-      address: poi.address || poi.name,
-      location: {
-        latitude: Number.parseFloat(poi.lat),
-        longitude: Number.parseFloat(poi.lon),
-      },
-      displayName: poi.name,
-    }));
+    return payload.pois.map((poi) => {
+      const [lon, lat] = poi.lonlat.split(',');
+      return {
+        address: poi.address || poi.name,
+        location: {
+          latitude: Number.parseFloat(lat),
+          longitude: Number.parseFloat(lon),
+        },
+        displayName: poi.name,
+      };
+    });
   }
 
   async reverseGeocode(

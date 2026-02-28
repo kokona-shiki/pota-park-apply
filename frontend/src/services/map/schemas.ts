@@ -15,15 +15,23 @@ export const OsmReverseSchema = z.object({
 export const TiandituPoiItemSchema = z.object({
   name: z.string(),
   address: z.string().optional(),
-  lon: z.string(),
-  lat: z.string(),
+  lonlat: z.string(),
+  province: z.string().optional(),
+  city: z.string().optional(),
+  county: z.string().optional(),
 });
 
-export const TiandituPoiResponseSchema = z.object({
-  status: z.string(),
+export const TiandituStatusSchema = z.object({
+  infocode: z.number(),
+  cndesc: z.string().optional(),
+});
+
+export const TiandituSearchResponseSchema = z.object({
   resultType: z.number().optional(),
-  pois: z.array(TiandituPoiItemSchema).optional(),
   count: z.number().optional(),
+  keyWord: z.string().optional(),
+  pois: z.array(TiandituPoiItemSchema).optional(),
+  status: TiandituStatusSchema.optional(),
 });
 
 export const TiandituGeocoderResultSchema = z.object({
