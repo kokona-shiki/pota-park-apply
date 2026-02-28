@@ -26,20 +26,18 @@ export const TiandituPoiResponseSchema = z.object({
   count: z.number().optional(),
 });
 
-export const TiandituReverseGeocodeItemSchema = z.object({
-  lon: z.string(),
-  lat: z.string(),
-  address: z.object({
+export const TiandituGeocoderResultSchema = z.object({
+  formatted_address: z.string().optional(),
+  addressComponent: z.object({
     province: z.string().optional(),
     city: z.string().optional(),
     county: z.string().optional(),
     address: z.string().optional(),
   }).optional(),
-  formatted_address: z.string().optional(),
 });
 
-export const TiandituReverseGeocodeResponseSchema = z.object({
+export const TiandituGeocoderResponseSchema = z.object({
   status: z.string(),
-  resultType: z.number().optional(),
-  data: z.array(TiandituReverseGeocodeItemSchema).optional(),
+  msg: z.string().optional(),
+  result: TiandituGeocoderResultSchema.optional(),
 });

@@ -77,6 +77,7 @@ export interface ReverseGeocodingResult {
     province?: string;
     city?: string;
     district?: string;
+    state?: string;
   };
 }
 

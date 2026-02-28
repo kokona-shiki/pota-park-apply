@@ -1,19 +1,12 @@
 // src/utils/potaMapping.ts
-import parkTypeMappingData from '../../../shared/park_type_mapping.json';
-import type { ParkTypeMapping } from '../../../shared/schemas';
-
-const PARK_TYPE_MAPPING = parkTypeMappingData as ParkTypeMapping;
+import regionData from '../../../shared/region.json';
 
 const REGION_BY_ISO = new Map(
-  PARK_TYPE_MAPPING.chinese_to_english
-    .filter((item) => item.id)
-    .map((item) => [item.id, item.chineseName])
+  regionData.map((item) => [item.code, item.name])
 );
 
 const ISO_BY_NAME = new Map(
-  PARK_TYPE_MAPPING.chinese_to_english
-    .filter((item) => item.id)
-    .map((item) => [item.chineseName, item.id])
+  regionData.map((item) => [item.name, item.code])
 );
 
 const MUNICIPALITIES = ['北京市', '上海市', '天津市', '重庆市'];

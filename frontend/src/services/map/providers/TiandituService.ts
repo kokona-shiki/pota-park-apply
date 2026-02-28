@@ -1,5 +1,5 @@
 import { apiClient, requestWithSchema } from '../../apiClient';
-import { TiandituPoiResponseSchema, TiandituReverseGeocodeResponseSchema } from '../schemas';
+import { TiandituPoiResponseSchema, TiandituGeocoderResponseSchema } from '../schemas';
 import type { IMapService } from '../IMapService';
 import type {
   TileConfig,
@@ -80,17 +80,23 @@ export class TiandituService implements IMapService {
     location: { latitude: number; longitude: number },
     _options: GeocodingOptions = {}
   ): Promise<ReverseGeocodingResult> {
+    const postStr = JSON.stringify({
+      lon: location.longitude,
+      lat: location.latitude,
+      ver: 1,
+    });
+
     const params = new URLSearchParams({
-      lon: String(location.longitude),
-      lat: String(location.latitude),
+      postStr,
+      type: 'geocode',
     });
 
     const payload = await requestWithSchema(
-      apiClient.get(`${this.GEOCODING_PROXY_PATH}/reverse?${params.toString()}`),
-      TiandituReverseGeocodeResponseSchema
+      apiClient.get(`${this.GEOCODING_PROXY_PATH}/geocoder?${params.toString()}`),
+      TiandituGeocoderResponseSchema
     );
 
-    if (payload.status !== '0' || !payload.data || payload.data.length === 0) {
+    if (payload.status !== '0' || !payload.result) {
       return {
         address: '',
         location,
@@ -98,17 +104,17 @@ export class TiandituService implements IMapService {
       };
     }
 
-    const result = payload.data[0];
-    const addressInfo = result.address || {};
+    const result = payload.result;
+    const addressComponent = result.addressComponent || {};
 
     return {
       address: result.formatted_address || '',
       location,
       components: {
         country: '中国',
-        province: addressInfo.province,
-        city: addressInfo.city,
-        district: addressInfo.county,
+        province: addressComponent.province,
+        city: addressComponent.city,
+        district: addressComponent.county,
       },
     };
   }

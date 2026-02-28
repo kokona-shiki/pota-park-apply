@@ -1,9 +1,8 @@
-
 import { Marker, useMapEvents } from 'react-leaflet';
 
 import type { MapPOI } from './types';
+import { useReverseGeocode } from './useReverseGeocode';
 
-// LocationMarker 组件
 interface LocationMarkerProps {
   isPotaPark: boolean;
   mapPOIs: MapPOI[];
@@ -21,18 +20,23 @@ const LocationMarker: React.FC<LocationMarkerProps> = ({
   latitude,
   longitude,
 }) => {
+  const { fetchProvince } = useReverseGeocode();
+
   useMapEvents({
-    click(e) {
-      // 如果有地图搜索结果,不允许点击修改位置
+    async click(e) {
       if (isPotaPark || mapPOIs.length > 0) return;
+
       const lat = e.latlng.lat;
       const lon = e.latlng.lng;
       updateFormState({ latitude: String(lat), longitude: String(lon) });
-      // 移除 setMapCenter 调用，不重置地图中心
+
+      const provinceCode = await fetchProvince(lat, lon);
+      if (provinceCode) {
+        updateFormState({ province: provinceCode, provinces: [provinceCode] });
+      }
     },
   });
 
-  // 显示手动选择的标记（当没有地图搜索结果时）
   if (mapPOIs.length === 0) {
     const lat = Number.parseFloat(latitude);
     const lon = Number.parseFloat(longitude);
