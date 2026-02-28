@@ -36,10 +36,14 @@ const refreshWithLock = async (
   const latest = getCurrentAccessToken();
 
   if (latest && isTokenFresh()) {
-    if (!forceRefresh) return latest;
+    if (!forceRefresh) {
+      return latest;
+    }
 
     const iatMs = getJwtIatMs(latest);
-    if (iatMs && Date.now() - iatMs < 3000) return latest;
+    if (iatMs && Date.now() - iatMs < 3000) {
+      return latest;
+    }
   }
 
   return await performRefreshAsLeader();
@@ -112,6 +116,7 @@ export function useTokenRefresh({
   const ensureValidAccessToken = useCallback(
     async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
       const current = getCurrentAccessToken();
+      
       if (shouldUseCurrentToken(current, forceRefresh, isTokenFresh)) {
         return current;
       }

@@ -97,8 +97,7 @@ function App() {
     performRefreshAsLeader: async () => {
       await refreshSession();
       const data = readAuthData();
-      const accessToken = data?.accessToken || null;
-      return accessToken;
+      return data?.accessToken || null;
     },
     readRefreshLock: () => null,
     isLockExpired: () => true,

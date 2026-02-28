@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AxiosResponse } from 'axios';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { apiClient } from '../services/apiClient';
 import { REDIRECT_KEY } from '../auth/constants';
 
@@ -10,6 +10,16 @@ interface UseAuthInterceptorsParams {
   ensureValidAccessToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
   logout: (navigate?: () => void) => void;
 }
+
+interface AuthRefreshError extends Error {
+  __authRefreshFailed: true;
+}
+
+const createAuthRefreshError = (): AuthRefreshError => {
+  const err = new Error('Token 刷新失败，请重新登录') as AuthRefreshError;
+  err.__authRefreshFailed = true;
+  return err;
+};
 
 const isAuthRequest = (url: string) => {
   return url.includes('/api/login') || url.includes('/api/register');
@@ -126,6 +136,10 @@ const handleResponseError = (
   logout: () => void,
   navigate: ReturnType<typeof useNavigate>
 ) => {
+  if ((err as AuthRefreshError).__authRefreshFailed) {
+    return Promise.reject(err);
+  }
+
   const status = (err as { response?: { status?: number } })?.response?.status;
   const url = String((err as { config?: { url?: string } })?.config?.url || '');
 
@@ -166,6 +180,18 @@ export function useAuthInterceptors({
   const navigate = useNavigate();
   const locationRef = useRef(window.location);
 
+  const getCurrentAccessTokenRef = useRef(getCurrentAccessToken);
+  const isTokenFreshRef = useRef(isTokenFresh);
+  const ensureValidAccessTokenRef = useRef(ensureValidAccessToken);
+  const logoutRef = useRef(logout);
+
+  useEffect(() => {
+    getCurrentAccessTokenRef.current = getCurrentAccessToken;
+    isTokenFreshRef.current = isTokenFresh;
+    ensureValidAccessTokenRef.current = ensureValidAccessToken;
+    logoutRef.current = logout;
+  }, [ensureValidAccessToken, getCurrentAccessToken, isTokenFresh, logout]);
+
   useEffect(() => {
     const updateLocation = () => {
       locationRef.current = window.location;
@@ -175,22 +201,17 @@ export function useAuthInterceptors({
   }, []);
 
   useEffect(() => {
-    const addAuthHeader = (config: { headers?: Record<string, string> }, token: string) => {
-      config.headers = {
-        ...(config.headers || {}),
-        Authorization: `Bearer ${token}`,
-      };
+    const addAuthHeader = (config: InternalAxiosRequestConfig, token: string) => {
+      config.headers.set('Authorization', `Bearer ${token}`);
     };
 
-    const handleTokenRefresh = async (config: { headers?: Record<string, string> }) => {
-      try {
-        const newToken = await ensureValidAccessToken();
-        if (newToken) {
-          addAuthHeader(config, newToken);
-        }
-      } catch (err) {
-        console.error('Token refresh failed:', err);
+    const handleTokenRefresh = async (config: InternalAxiosRequestConfig) => {
+      const newToken = await ensureValidAccessTokenRef.current();
+      if (newToken) {
+        addAuthHeader(config, newToken);
+        return newToken;
       }
+      throw new Error('Token 刷新失败');
     };
 
     const requestInterceptor = apiClient.interceptors.request.use(async (config) => {
@@ -200,23 +221,30 @@ export function useAuthInterceptors({
         return config;
       }
 
-      const token = getCurrentAccessToken();
-      if (token && isTokenFresh()) {
+      const token = getCurrentAccessTokenRef.current();
+      const tokenFresh = isTokenFreshRef.current();
+
+      if (token && tokenFresh) {
         addAuthHeader(config, token);
         return config;
       }
 
-      await handleTokenRefresh(config);
-      return config;
+      try {
+        await handleTokenRefresh(config);
+        return config;
+      } catch {
+        handleTokenRefreshFailure(locationRef, logoutRef.current, navigate);
+        throw createAuthRefreshError();
+      }
     });
 
     const responseInterceptor = apiClient.interceptors.response.use(handleResponseSuccess, (err) =>
-      handleResponseError(err, locationRef, ensureValidAccessToken, logout, navigate)
+      handleResponseError(err, locationRef, ensureValidAccessTokenRef.current, logoutRef.current, navigate)
     );
 
     return () => {
       apiClient.interceptors.request.eject(requestInterceptor);
       apiClient.interceptors.response.eject(responseInterceptor);
     };
-  }, [ensureValidAccessToken, getCurrentAccessToken, isTokenFresh, logout, navigate]);
+  }, [navigate]);
 }

@@ -100,14 +100,21 @@ const useAuthStore = create<AuthState>()(
         if (!token) return false;
 
         try {
-          const payloadStr = atob(token.split('.')[1]);
+          const parts = token.split('.');
+          if (parts.length !== 3) return false;
+
+          const payload = parts[1];
+          const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+          const padLen = (4 - (base64.length % 4)) % 4;
+          const payloadStr = atob(base64 + '='.repeat(padLen));
+
           const jwtPayloadSchema = z.object({
             exp: z.number(),
           });
-          const payload = safeParseJsonWithSchema(jwtPayloadSchema, payloadStr);
-          if (!payload) return false;
+          const parsed = safeParseJsonWithSchema(jwtPayloadSchema, payloadStr);
+          if (!parsed) return false;
           const now = Date.now() / 1000;
-          return payload.exp > now + TOKEN_EXP_SKEW_MS / 1000;
+          return parsed.exp > now + TOKEN_EXP_SKEW_MS / 1000;
         } catch {
           return false;
         }
