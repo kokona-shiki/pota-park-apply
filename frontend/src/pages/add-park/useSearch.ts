@@ -9,7 +9,7 @@ import {
   parseOSMDisplayName,
   getProvinceNameFromCode,
 } from '../../utils/potaMapping';
-import { buildDisplayName } from '../../utils/poiNameUtils';
+import { buildDisplayName, hasOverlap } from '../../utils/poiNameUtils';
 import { ServiceFactory } from '../../services/ServiceFactory';
 
 export const useSearch = () => {
@@ -96,8 +96,15 @@ export const useSearch = () => {
         throw new Error('未找到匹配的地点');
       }
 
-      // 转换为 MapPOI 类型
-      const pois: MapPOI[] = results.slice(0, 5).map((item, index) => {
+      const filteredResults = results.filter((item) =>
+        hasOverlap(item.displayName || item.address, parkName)
+      );
+
+      if (filteredResults.length === 0) {
+        throw new Error('未找到匹配的地点');
+      }
+
+      const pois: MapPOI[] = filteredResults.slice(0, 5).map((item, index) => {
         const province = item.province || parseOSMDisplayName(item.displayName || item.address)?.province || '';
         const city = item.city || parseOSMDisplayName(item.displayName || item.address)?.city || '';
         const displayName = buildDisplayName(

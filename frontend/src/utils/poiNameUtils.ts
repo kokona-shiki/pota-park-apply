@@ -7,6 +7,18 @@ function containsPlace(name: string, place: string): boolean {
   return name.includes(place) || name.includes(stripSuffix(place));
 }
 
+export function hasOverlap(str1: string, str2: string): boolean {
+  if (!str1 || !str2) return false;
+  const chars1 = new Set(str1);
+  const chars2 = new Set(str2);
+  for (const char of chars1) {
+    if (chars2.has(char)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function buildDisplayName(
   name: string,
   province?: string,

@@ -34,6 +34,13 @@ import { useSearch } from './useSearch';
 import { useSubmitHandler } from './useSubmitHandler';
 import type { Province, MapPOI, PotaParkInfo, ParkTypeOption } from './types';
 import type { ParkApplicationDetail } from '../../types/parkApplication';
+import {
+  mapLocationToProvince,
+  mapAccessMethods,
+  mapActivationMethods,
+  getProvinceCodeFromNames,
+} from '../../utils/potaMapping';
+import { buildDisplayName } from '../../utils/poiNameUtils';
 
 import AlertDialog from '../../components/AlertDialog';
 import { ParkApplicationDetailDialog } from '../../components/ParkApplicationDetailDialog';
@@ -248,6 +255,46 @@ function AddPark() {
     }
   };
 
+  const handlePOISelect = (poi: MapPOI) => {
+    setSelectedPOIId(poi.id);
+    updateFormState({ latitude: String(poi.lat), longitude: String(poi.lon) });
+
+    const parkInfo = potaParks.get(poi.id);
+    if (parkInfo) {
+      const provinceCode = mapLocationToProvince(parkInfo.locationDesc);
+      updateFormState({ province: provinceCode });
+      if (!formState.provinces || formState.provinces.length <= 1) {
+        updateFormState({ provinces: [provinceCode] });
+      }
+      updateFormState({ parkName: parkInfo.name });
+      updateFormState({ parkType: parkInfo.parktypeDesc });
+      updateFormState({ website: parkInfo.website || '' });
+      updateFormState({
+        accessMethods: parkInfo.accessMethods
+          ? mapAccessMethods(parkInfo.accessMethods)
+          : ['汽车', '步行', '其他'],
+      });
+      updateFormState({
+        activationMethods: parkInfo.activationMethods
+          ? mapActivationMethods(parkInfo.activationMethods)
+          : ['步行', '车载', '其他'],
+      });
+      updateFormState({ isPotaPark: true });
+    } else {
+      const isoProvinceCode = getProvinceCodeFromNames(poi.province);
+      const provinceCode = mapLocationToProvince(isoProvinceCode);
+      if (provinceCode) {
+        updateFormState({ province: provinceCode });
+        if (!formState.provinces || formState.provinces.length <= 1) {
+          updateFormState({ provinces: [provinceCode] });
+        }
+      }
+      const formattedName = buildDisplayName(poi.name, poi.province, poi.city);
+      updateFormState({ parkName: formattedName });
+      updateFormState({ isPotaPark: false });
+    }
+  };
+
   const mapBounds = useMemo(() => {
     if (mapPOIs.length === 0) return null;
 
@@ -265,21 +312,7 @@ function AddPark() {
           <POISelector
             mapPOIs={mapPOIs}
             selectedPOIId={selectedPOIId}
-            setSelectedPOIId={setSelectedPOIId}
-            potaParks={potaParks}
-            setProvince={(province: string) => updateFormState({ province })}
-            setProvinces={(provinces: string[]) => updateFormState({ provinces })}
-            provinces={formState.provinces}
-            setParkName={(name: string) => updateFormState({ parkName: name })}
-            setParkType={(type: string) => updateFormState({ parkType: type })}
-            setWebsite={(url: string) => updateFormState({ website: url })}
-            setAccessMethods={(methods: string[]) => updateFormState({ accessMethods: methods })}
-            setActivationMethods={(methods: string[]) =>
-              updateFormState({ activationMethods: methods })
-            }
-            setIsPotaPark={(isPota: boolean) => updateFormState({ isPotaPark: isPota })}
-            setLatitude={(lat: string) => updateFormState({ latitude: lat })}
-            setLongitude={(lon: string) => updateFormState({ longitude: lon })}
+            onPOISelect={handlePOISelect}
             error={error}
             setError={setError}
           />
@@ -544,7 +577,7 @@ function AddPark() {
                   position={[poi.lat, poi.lon]}
                   icon={selectedPOIId === poi.id ? selectedIcon : normalIcon}
                   eventHandlers={{
-                    click: () => setSelectedPOIId(poi.id),
+                    click: () => handlePOISelect(poi),
                   }}
                 />
               ))}
