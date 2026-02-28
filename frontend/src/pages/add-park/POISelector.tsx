@@ -18,6 +18,7 @@ import {
   mapActivationMethods,
   getProvinceCodeFromNames,
 } from '../../utils/potaMapping';
+import { buildDisplayName } from '../../utils/poiNameUtils';
 
 interface POISelectorProps {
   mapPOIs: MapPOI[];
@@ -98,10 +99,8 @@ const POISelector: React.FC<POISelectorProps> = ({
       }
     }
 
-    // 格式化公园名称: <省份><城市><名称>
-    const formattedName = poi.city 
-      ? `${poi.province}${poi.city}${poi.name}`
-      : `${poi.province}${poi.name}`;
+    // 格式化公园名称: 去掉省市后缀后拼接
+    const formattedName = buildDisplayName(poi.name, poi.province, poi.city);
     
     setParkName(formattedName);
     setIsPotaPark(false);

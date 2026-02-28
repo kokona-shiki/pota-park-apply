@@ -9,6 +9,7 @@ import {
   parseOSMDisplayName,
   getProvinceNameFromCode,
 } from '../../utils/potaMapping';
+import { buildDisplayName } from '../../utils/poiNameUtils';
 import { ServiceFactory } from '../../services/ServiceFactory';
 
 export const useSearch = () => {
@@ -89,21 +90,28 @@ export const useSearch = () => {
 
     try {
       const mapService = ServiceFactory.createMapService();
-      const results = await mapService.geocode(parkName, { limit: 10 });
+      const results = await mapService.geocode(parkName, { limit: 5 });
 
       if (!results || results.length === 0) {
         throw new Error('未找到匹配的地点');
       }
 
       // 转换为 MapPOI 类型
-      const pois: MapPOI[] = results.map((item, index) => {
-        const parsed = parseOSMDisplayName(item.displayName || item.address);
+      const pois: MapPOI[] = results.slice(0, 5).map((item, index) => {
+        const province = item.province || parseOSMDisplayName(item.displayName || item.address)?.province || '';
+        const city = item.city || parseOSMDisplayName(item.displayName || item.address)?.city || '';
+        const displayName = buildDisplayName(
+          item.displayName || item.address,
+          province,
+          city
+        );
+
         return {
-          id: index, // 使用索引作为 ID，因为 geocode 结果没有 place_id
+          id: index,
           name: item.displayName || item.address,
-          displayName: item.displayName || item.address,
-          province: parsed?.province || '',
-          city: parsed?.city || '',
+          displayName,
+          province,
+          city,
           lat: item.location.latitude,
           lon: item.location.longitude,
         };

@@ -58,6 +58,8 @@ export interface GeocodingResult {
   address: string;
   location: Location;
   displayName?: string;
+  province?: string;
+  city?: string;
   boundingBox?: {
     south: number;
     west: number;

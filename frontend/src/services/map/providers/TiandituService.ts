@@ -49,10 +49,11 @@ export class TiandituService implements IMapService {
   async geocode(query: string, options: GeocodingOptions = {}): Promise<GeocodingResult[]> {
     const postStr = JSON.stringify({
       keyWord: query,
-      queryType: '1',
+      queryType: '7',
       count: options.limit || 10,
       start: 0,
       mapBound: CHINA_MAP_BOUND,
+      show: '2',
       level: 12,
     });
 
@@ -80,6 +81,8 @@ export class TiandituService implements IMapService {
           longitude: Number.parseFloat(lon),
         },
         displayName: poi.name,
+        province: poi.province,
+        city: poi.city,
       };
     });
   }
