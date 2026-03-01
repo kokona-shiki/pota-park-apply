@@ -1,0 +1,22 @@
+curl 'https://parksontheair.auth.us-east-2.amazoncognito.com/logout?client_id=7hluqct0n2nckib7i7sd5753oa&logout_uri=https%3A%2F%2Fpota.app%2F' \
+  -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' \
+  -H 'accept-language: zh-CN,zh;q=0.9,ar-EG;q=0.8,ar;q=0.7,zh-TW;q=0.6,en-US;q=0.5,en;q=0.4,zh-HK;q=0.3,ja-JP;q=0.2,ja;q=0.1' \
+  -H 'cache-control: no-cache' \
+  -b 'csrf-state=""; csrf-state-legacy=""; XSRF-TOKEN=ef4273c9-df0f-4d83-9b6d-efa7afa6e297; cognito="H4sIAAAAAAAAAAHeACH/4uS8bMjNogt0H/0cE48GyiC3FMnJ6t3eFf03bfWNk2x74C9DYyb6Fv4Or3qRu93trjTYDB4VFjbALh2Qc9ogFPh9NbqIxCKmQqdbVIcZn81hIgXRgT82lIAmImarJbMiBrdb1tBrilIxiTjjqWeIDqOB0LaY3PgUdeD/J+Z1Ai7dF/fXXxbCc8nqMNkUdWUJYzVvpMqEMM00YzJcgq5JMVwbhK6UrFziIFNJ+Ebh8nK8C7ryZ2nN+AXjpJrfHKxp+cP8tDAIT4l0U9P4JDEaDEY4mPrKz3mPLk56pAKv8Ibddt4AAAA=.H4sIAAAAAAAAAHvKsNMzTKRDTskiJzam3GXKtiXXdhhm/Eu7t9j85XEhnb0A4sQSziAAAAA=.3"' \
+  -H 'dnt: 1' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=0, i' \
+  -H 'referer: https://pota.app/' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: document' \
+  -H 'sec-fetch-mode: navigate' \
+  -H 'sec-fetch-site: cross-site' \
+  -H 'sec-fetch-user: ?1' \
+  -H 'upgrade-insecure-requests: 1' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+
+response:
+302 Location: https://pota.app/
+

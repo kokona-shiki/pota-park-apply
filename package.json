@@ -1,0 +1,38 @@
+{
+  "name": "pota-park-apply",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@8.15.0",
+  "type": "module",
+  "scripts": {
+    "dev:frontend": "pnpm --filter ./frontend dev",
+    "dev:backend": "pnpm --filter ./backend dev",
+    "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
+    "build": "pnpm --filter ./frontend build",
+    "lint": "eslint .",
+    "lint:frontend": "pnpm --filter ./frontend lint",
+    "typecheck": "concurrently \"pnpm --filter ./frontend typecheck\" \"pnpm --filter ./backend typecheck\"",
+    "clean": "pnpm -r clean",
+    "reinstall": "pnpm -r clean && pnpm install"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@types/jest": "^30.0.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "http-proxy-middleware": "^3.0.5",
+    "jest": "^30.2.0",
+    "jsdom": "^27.4.0",
+    "ts-jest": "^29.4.6",
+    "typescript-eslint": "^8.52.0"
+  },
+  "dependencies": {
+    "@mui/x-data-grid": "^7.0.0",
+    "zod": "^4.3.5"
+  }
+}

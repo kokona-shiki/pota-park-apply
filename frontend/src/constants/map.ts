@@ -1,0 +1,1 @@
+export const DEFAULT_DETAIL_MAP_ZOOM = 13;

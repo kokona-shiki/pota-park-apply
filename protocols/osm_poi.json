@@ -1,0 +1,16 @@
+{
+  "place_id": 219360578,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "way",
+  "osm_id": 434881911,
+  "lat": "22.1474515",
+  "lon": "113.4433813",
+  "class": "leisure",
+  "type": "park",
+  "place_rank": 24,
+  "importance": 0.0800771885252155,
+  "addresstype": "park",
+  "name": "横琴花海长廊",
+  "display_name": "横琴花海长廊, 横琴粤澳深度合作区, 香洲区, 珠海市, 广东省, 519000, 中国",
+  "boundingbox": ["22.1381074", "22.1636597", "113.4371455", "113.4570577"]
+}

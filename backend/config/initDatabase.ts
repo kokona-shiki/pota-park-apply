@@ -1,0 +1,1278 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { query, getOne } from './database.js';
+import { hashPassword, normalizeEmail, normalizeCallsign } from '../utils/auth.js';
+
+// 加载区域数据
+const loadRegionData = async (): Promise<Array<{ code: string; name: string }>> => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const regionPath = path.resolve(__dirname, '../../shared/region.json');
+  const content = await fs.readFile(regionPath, 'utf8');
+  const parsed = JSON.parse(content);
+
+  if (!Array.isArray(parsed)) {
+    throw new TypeError('shared/region.json 格式不正确，期望数组');
+  }
+
+  return parsed;
+};
+
+// 创建所有数据库表
+export const createTables = async (): Promise<void> => {
+  console.warn('🚀 开始创建数据库表...');
+
+  try {
+    // 0. 扩展与全文检索配置
+    await query('CREATE EXTENSION IF NOT EXISTS postgis');
+    // 避免本地/容器缺少 chinese 配置导致索引创建失败：先用 simple 复制一个占位配置
+    // 注意：PostgreSQL 不支持 `CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS ...`
+    await query(`
+      DO $$
+      BEGIN
+        -- Postgres 没有 IF NOT EXISTS 语法；这里用异常吞掉“已存在”的情况
+        CREATE TEXT SEARCH CONFIGURATION chinese ( COPY = simple );
+      EXCEPTION
+        WHEN duplicate_object OR unique_violation THEN NULL;
+      END
+      $$;
+    `);
+
+    // 0.1 初始化元信息（用于后续快速判断“已初始化”）
+    await query(`
+      CREATE TABLE IF NOT EXISTS app_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // schema_version：后续如果表结构有不兼容变更，升级这个版本号即可触发全量初始化
+    // 版本 4: 添加 POTA 认证相关表（pota_pkce, pota_tokens）
+    // 版本 5: 添加用户级别的 POTA 加密盐值（pota_encryption_salt）
+    // 版本 8: 添加 POTA 未处理公园表（pota_unprocessed_parks）
+    // 版本 11: 更新审核日志 action 从 'pota_synced' 到 'pota_imported'
+    // 版本 12: 添加邮箱验证码表（email_verification_tokens）
+    // 版本 13: 添加通知表（notifications, notification_drafts）
+    await query(`
+      INSERT INTO app_meta (key, value)
+      VALUES ('schema_version', '13')
+      ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value,
+          updated_at = CURRENT_TIMESTAMP
+    `);
+
+    // 1. 权限表
+    await query(`
+      CREATE TABLE IF NOT EXISTS permissions (
+        id SERIAL PRIMARY KEY,
+        permission_code VARCHAR(50) UNIQUE NOT NULL,
+        description VARCHAR(255) NOT NULL
+      )
+    `);
+
+    // 2. 省份表
+    await query(`
+      CREATE TABLE IF NOT EXISTS provinces (
+        id SERIAL PRIMARY KEY,
+        iso_code VARCHAR(10) UNIQUE NOT NULL,
+        zh_name VARCHAR(50) NOT NULL,
+        en_name VARCHAR(50) NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true
+      )
+    `);
+
+    // 3. 用户表
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        callsign VARCHAR(20) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'user'
+          CHECK (role IN ('system_admin', 'pota_representative', 'park_reviewer', 'user', 'banned')),
+        
+        -- 状态信息
+        is_active BOOLEAN DEFAULT true,
+        last_login TIMESTAMP WITH TIME ZONE,
+        
+        -- POTA 加密相关
+        pota_encryption_salt TEXT,
+        
+        -- 时间戳
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 4. 角色权限表
+    await query(`
+      CREATE TABLE IF NOT EXISTS role_permissions (
+        role VARCHAR(20) NOT NULL,
+        permission_id INTEGER NOT NULL REFERENCES permissions(id),
+        PRIMARY KEY (role, permission_id)
+      )
+    `);
+
+    // 5. 呼号变更申请表
+    await query(`
+      CREATE TABLE IF NOT EXISTS callsign_change_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        
+        -- 变更信息
+        current_callsign VARCHAR(20) NOT NULL,
+        requested_callsign VARCHAR(20) NOT NULL,
+        reason TEXT NOT NULL,
+        
+        -- 审核信息
+        status VARCHAR(20) NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'rejected')),
+        reviewer_id INTEGER REFERENCES users(id),
+        review_notes TEXT,
+        reviewed_at TIMESTAMP WITH TIME ZONE,
+        
+        -- 时间戳
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 6. 用户信息修改记录表
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_info_changes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        
+        -- 修改信息
+        field_name VARCHAR(50) NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        change_reason TEXT,
+        
+        -- 状态信息
+        status VARCHAR(20) NOT NULL DEFAULT 'completed'
+          CHECK (status IN ('pending', 'completed', 'rejected')),
+        approved_by INTEGER REFERENCES users(id),
+        notes TEXT,
+        
+        -- 时间戳
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        -- 约束
+        CONSTRAINT valid_fields CHECK (field_name IN ('email', 'password_hash', 'callsign'))
+      )
+    `);
+
+    // 6.1 Refresh Token（随机串 + 落库 + rotation + 重放检测）
+    await query(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        family_id UUID NOT NULL,
+        token_hash TEXT UNIQUE NOT NULL,
+
+        issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP WITH TIME ZONE,
+
+        -- sliding 15 天
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        -- absolute 90 天
+        absolute_expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+
+        revoked_at TIMESTAMP WITH TIME ZONE,
+        replaced_by INTEGER REFERENCES refresh_tokens(id),
+
+        user_agent TEXT,
+        ip INET
+      )
+    `);
+
+    // 6.2 用户管理审计日志（封禁/解封不需要理由；修改角色必须理由，由业务层约束）
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_admin_audit_logs (
+        id SERIAL PRIMARY KEY,
+        action VARCHAR(50) NOT NULL
+          CHECK (action IN ('user_role_changed', 'user_disabled', 'user_enabled', 'refresh_token_reuse_detected')),
+
+        operator_id INTEGER REFERENCES users(id),
+        target_user_id INTEGER REFERENCES users(id),
+
+        old_role VARCHAR(20),
+        new_role VARCHAR(20),
+        old_is_active BOOLEAN,
+        new_is_active BOOLEAN,
+
+        reason TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 6.3 邮箱验证码表
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_verification_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        email VARCHAR(255) NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        verified_at TIMESTAMP WITH TIME ZONE,
+        attempts INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id 
+      ON email_verification_tokens(user_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_email 
+      ON email_verification_tokens(email)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_code 
+      ON email_verification_tokens(code)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires_at 
+      ON email_verification_tokens(expires_at)
+    `);
+
+    // 7. 公园申请表
+    await query(`
+      CREATE TABLE IF NOT EXISTS park_applications (
+        id SERIAL PRIMARY KEY,
+        park_name VARCHAR(255) NOT NULL,
+        park_type VARCHAR(100),
+        provinces JSONB NOT NULL DEFAULT '[]'::jsonb,
+        
+        -- WGS84 地理位置信息
+        location GEOMETRY(GEOMETRY, 4326) NOT NULL,
+        latitude DECIMAL(10, 8) NOT NULL,
+        longitude DECIMAL(11, 8) NOT NULL,
+        
+        -- 基本信息
+        website VARCHAR(500),
+        description TEXT,
+        
+        -- 访问和激活方法 - JSONB 格式存储
+        access_methods JSONB NOT NULL DEFAULT '[]',
+        activation_methods JSONB NOT NULL DEFAULT '[]',
+        
+        -- 申请和状态信息
+        applicant_id INTEGER NOT NULL REFERENCES users(id),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'approved', 'pota_synced', 'rejected')),
+        rejection_reason TEXT,
+        
+        -- POTA 录入信息
+        pota_synced_at TIMESTAMP WITH TIME ZONE,
+        pota_synced_by INTEGER REFERENCES users(id),
+        pota_notes TEXT,
+        pota_id VARCHAR(20) UNIQUE,
+        
+        -- 确认信息
+        confirmed_authenticity BOOLEAN NOT NULL DEFAULT false,
+        
+        -- 时间戳
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        -- 约束
+        CONSTRAINT valid_lat_range CHECK (latitude BETWEEN -90 AND 90),
+        CONSTRAINT valid_lng_range CHECK (longitude BETWEEN -180 AND 180)
+      )
+    `);
+
+    // 兼容旧 schema：移除早期版本遗留的 dx_entity 字段（现已废弃）
+    await query(`ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity`);
+
+    // 8. 申请审核记录表
+    await query(`
+      CREATE TABLE IF NOT EXISTS application_audit_logs (
+        id SERIAL PRIMARY KEY,
+        application_id INTEGER NOT NULL REFERENCES park_applications(id) ON DELETE CASCADE,
+        
+        -- 操作信息
+        action VARCHAR(50) NOT NULL
+          CHECK (action IN ('submitted', 'approved', 'rejected', 'reverted_approved', 'reverted_rejected', 'pota_imported')),
+        
+        -- 操作者信息
+        operator_id INTEGER NOT NULL REFERENCES users(id),
+        operator_role VARCHAR(20) NOT NULL,
+        
+        -- 状态变化
+        old_status VARCHAR(20),
+        new_status VARCHAR(20),
+        
+        -- 操作详情
+        notes TEXT,
+        
+        -- 时间戳
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 9. 审核提醒表
+    await query(`
+      CREATE TABLE IF NOT EXISTS review_reminders (
+        id SERIAL PRIMARY KEY,
+        application_id INTEGER NOT NULL REFERENCES park_applications(id) ON DELETE CASCADE,
+        reminded_by INTEGER NOT NULL REFERENCES users(id),
+        reminded_to INTEGER REFERENCES users(id),
+        reminder_type VARCHAR(50) NOT NULL DEFAULT 'general'
+          CHECK (reminder_type IN ('general', 'urgent', 'escalated')),
+        notes TEXT,
+        is_acknowledged BOOLEAN DEFAULT false,
+        acknowledged_at TIMESTAMP WITH TIME ZONE,
+        acknowledged_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 10. POTA PKCE 参数临时存储表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_pkce (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        code_verifier TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 11. POTA Token 存储表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_tokens (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        id_token_encrypted TEXT NOT NULL,
+        access_token_encrypted TEXT,
+        refresh_token_encrypted TEXT NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 12. POTA 未处理公园表
+    await query(`
+      CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
+        reference TEXT PRIMARY KEY,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 13. 通知表
+    await query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        link_url VARCHAR(500),
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        metadata JSONB,
+        is_global BOOLEAN DEFAULT false,
+        notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+        popup_dismissed BOOLEAN DEFAULT false,
+        status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
+        published_at TIMESTAMP WITH TIME ZONE,
+        published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        scheduled_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS notification_drafts (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        link_url VARCHAR(500),
+        notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+        scheduled_at TIMESTAMP WITH TIME ZONE,
+        created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.warn('✅ 数据库表创建完成');
+  } catch (error) {
+    console.error('❌ 创建数据库表失败:', error);
+    throw error;
+  }
+};
+
+// 创建索引
+export const createIndexes = async (): Promise<void> => {
+  console.warn('🔍 开始创建索引...');
+
+  try {
+    // 用户表索引
+    await query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+    await query('CREATE INDEX IF NOT EXISTS idx_users_callsign ON users(callsign)');
+    await query('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)');
+
+    // 省份表索引
+    await query('CREATE INDEX IF NOT EXISTS idx_provinces_iso_code ON provinces(iso_code)');
+    await query('CREATE INDEX IF NOT EXISTS idx_provinces_active ON provinces(is_active)');
+
+    // 公园申请表索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_park_location_4326 ON park_applications USING GIST (location)'
+    );
+    await query(
+      "CREATE INDEX IF NOT EXISTS idx_park_name_text ON park_applications USING GIN (to_tsvector('chinese', park_name))"
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_applicant_status ON park_applications(applicant_id, status)'
+    );
+
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_park_applications_provinces ON park_applications USING GIN (provinces)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_coordinates ON park_applications(latitude, longitude)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_access_methods ON park_applications USING GIN (access_methods)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_activation_methods ON park_applications USING GIN (activation_methods)'
+    );
+
+    // 审核记录表索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_application ON application_audit_logs (application_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_operator ON application_audit_logs (operator_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_audit_action ON application_audit_logs (action, created_at DESC)'
+    );
+    await query('CREATE INDEX IF NOT EXISTS idx_park_pota_id ON park_applications(pota_id)');
+
+    // 呼号变更申请表索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_user ON callsign_change_requests (user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_status ON callsign_change_requests (status, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_callsign_requests_callsign ON callsign_change_requests (requested_callsign)'
+    );
+
+    // 用户信息修改记录表索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_changes_user ON user_info_changes (user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_changes_field ON user_info_changes (field_name, status, created_at DESC)'
+    );
+
+    // Refresh token 索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id, revoked_at, expires_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id, revoked_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_absolute_exp ON refresh_tokens (absolute_expires_at)'
+    );
+
+    // 用户管理审计日志索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_target ON user_admin_audit_logs (target_user_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_operator ON user_admin_audit_logs (operator_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_user_admin_audit_action ON user_admin_audit_logs (action, created_at DESC)'
+    );
+
+    // 审核提醒表索引
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_reminder_application ON review_reminders (application_id, created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_reminder_to ON review_reminders (reminded_to, is_acknowledged, created_at DESC)'
+    );
+
+    // POTA 相关索引
+    await query('CREATE INDEX IF NOT EXISTS idx_pota_pkce_user ON pota_pkce (user_id, created_at)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_pota_tokens_user ON pota_tokens (user_id, expires_at)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at ON pota_unprocessed_parks (created_at DESC)'
+    );
+
+    // 通知表索引
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)');
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_is_global ON notifications(is_global)'
+    );
+    await query('CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status)');
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode ON notifications(notification_mode)'
+    );
+    await query(
+      'CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by ON notification_drafts(created_by)'
+    );
+
+    console.warn('✅ 索引创建完成');
+  } catch (error) {
+    console.error('❌ 创建索引失败:', error);
+    throw error;
+  }
+};
+
+// 创建触发器和函数
+export const createFunctionsAndTriggers = async (): Promise<void> => {
+  console.warn('⚙️ 开始创建函数和触发器...');
+
+  try {
+    // 1. 自动更新 updated_at 的函数
+    await query(`
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    // 2. 应用 updated_at 触发器
+    await query(`
+      DROP TRIGGER IF EXISTS update_users_updated_at ON users
+    `);
+    await query(`
+      CREATE TRIGGER update_users_updated_at 
+      BEFORE UPDATE ON users 
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    await query(`
+      DROP TRIGGER IF EXISTS update_park_applications_updated_at ON park_applications
+    `);
+    await query(`
+      CREATE TRIGGER update_park_applications_updated_at 
+      BEFORE UPDATE ON park_applications 
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    await query(`
+      DROP TRIGGER IF EXISTS update_callsign_requests_updated_at ON callsign_change_requests
+    `);
+    await query(`
+      CREATE TRIGGER update_callsign_requests_updated_at 
+      BEFORE UPDATE ON callsign_change_requests 
+      FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    // 3. 权限检查函数
+    await query(`
+      CREATE OR REPLACE FUNCTION user_has_permission(
+        p_user_id INTEGER,
+        p_permission_code VARCHAR(50)
+      ) RETURNS BOOLEAN AS $$
+      DECLARE
+        has_perm BOOLEAN;
+      BEGIN
+        SELECT COUNT(*) > 0 INTO has_perm
+        FROM users u
+        JOIN role_permissions rp ON u.role = rp.role
+        JOIN permissions p ON rp.permission_id = p.id
+        WHERE u.id = p_user_id 
+          AND u.is_active = true
+          AND p.permission_code = p_permission_code;
+        
+        RETURN has_perm;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    // 4. 用户信息修改权限检查函数
+    await query(`
+      CREATE OR REPLACE FUNCTION can_modify_user_info(
+        p_operator_id INTEGER,
+        p_target_user_id INTEGER,
+        p_field VARCHAR(50)
+      ) RETURNS BOOLEAN AS $$
+      DECLARE
+        operator_role VARCHAR(20);
+      BEGIN
+        -- 获取操作者角色
+        SELECT role INTO operator_role FROM users WHERE id = p_operator_id AND is_active = true;
+        
+        -- 系统管理员可以修改所有信息
+        IF operator_role = 'system_admin' THEN
+          RETURN TRUE;
+        END IF;
+        
+        -- 普通用户只能修改自己的基本信息（非角色、非呼号变更）
+        IF p_operator_id = p_target_user_id THEN
+          IF p_field IN ('email', 'password_hash') THEN
+            RETURN TRUE;
+          END IF;
+        END IF;
+        
+        -- 呼号变更需要特殊权限
+        IF p_field = 'callsign' THEN
+          RETURN user_has_permission(p_operator_id, 'approve_callsign_change');
+        END IF;
+        
+        RETURN FALSE;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    console.warn('✅ 函数和触发器创建完成');
+  } catch (error) {
+    console.error('❌ 创建函数和触发器失败:', error);
+    throw error;
+  }
+};
+
+const migrateSchemaFrom2To3 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：2 -> 3（移除 dx_entity）...');
+  await query('DROP INDEX IF EXISTS idx_dx_entity');
+  await query('ALTER TABLE IF EXISTS park_applications DROP COLUMN IF EXISTS dx_entity');
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '3')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=3）');
+};
+
+const migrateSchemaFrom3To4 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：3 -> 4（添加 POTA 认证表）...');
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_pkce (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      code_verifier TEXT NOT NULL,
+      state TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_tokens (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      id_token_encrypted TEXT NOT NULL,
+      access_token_encrypted TEXT,
+      refresh_token_encrypted TEXT NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '4')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+  console.warn('✅ schema 迁移完成（schema_version=4）');
+};
+
+const migrateSchemaFrom4To5 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：4 -> 5（添加用户级别的 POTA 加密盐值）...');
+
+  await query(`
+    ALTER TABLE users 
+    ADD COLUMN IF NOT EXISTS pota_encryption_salt TEXT
+  `);
+
+  await query(`
+    UPDATE users 
+    SET pota_encryption_salt = gen_random_bytes(32)::TEXT 
+    WHERE pota_encryption_salt IS NULL
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '5')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=5）');
+};
+
+const migrateSchemaFrom5To6 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：5 -> 6（添加 POTA 导入权限）...');
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES ('pota_import', 'POTA 公园数据导入权限')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'pota_representative', p.id
+    FROM permissions p
+    WHERE p.permission_code = 'pota_import'
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '6')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=6）');
+};
+
+const migrateSchemaFrom6To7 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：6 -> 7（添加 POTA 未处理公园表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS pota_unprocessed_parks (
+      reference TEXT PRIMARY KEY,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_pota_unprocessed_created_at
+    ON pota_unprocessed_parks (created_at DESC)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '7')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=7）');
+};
+
+const migrateSchemaFrom7To8 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：7 -> 8（添加 pota_park_type 字段）...');
+
+  await query(`
+    ALTER TABLE park_applications 
+    ADD COLUMN IF NOT EXISTS pota_park_type VARCHAR(255)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '8')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=8）');
+};
+
+const migrateSchemaFrom8To9 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：8 -> 9（添加 pota_id 字段）...');
+
+  await query(`
+    ALTER TABLE park_applications 
+    ADD COLUMN IF NOT EXISTS pota_id VARCHAR(20) UNIQUE
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_park_pota_id 
+    ON park_applications(pota_id)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '9')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=9）');
+};
+
+const migrateSchemaFrom9To10 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：9 -> 10（添加导出权限和审计日志表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS export_audit_logs (
+      id SERIAL PRIMARY KEY,
+      file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('csv', 'kmz')),
+      park_count INTEGER NOT NULL,
+      exported_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      exported_by_callsign VARCHAR(50),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES ('export_parks', '导出公园数据权限')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'pota_representative', p.id
+    FROM permissions p
+    WHERE p.permission_code = 'export_parks'
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '10')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=10）');
+};
+
+const migrateSchemaFrom10To11 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：10 -> 11（更新审核日志 action）...');
+
+  await query(`
+    UPDATE application_audit_logs
+    SET action = 'pota_imported'
+    WHERE action = 'pota_synced'
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '11')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=11）');
+};
+
+const migrateSchemaFrom11To12 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：11 -> 12（添加邮箱验证码表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      email VARCHAR(255) NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      verified_at TIMESTAMP WITH TIME ZONE,
+      attempts INTEGER DEFAULT 0,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id 
+    ON email_verification_tokens(user_id)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_email 
+    ON email_verification_tokens(email)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_code 
+    ON email_verification_tokens(code)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_expires_at 
+    ON email_verification_tokens(expires_at)
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '12')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=12）');
+};
+
+const migrateSchemaFrom12To13 = async (): Promise<void> => {
+  console.warn('🛠️  迁移数据库 schema：12 -> 13（添加通知表）...');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      link_url VARCHAR(500),
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      metadata JSONB,
+      is_global BOOLEAN DEFAULT false,
+      notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+      popup_dismissed BOOLEAN DEFAULT false,
+      status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'published', 'withdrawn')),
+      published_at TIMESTAMP WITH TIME ZONE,
+      published_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      scheduled_at TIMESTAMP WITH TIME ZONE
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_id 
+    ON notifications(user_id)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_read 
+    ON notifications(is_read)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_created_at 
+    ON notifications(created_at DESC)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_global 
+    ON notifications(is_global)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_status 
+    ON notifications(status)
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_notification_mode 
+    ON notifications(notification_mode)
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS notification_drafts (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      link_url VARCHAR(500),
+      notification_mode VARCHAR(20) DEFAULT 'normal' CHECK (notification_mode IN ('normal', 'popup')),
+      scheduled_at TIMESTAMP WITH TIME ZONE,
+      created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_notification_drafts_created_by 
+    ON notification_drafts(created_by)
+  `);
+
+  await query(`
+    INSERT INTO permissions (permission_code, description)
+    VALUES 
+      ('create_global_notification', '创建全局通知'),
+      ('edit_global_notification', '编辑全局通知'),
+      ('publish_global_notification', '发布全局通知'),
+      ('withdraw_global_notification', '撤回全局通知'),
+      ('view_global_notifications', '查看全局通知列表')
+    ON CONFLICT (permission_code) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO role_permissions (role, permission_id)
+    SELECT 'system_admin', p.id
+    FROM permissions p
+    WHERE p.permission_code IN (
+      'create_global_notification',
+      'edit_global_notification',
+      'publish_global_notification',
+      'withdraw_global_notification',
+      'view_global_notifications'
+    )
+    ON CONFLICT (role, permission_id) DO NOTHING
+  `);
+
+  await query(`
+    INSERT INTO app_meta (key, value)
+    VALUES ('schema_version', '13')
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+  `);
+
+  console.warn('✅ schema 迁移完成（schema_version=13）');
+};
+
+export const migrateSchemaToLatest = async (): Promise<void> => {
+  try {
+    interface AppMeta {
+      value: string;
+    }
+
+    const schemaVersion = await getOne<AppMeta>(
+      `SELECT value FROM app_meta WHERE key = 'schema_version'`
+    );
+    const v = schemaVersion?.value;
+
+    if (!v || v === '13') {
+      return;
+    }
+
+    const migrationMap: Record<string, () => Promise<void>> = {
+      '2': migrateSchemaFrom2To3,
+      '3': migrateSchemaFrom3To4,
+      '4': migrateSchemaFrom4To5,
+      '5': migrateSchemaFrom5To6,
+      '6': migrateSchemaFrom6To7,
+      '7': migrateSchemaFrom7To8,
+      '8': migrateSchemaFrom8To9,
+      '9': migrateSchemaFrom9To10,
+      '10': migrateSchemaFrom10To11,
+      '11': migrateSchemaFrom11To12,
+      '12': migrateSchemaFrom12To13,
+    };
+
+    const migrationFn = migrationMap[v];
+    if (migrationFn) {
+      await migrationFn();
+    } else {
+      console.warn(`⚠️ 未识别的 schema_version: ${String(v)}`);
+    }
+  } catch (error) {
+    console.error('❌ schema 迁移失败:', error);
+    throw error;
+  }
+};
+
+export const ensureInitialSystemAdmin = async (): Promise<void> => {
+  const existingAdmin = await getOne(`
+    SELECT id, email, callsign
+    FROM users
+    WHERE role = 'system_admin'
+    LIMIT 1
+  `);
+
+  if (existingAdmin) {
+    return;
+  }
+
+  const emailEnv = process.env.INIT_ADMIN_EMAIL;
+  const callsignEnv = process.env.INIT_ADMIN_CALLSIGN;
+  const passwordEnv = process.env.INIT_ADMIN_PASSWORD;
+
+  if (!emailEnv || !callsignEnv || !passwordEnv) {
+    console.warn(
+      '⚠️ 未检测到初始系统管理员 env（INIT_ADMIN_EMAIL / INIT_ADMIN_CALLSIGN / INIT_ADMIN_PASSWORD），且数据库内不存在 system_admin。\n' +
+        '   你可以在 .env（或容器环境变量）中配置这三个值，以便首次初始化时自动创建初始系统管理员。'
+    );
+    return;
+  }
+
+  const email = normalizeEmail(emailEnv);
+  const callsign = normalizeCallsign(callsignEnv);
+  const passwordHash = await hashPassword(passwordEnv);
+
+  // 若用户已存在（可能是先注册了），则提升为系统管理员并重置密码（以 env 为准）
+  interface User {
+    id: string;
+    email: string;
+    callsign: string;
+  }
+
+  const existingUser = await getOne<User>(
+    `
+      SELECT id, email, callsign
+      FROM users
+      WHERE lower(email) = lower($1) OR upper(callsign) = upper($2)
+      LIMIT 1
+    `,
+    [email, callsign]
+  );
+
+  if (existingUser) {
+    await query(
+      `
+        UPDATE users
+        SET role = 'system_admin',
+            is_active = true,
+            password_hash = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `,
+      [existingUser.id, passwordHash]
+    );
+
+    console.warn(
+      `✅ 已将用户提升为初始系统管理员: ${existingUser.callsign} <${existingUser.email}>`
+    );
+    return;
+  }
+
+  await query(
+    `
+      INSERT INTO users (email, callsign, password_hash, role, is_active)
+      VALUES ($1, $2, $3, 'system_admin', true)
+    `,
+    [email, callsign, passwordHash]
+  );
+
+  console.warn(`✅ 已创建初始系统管理员: ${callsign} <${email}>`);
+};
+
+// 初始化基础数据
+export const initializeData = async (): Promise<void> => {
+  console.warn('📝 开始初始化基础数据...');
+
+  try {
+    // 1. 初始化权限数据
+    await query(`
+      INSERT INTO permissions (permission_code, description) VALUES
+      ('create_user', '创建用户'),
+      ('modify_user_info', '修改用户信息'),
+      ('modify_user_role', '修改用户角色'),
+      ('delete_user', '删除用户'),
+      ('approve_callsign_change', '批准呼号变更'),
+      ('view_all_users', '查看所有用户'),
+      ('submit_application', '发起申请'),
+      ('view_application_list', '查看申请列表'),
+      ('view_application_detail', '查看申请详情'),
+      ('review_application', '审核申请'),
+      ('remind_review', '提醒审核'),
+      ('sync_to_pota', '将公园数据录入到POTA系统'),
+      ('pota_import', 'POTA公园导入权限'),
+      ('create_global_notification', '创建全局通知'),
+      ('edit_global_notification', '编辑全局通知'),
+      ('publish_global_notification', '发布全局通知'),
+      ('withdraw_global_notification', '撤回全局通知'),
+      ('view_global_notifications', '查看全局通知列表')
+      ON CONFLICT (permission_code) DO NOTHING
+    `);
+
+    // 2. 初始化角色权限（不要依赖 permissions.id 的固定自增顺序，用 permission_code 关联）
+    await query(`
+      WITH role_perm(role, permission_code) AS (
+        VALUES
+          -- system_admin: 仅用户管理相关权限
+          ('system_admin', 'create_user'),
+          ('system_admin', 'modify_user_info'),
+          ('system_admin', 'modify_user_role'),
+          ('system_admin', 'delete_user'),
+          ('system_admin', 'approve_callsign_change'),
+          ('system_admin', 'view_all_users'),
+          ('system_admin', 'create_global_notification'),
+          ('system_admin', 'edit_global_notification'),
+          ('system_admin', 'publish_global_notification'),
+          ('system_admin', 'withdraw_global_notification'),
+          ('system_admin', 'view_global_notifications'),
+          ('system_admin', 'submit_application'),
+          ('system_admin', 'view_application_list'),
+          ('system_admin', 'view_application_detail'),
+
+          -- pota_representative
+          ('pota_representative', 'submit_application'),
+          ('pota_representative', 'view_application_list'),
+          ('pota_representative', 'view_application_detail'),
+          ('pota_representative', 'review_application'),
+          ('pota_representative', 'remind_review'),
+          ('pota_representative', 'sync_to_pota'),
+          ('pota_representative', 'pota_import'),
+
+          -- park_reviewer
+          ('park_reviewer', 'submit_application'),
+          ('park_reviewer', 'view_application_list'),
+          ('park_reviewer', 'view_application_detail'),
+          ('park_reviewer', 'review_application'),
+          ('park_reviewer', 'remind_review'),
+
+          -- user
+          ('user', 'submit_application'),
+          ('user', 'view_application_list'),
+          ('user', 'view_application_detail')
+      )
+      INSERT INTO role_permissions (role, permission_id)
+      SELECT rp.role, p.id
+      FROM role_perm rp
+      JOIN permissions p ON p.permission_code = rp.permission_code
+      ON CONFLICT (role, permission_id) DO NOTHING
+    `);
+
+    // 3. 初始化省份数据（从 shared/region.json 读取）
+    const regions = await loadRegionData();
+    if (regions.length > 0) {
+      const values = regions
+        .map((_, index) => {
+          const base = index * 4;
+          return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+        })
+        .join(',\n');
+      const params = regions.flatMap((item, index) => [item.code, item.name, item.name, index + 1]);
+
+      await query(
+        `
+          INSERT INTO provinces (iso_code, zh_name, en_name, sort_order)
+          VALUES ${values}
+          ON CONFLICT (iso_code) DO NOTHING
+        `,
+        params
+      );
+    }
+
+    // 4. 确保存在一个 system_admin（通过 env 配置首次管理员账号）
+    await ensureInitialSystemAdmin();
+
+    console.warn('✅ 基础数据初始化完成');
+  } catch (error) {
+    console.error('❌ 初始化基础数据失败:', error);
+    throw error;
+  }
+};
+
+// 完整的数据库初始化
+export const initializeDatabase = async (): Promise<void> => {
+  try {
+    await createTables();
+    await migrateSchemaToLatest();
+    await createIndexes();
+    await createFunctionsAndTriggers();
+    await initializeData();
+    console.warn('🎉 数据库初始化完成！');
+  } catch (error) {
+    console.error('❌ 数据库初始化失败:', error);
+    throw error;
+  }
+};

@@ -1,0 +1,21 @@
+curl 'https://parksontheair.auth.us-east-2.amazoncognito.com/login?redirect_uri=https%3A%2F%2Fpota.app%2F&response_type=code&client_id=7hluqct0n2nckib7i7sd5753oa&identity_provider=COGNITO&scope=&state=VT7EwPAyXrVSvIXuu9uqVS8ktWlYf7fM&code_challenge=zfmJUzHs0VXt1aTvcbEWke6mXUNjUjZvgeeT75470mA&code_challenge_method=S256' \
+  -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' \
+  -H 'accept-language: zh-CN,zh;q=0.9,ar-EG;q=0.8,ar;q=0.7,zh-TW;q=0.6,en-US;q=0.5,en;q=0.4,zh-HK;q=0.3,ja-JP;q=0.2,ja;q=0.1' \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  -b 'XSRF-TOKEN=22bbc01e-7fdc-433c-8b5d-a6f44bf49140; csrf-state=""; csrf-state-legacy=""' \
+  -H 'dnt: 1' \
+  -H 'origin: https://parksontheair.auth.us-east-2.amazoncognito.com' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=0, i' \
+  -H 'referer: https://parksontheair.auth.us-east-2.amazoncognito.com/login?redirect_uri=https%3A%2F%2Fpota.app%2F&response_type=code&client_id=7hluqct0n2nckib7i7sd5753oa&identity_provider=COGNITO&scope=&state=VT7EwPAyXrVSvIXuu9uqVS8ktWlYf7fM&code_challenge=zfmJUzHs0VXt1aTvcbEWke6mXUNjUjZvgeeT75470mA&code_challenge_method=S256' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: document' \
+  -H 'sec-fetch-mode: navigate' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'sec-fetch-user: ?1' \
+  -H 'upgrade-insecure-requests: 1' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  --data-raw '_csrf=22bbc01e-7fdc-433c-8b5d-a6f44bf49140&username=omyshokami%40gmail.com&password=v4w%26%23XSH%40AlNdKxh%40z97&cognitoAsfData=eyJwYXlsb2FkIjoie1wiY29udGV4dERhdGFcIjp7XCJVc2VyQWdlbnRcIjpcIk1vemlsbGEvNS4wIChNYWNpbnRvc2g7IEludGVsIE1hYyBPUyBYIDEwXzE1XzcpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xNDMuMC4wLjAgU2FmYXJpLzUzNy4zNlwiLFwiRGV2aWNlSWRcIjpcImF6M2R0bjFqankwZTlvbXYzejhqOjE2OTQ4NzcyMTk0MjBcIixcIkRldmljZUxhbmd1YWdlXCI6XCJ6aC1DTlwiLFwiRGV2aWNlRmluZ2VycHJpbnRcIjpcIk1vemlsbGEvNS4wIChNYWNpbnRvc2g7IEludGVsIE1hYyBPUyBYIDEwXzE1XzcpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xNDMuMC4wLjAgU2FmYXJpLzUzNy4zNlBERiBWaWV3ZXI6Q2hyb21lIFBERiBWaWV3ZXI6Q2hyb21pdW0gUERGIFZpZXdlcjpNaWNyb3NvZnQgRWRnZSBQREYgVmlld2VyOldlYktpdCBidWlsdC1pbiBQREY6emgtQ05cIixcIkRldmljZVBsYXRmb3JtXCI6XCJNYWNJbnRlbFwiLFwiQ2xpZW50VGltZXpvbmVcIjpcIjA4OjAwXCJ9LFwidXNlcm5hbWVcIjpcIm9teXNob2thbWlAZ21haWwuY29tXCIsXCJ1c2VyUG9vbElkXCI6XCJcIixcInRpbWVzdGFtcFwiOlwiMTc2ODAxODg0MjUzM1wifSIsInNpZ25hdHVyZSI6IkdkN2JHSW55NFAvNkJIVFB6TUNRYW4wZjkwUVNTT3V4QzhyTVlsTFk2ZkE9IiwidmVyc2lvbiI6IkpTMjAxNzExMTUifQ%3D%3D'

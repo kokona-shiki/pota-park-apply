@@ -1,0 +1,18 @@
+curl 'https://pota.app/?code=c011f10d-13ea-4427-ae8e-6fd8c77a2f0a&state=VT7EwPAyXrVSvIXuu9uqVS8ktWlYf7fM' \
+  -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' \
+  -H 'accept-language: zh-CN,zh;q=0.9,ar-EG;q=0.8,ar;q=0.7,zh-TW;q=0.6,en-US;q=0.5,en;q=0.4,zh-HK;q=0.3,ja-JP;q=0.2,ja;q=0.1' \
+  -H 'cache-control: no-cache' \
+  -b 'amplify-redirected-from-hosted-ui=true; amplify-signin-with-hostedUI=true; POTA_SETTINGS=%7B%22darkMode%22%3Afalse%2C%22tableView%22%3Afalse%2C%22userStats%22%3Atrue%2C%22notHunted%22%3Afalse%2C%22highlightNewSpots%22%3Afalse%2C%22callsign%22%3A%22%22%2C%22bandFilter%22%3A%22All%22%2C%22modeFilter%22%3A%22All%22%2C%22programFilter%22%3A%22All%22%2C%22qrtFilter%22%3A%22Show%22%2C%22huntedFilter%22%3A%22Show%22%2C%22spotSort%22%3A%22Time%22%2C%22activationsPeriod%22%3A365%2C%22activationsSort%22%3A%22Time%22%2C%22showRbnInHistory%22%3Atrue%7D' \
+  -H 'dnt: 1' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=0, i' \
+  -H 'referer: https://parksontheair.auth.us-east-2.amazoncognito.com/' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: document' \
+  -H 'sec-fetch-mode: navigate' \
+  -H 'sec-fetch-site: cross-site' \
+  -H 'sec-fetch-user: ?1' \
+  -H 'upgrade-insecure-requests: 1' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'

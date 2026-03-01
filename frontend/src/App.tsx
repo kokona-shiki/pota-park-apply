@@ -1,69 +1,205 @@
-// src/App.jsx
-import React, { useState, createContext, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { Box, Toolbar } from '@mui/material';
-import TopBar from './components/TopBar.tsx';
+import { useState, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
+import { safeParseJsonWithSchema } from './utils/parseJson';
+import { z } from 'zod';
+import { Box, Toolbar, Typography } from '@mui/material';
+import TopBar from './components/TopBar';
 import SideBar from './components/SideBar';
-import Home from './pages/Home';
-import AddPark from './pages/AddPark';
-import ApplicationsList from './pages/ApplicationsList';
-import MyUploads from './pages/MyUploads';
-import ExportPage from './pages/ExportPage';
-import About from './pages/About';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import UserInfo from './pages/UserInfo';
-import AdminPanel from './pages/AdminPanel';
-import axios from 'axios';
+import { PopupNotification } from './components/PopupNotification';
+import { AuthContext } from './auth/context';
+import type { AuthUser } from './auth/context';
+import { useAuthInterceptors } from './hooks/useAuthInterceptors';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
+import { useMultiTabSync } from './hooks/useMultiTabSync';
+import { useAuthInit } from './hooks/useAuthInit';
+import { AppRoutes } from './AppRoutes';
+import { useAuthStore } from './store';
 
-export const AuthContext = createContext();
+function getJwtIatMs(token: string): number | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const payload = parts[1];
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const padLen = (4 - (base64.length % 4)) % 4;
+  const json = atob(base64 + '='.repeat(padLen));
+
+  const JwtPayloadSchema = z.object({
+    iat: z.number(),
+  });
+
+  const parsed = safeParseJsonWithSchema(JwtPayloadSchema, json);
+  if (!parsed) return null;
+  return parsed.iat * 1000;
+}
+
+// 在模块加载时生成唯一的 tabId
+const tabId = Math.random().toString(36).substring(2, 9);
+
+function LoadingState() {
+  return (
+    <Box
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+    >
+      <Typography>加载中...</Typography>
+    </Box>
+  );
+}
+
+function isAuthPage(pathname: string) {
+  return pathname === '/login' || pathname === '/register';
+}
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const hasInitializedRef = useRef(false);
 
-useEffect(() => {
-  // 临时伪造登录状态，便于前端开发和页面预览
-  // 你可以修改这里的用户信息来测试不同权限
-  setUser({
-    id: 1,
-    username: '测试用户',
-    callsign: 'BG0FFH',
-    email: 'test@example.com',
-    user_group: 'sysadmin',  // 可选: 'user'（普通用户）、'admin'（地图管理员）、'sysadmin'（系统管理员）
-    registration_time: '2025-01-01',
+  const {
+    user,
+    accessToken,
+    isAuthLoading,
+    isTokenReady,
+    _hasHydrated,
+    setUser,
+    setAccessToken,
+    setIsAuthLoading,
+    setIsTokenReady,
+    logout,
+    refreshSession,
+    getCurrentAccessToken,
+    isTokenFresh,
+  } = useAuthStore();
+
+  const readAuthData = useCallback((): { accessToken: string; user: unknown } | null => {
+    const { user, accessToken } = useAuthStore.getState();
+    if (!user && !accessToken) return null;
+    return { user, accessToken } as { accessToken: string; user: unknown };
+  }, []);
+
+  const stableSetUser = useCallback(
+    (user: unknown | null) => setUser(user as AuthUser | null),
+    [setUser]
+  );
+  const stableSetAccessToken = useCallback(
+    (token: string | null) => setAccessToken(token),
+    [setAccessToken]
+  );
+  const stableSetIsAuthLoading = useCallback(
+    (loading: boolean) => setIsAuthLoading(loading),
+    [setIsAuthLoading]
+  );
+
+  // 使用模块级别的 tabId 变量
+  const tabIdRef = useRef(tabId);
+
+  const { ensureValidAccessToken } = useTokenRefresh({
+    getCurrentAccessToken,
+    performRefreshAsLeader: async () => {
+      await refreshSession();
+      const data = readAuthData();
+      return data?.accessToken || null;
+    },
+    readRefreshLock: () => null,
+    isLockExpired: () => true,
+    isTokenFresh,
+    getJwtIatMs,
+    writeAuthData: (data: unknown) => {
+      if (data && typeof data === 'object' && 'user' in data) setUser(data.user as AuthUser | null);
+      if (data && typeof data === 'object' && 'accessToken' in data)
+        setAccessToken(data.accessToken as string);
+    },
+    rejectAllWaiters: () => {},
+    resolveAllWaiters: () => {},
+    waitForTokenFromOtherTab: () => Promise.resolve(null),
+    tabIdRef,
   });
-  setLoading(false);
-}, []);
 
-  if (loading) return <div>Loading...</div>;
+  useAuthInterceptors({
+    getCurrentAccessToken,
+    isTokenFresh,
+    ensureValidAccessToken,
+    logout,
+  });
 
-  const isAdmin = user?.user_group === 'admin' || user?.user_group === 'sysadmin';
-  const isSysAdmin = user?.user_group === 'sysadmin';
+  useMultiTabSync({
+    setUser: stableSetUser,
+    setAccessToken: stableSetAccessToken,
+    rejectAllWaiters: () => {},
+    resolveAllWaiters: () => {},
+    readAuthData,
+    isTokenFresh,
+  });
+
+  useAuthInit({
+    isAuthPage: isAuthPage(location.pathname),
+    hasHydrated: _hasHydrated,
+    isTokenFresh,
+    ensureValidAccessToken,
+    readAuthData,
+    setUser: stableSetUser,
+    setAccessToken: stableSetAccessToken,
+    setIsAuthLoading: stableSetIsAuthLoading,
+    setIsTokenReady,
+    hasInitializedRef,
+  });
+
+  const currentIsAuthPage = isAuthPage(location.pathname);
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
-      <Box sx={{ display: 'flex' }}>
-        <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-        <SideBar isOpen={isSidebarOpen} isAdmin={isAdmin} isSysAdmin={isSysAdmin} />
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-          <Toolbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/add-park" element={user ? <AddPark /> : <Navigate to="/login" />} />
-            <Route path="/applications" element={isAdmin ? <ApplicationsList /> : <Navigate to="/" />} />
-            <Route path="/my-uploads" element={user ? <MyUploads /> : <Navigate to="/login" />} />
-            <Route path="/export" element={user ? <ExportPage /> : <Navigate to="/login" />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-            <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
-            <Route path="/user-info" element={user ? <UserInfo /> : <Navigate to="/login" />} />
-            <Route path="/admin-panel" element={isSysAdmin ? <AdminPanel /> : <Navigate to="/" />} />
-          </Routes>
-        </Box>
-      </Box>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        accessToken,
+        setAccessToken,
+        refreshSession: () => refreshSession(),
+        logout,
+        isAuthLoading,
+        isTokenReady,
+      }}
+    >
+      {isAuthLoading ? (
+        <LoadingState />
+      ) : (
+        <AppContent
+          isAuthPage={currentIsAuthPage}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          user={user}
+        />
+      )}
+      <PopupNotification />
     </AuthContext.Provider>
+  );
+}
+
+function AppContent({
+  isAuthPage,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  user,
+}: {
+  isAuthPage: boolean;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  user: { permissions?: string[] } | null;
+}) {
+  return (
+    <Box sx={{ display: 'flex' }}>
+      {!isAuthPage && <TopBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />}
+      {!isAuthPage && (
+        <SideBar
+          isOpen={isSidebarOpen}
+          isAdmin={!!user && user.permissions?.includes('review_application') === true}
+          isSysAdmin={!!user && user.permissions?.includes('view_all_users') === true}
+          isPotaRepresentative={!!user && user.permissions?.includes('pota_import') === true}
+        />
+      )}
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        {!isAuthPage && <Toolbar />}
+        <AppRoutes />
+      </Box>
+    </Box>
   );
 }
 

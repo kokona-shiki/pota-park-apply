@@ -1,0 +1,281 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  callsign     String   @unique
+  password_hash String
+  role         String
+  is_active    Boolean  @default(true)
+  last_login   DateTime?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // 关系
+  applications        ParkApplication[] @relation("ParkApplicationApplicant")
+  synced_applications ParkApplication[] @relation("ParkApplicationSyncedBy")
+  refresh_tokens      RefreshToken[]
+  audit_logs          ApplicationAuditLog[]
+  review_reminders    ReviewReminder[]
+  reminded_reminders  ReviewReminder[] @relation("RemindedTo")
+  email_verifications EmailVerification[]
+  notifications       Notification[]
+  info_changes        UserInfoChange[]
+  callsign_change_requests CallsignChangeRequest[] @relation("CallsignChangeRequestUser")
+  reviewed_callsign_change_requests CallsignChangeRequest[] @relation("CallsignChangeRequestReviewer")
+  admin_audit_logs_as_operator UserAdminAuditLog[] @relation("UserAdminAuditLogOperator")
+  admin_audit_logs_as_target UserAdminAuditLog[] @relation("UserAdminAuditLogTarget")
+
+  @@map("users")
+}
+
+model Permission {
+  id              Int    @id @default(autoincrement())
+  permission_code String @unique
+  description     String
+
+  // 关系
+  role_permissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id            Int @id @default(autoincrement())
+  role          String
+  permission_id Int
+
+  // 关系
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  family_id         String
+  token_hash        String   @unique
+  expires_at        DateTime
+  absolute_expires_at DateTime
+  revoked_at        DateTime?
+  replaced_by       Int?
+  last_used_at      DateTime?
+  user_agent        String?
+  ip                String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // 关系
+  user              User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Province {
+  iso_code  String @id
+  zh_name   String
+  en_name   String
+  is_active Boolean @default(true)
+  sort_order Int    @default(0)
+
+  @@map("provinces")
+}
+
+model ParkApplication {
+  id                   Int      @id @default(autoincrement())
+  park_name            String   @unique
+  park_type            String
+  provinces            Json
+  location             Unsupported("geography(Point, 4326)")
+  latitude             Float
+  longitude            Float
+  website              String?
+  description          String?
+  access_methods       Json
+  activation_methods   Json
+  applicant_id         Int
+  confirmed_authenticity Boolean
+  status               String   @default("pending")
+  rejection_reason     String?
+  pota_id              String?  @unique
+  pota_notes           String?
+  pota_synced_at       DateTime?
+  pota_synced_by       Int?
+  upload_retry_count   Int      @default(0)
+  upload_failure_reason String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  // 关系
+  applicant            User              @relation(name: "ParkApplicationApplicant", fields: [applicant_id], references: [id], onDelete: Cascade)
+  pota_synced_user     User?             @relation(name: "ParkApplicationSyncedBy", fields: [pota_synced_by], references: [id])
+  audit_logs           ApplicationAuditLog[]
+  review_reminders     ReviewReminder[]
+
+  @@map("park_applications")
+}
+
+model ApplicationAuditLog {
+  id            Int      @id @default(autoincrement())
+  application_id Int
+  action        String
+  operator_id   Int
+  operator_role String
+  old_status    String?
+  new_status    String?
+  notes         String?
+  created_at    DateTime @default(now())
+
+  // 关系
+  application   ParkApplication @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  operator      User            @relation(fields: [operator_id], references: [id], onDelete: Cascade)
+
+  @@map("application_audit_logs")
+}
+
+model ReviewReminder {
+  id             Int      @id @default(autoincrement())
+  application_id Int
+  reminded_by    Int
+  reminded_to    Int?
+  reminder_type  String
+  notes          String?
+  is_acknowledged Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // 关系
+  application    ParkApplication @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  reminder       User            @relation(fields: [reminded_by], references: [id], onDelete: Cascade)
+  reminded       User?           @relation("RemindedTo", fields: [reminded_to], references: [id])
+
+  @@map("review_reminders")
+}
+
+model PotaSyncLog {
+  id           Int      @id @default(autoincrement())
+  action       String
+  park_id      Int?
+  park_name    String?
+  status       String
+  message      String?
+  created_at   DateTime @default(now())
+
+  @@map("pota_sync_logs")
+}
+
+model PotaUnprocessedPark {
+  id          Int      @id @default(autoincrement())
+  pota_id     String   @unique
+  park_name   String
+  country_code String
+  latitude    Float
+  longitude   Float
+  pota_type   String
+  processed   Boolean  @default(false)
+  processed_at DateTime?
+  notes       String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("pota_unprocessed_parks")
+}
+
+model EmailVerification {
+  id           Int      @id @default(autoincrement())
+  user_id      Int
+  token        String   @unique
+  expires_at   DateTime
+  verified_at  DateTime?
+  created_at   DateTime @default(now())
+
+  // 关系
+  user         User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model Notification {
+  id           Int      @id @default(autoincrement())
+  user_id      Int?
+  type         String
+  title        String
+  content      String
+  link_url     String?
+  read         Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // 关系
+  user         User? @relation(fields: [user_id], references: [id])
+
+  @@map("notifications")
+}
+
+model UserInfoChange {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  field_name    String
+  old_value     String
+  new_value     String
+  change_reason String
+  created_at    DateTime @default(now())
+
+  // 关系
+  user          User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_info_changes")
+}
+
+model CallsignChangeRequest {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  current_callsign  String
+  requested_callsign String
+  status            String   @default("pending")
+  reviewer_id       Int?
+  review_notes      String?
+  created_at        DateTime @default(now())
+  reviewed_at       DateTime?
+
+  // 关系
+  user              User @relation(name: "CallsignChangeRequestUser", fields: [user_id], references: [id], onDelete: Cascade)
+  reviewer          User? @relation(name: "CallsignChangeRequestReviewer", fields: [reviewer_id], references: [id])
+
+  @@map("callsign_change_requests")
+}
+
+model UserAdminAuditLog {
+  id            Int      @id @default(autoincrement())
+  action        String
+  operator_id   Int
+  target_user_id Int
+  old_role      String?
+  new_role      String?
+  old_is_active Boolean?
+  new_is_active Boolean?
+  reason        String?
+  metadata      Json?
+  created_at    DateTime @default(now())
+
+  // 关系
+  operator      User @relation(name: "UserAdminAuditLogOperator", fields: [operator_id], references: [id], onDelete: Cascade)
+  target_user   User @relation(name: "UserAdminAuditLogTarget", fields: [target_user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_admin_audit_logs")
+}
+
