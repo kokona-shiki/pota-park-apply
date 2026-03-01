@@ -2,7 +2,7 @@ import axios from 'axios';
 import http from 'node:http';
 import https from 'node:https';
 import type { PotaPark } from '../services/pota-import/types.js';
-import parkTypeMapping from '../../protocols/park_type_mapping.json' with { type: 'json' };
+import parkTypeMapping from '../../shared/park_type_mapping.json' with { type: 'json' };
 
 export const POTA_API_BASE_URL = 'https://api.pota.app';
 export const QUERY_PARK_MAX_RETRIES = 3;
