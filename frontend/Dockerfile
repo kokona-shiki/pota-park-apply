@@ -8,6 +8,7 @@ COPY frontend/package.json ./frontend/package.json
 
 RUN pnpm install --frozen-lockfile --filter ./frontend...
 
+COPY shared ./shared
 COPY frontend ./frontend
 
 RUN pnpm --filter ./frontend... build
