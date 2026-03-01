@@ -16,6 +16,8 @@ COPY shared ./shared
 
 WORKDIR /app/backend
 
+RUN pnpm exec prisma generate
+
 EXPOSE 3000
 
 CMD ["sh", "-c", "mkdir -p logs && pnpm start 2>&1 | tee logs/app.log"]

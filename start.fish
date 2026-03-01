@@ -44,6 +44,9 @@ command -v pnpm >/dev/null 2>&1; or die "未找到 pnpm，请先安装 pnpm（�
 echo "📦 安装依赖（如已安装会很快）..."
 pnpm install; or die "依赖安装失败"
 
+echo "🔧 生成 Prisma 客户端..."
+pnpm -C backend exec prisma generate; or die "Prisma 客户端生成失败"
+
 set -l pg_isready_cmd (command -v pg_isready 2>/dev/null)
 if test -z "$pg_isready_cmd"
     if command -v brew >/dev/null 2>&1
