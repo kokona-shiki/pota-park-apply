@@ -1,1 +1,0 @@
-  2tsXÒhrsrc/pages/ApplicationsList.tsx

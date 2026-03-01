@@ -232,3 +232,13 @@ node_modules/
 
 # 自动生成的代码
 generated/
+
+# SonarQube 扫描缓存和临时文件
+.sonar/
+.sonar-temp/
+**/.sonar/
+**/.sonar-temp/
+
+# 代码分析报告
+complexity-report*.json
+pmd.xml
