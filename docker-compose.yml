@@ -11,7 +11,7 @@ services:
     volumes:
       - ${DATA_DIR:-./data}/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-pota_park}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-pota_park}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,11 +45,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_SEND_COOLDOWN_SECONDS: ${EMAIL_SEND_COOLDOWN_SECONDS:-180}
+      VITE_MAP_PROVIDER: ${VITE_MAP_PROVIDER:-osm}
+      TIANDITU_API_KEY: ${TIANDITU_API_KEY:-}
+      AMAP_API_KEY: ${AMAP_API_KEY:-}
+      BAIDU_API_KEY: ${BAIDU_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,7 +73,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - '${FRONTEND_PORT:-8080}:80'
     networks:
       - pota-park-internal
     volumes:
@@ -94,7 +98,7 @@ services:
       - ${DATA_DIR:-./data}/logs/backup:/var/log
       - ./scripts/backup.sh:/backup.sh:ro
       - ./scripts/backup-entrypoint.sh:/backup-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/backup-entrypoint.sh"]
+    entrypoint: ['/bin/sh', '/backup-entrypoint.sh']
     depends_on:
       db:
         condition: service_healthy
