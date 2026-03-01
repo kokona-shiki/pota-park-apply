@@ -229,3 +229,6 @@ node_modules/
 
 # Trae IDE 配置目录
 .trae/
+
+# 自动生成的代码
+generated/
