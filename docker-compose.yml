@@ -1,53 +1,106 @@
 services:
   db:
     image: postgis/postgis:16-3.4-alpine
-    # Apple Silicon 上该镜像可能只有 amd64（将通过 QEMU 运行）。显式指定可消除平台警告。
     platform: linux/amd64
+    container_name: pota-park-db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: pota_park
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${DB_NAME:-pota_park}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - ${DATA_DIR:-./data}/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pota_park"]
-      interval: 2s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-pota_park}"]
+      interval: 10s
       timeout: 5s
-      retries: 60
-      start_period: 10s
-    # 第一阶段：db 不向宿主机暴露端口，仅供 backend 容器内访问
+      retries: 5
+      start_period: 30s
+    networks:
+      - pota-park-internal
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    container_name: pota-park-backend
+    restart: unless-stopped
     environment:
+      NODE_ENV: production
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: pota_park
-      DB_USER: postgres
-      DB_PASSWORD: password
-      JWT_SECRET: your-secret-key-change-in-production
-
-      # 初始系统管理员（可选）：仅当当前库里不存在 system_admin 时才会创建/提升
-      # 建议把真实值写到项目根目录的 .env（docker compose 会自动加载）
+      DB_NAME: ${DB_NAME:-pota_park}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       INIT_ADMIN_EMAIL: ${INIT_ADMIN_EMAIL:-}
       INIT_ADMIN_CALLSIGN: ${INIT_ADMIN_CALLSIGN:-}
       INIT_ADMIN_PASSWORD: ${INIT_ADMIN_PASSWORD:-}
+      POTA_ENCRYPTION_KEY: ${POTA_ENCRYPTION_KEY:-}
+      POTA_UPLOAD_MAX_RETRIES: ${POTA_UPLOAD_MAX_RETRIES:-3}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_SEND_COOLDOWN_SECONDS: ${EMAIL_SEND_COOLDOWN_SECONDS:-180}
     depends_on:
       db:
         condition: service_healthy
-    # 第一阶段：backend 不向宿主机暴露端口，仅供 frontend 容器内访问
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - pota-park-internal
+    volumes:
+      - ${DATA_DIR:-./data}/logs/backend:/app/backend/logs
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    container_name: pota-park-frontend
+    restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - '8080:80'
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - pota-park-internal
+    volumes:
+      - ${DATA_DIR:-./data}/logs/frontend:/var/log/nginx
 
-volumes:
-  db_data:
+  backup:
+    image: postgis/postgis:16-3.4-alpine
+    platform: linux/amd64
+    container_name: pota-park-backup
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${DB_NAME:-pota_park}
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_MINUTE: ${BACKUP_MINUTE:-0}
+    volumes:
+      - ${DATA_DIR:-./data}/backups:/backups
+      - ${DATA_DIR:-./data}/logs/backup:/var/log
+      - ./scripts/backup.sh:/backup.sh:ro
+      - ./scripts/backup-entrypoint.sh:/backup-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/backup-entrypoint.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - pota-park-internal
+
+networks:
+  pota-park-internal:
+    driver: bridge

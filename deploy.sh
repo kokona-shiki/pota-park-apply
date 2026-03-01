@@ -1,59 +1,122 @@
 #!/bin/bash
+set -e
 
-# 一键部署脚本（Docker Compose）
-# - 构建并启动: db + backend + frontend(nginx)
-# - 等待 db 健康检查通过
-# - 运行一次 init-db（幂等）
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-set -euo pipefail
+info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$ROOT_DIR"
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        error "Docker is not installed. Please install Docker first."
+    fi
+    
+    if ! docker compose version &> /dev/null; then
+        error "Docker Compose is not installed. Please install Docker Compose first."
+    fi
+    
+    info "Docker environment check passed"
+}
 
-COMPOSE_CMD="docker compose"
-if ! docker compose version >/dev/null 2>&1; then
-  COMPOSE_CMD="docker-compose"
-fi
+check_config() {
+    if [ ! -f ".env" ]; then
+        warn ".env file not found, creating from template..."
+        cp .env.example .env
+        error "Please edit .env file with your configuration and run deploy.sh again."
+    fi
+    
+    set -a
+    source .env
+    set +a
+    
+    if [ -z "${DB_PASSWORD}" ]; then
+        error "DB_PASSWORD is required in .env file"
+    fi
+    
+    if [ -z "${JWT_SECRET}" ]; then
+        error "JWT_SECRET is required in .env file"
+    fi
+    
+    info "Configuration check passed"
+}
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "❌ 未找到 docker，请先安装 Docker Desktop"
-  exit 1
-fi
+create_directories() {
+    DATA_DIR="${DATA_DIR:-./data}"
+    
+    mkdir -p "${DATA_DIR}/db"
+    mkdir -p "${DATA_DIR}/backups"
+    mkdir -p "${DATA_DIR}/logs/backend"
+    mkdir -p "${DATA_DIR}/logs/frontend"
+    mkdir -p "${DATA_DIR}/logs/backup"
+    mkdir -p scripts
+    
+    info "Data directories created at ${DATA_DIR}"
+}
 
-echo "🚀 POTA Park Apply 一键部署（Docker Compose）"
-echo "======================================="
+set_permissions() {
+    chmod +x scripts/backup.sh
+    chmod +x scripts/backup-entrypoint.sh
+    chmod +x scripts/restore.sh
+    chmod +x deploy.sh
+    info "Script permissions set"
+}
 
-# 启动服务（会自动读取项目根目录 .env，如果存在）
-echo "🐳 启动服务（build + up -d）..."
-$COMPOSE_CMD up -d --build
+deploy() {
+    info "Building and starting services..."
+    
+    docker compose down --remove-orphans 2>/dev/null || true
+    
+    docker compose build --no-cache
+    
+    docker compose up -d
+    
+    info "Waiting for services to be healthy..."
+    sleep 10
+    
+    docker compose ps
+}
 
-# 等待 db 健康
-echo "⏳ 等待数据库健康检查通过..."
-DB_ID="$($COMPOSE_CMD ps -q db)"
-if [ -z "$DB_ID" ]; then
-  echo "❌ 未找到 db 容器，请检查 docker-compose.yml"
-  exit 1
-fi
+show_status() {
+    echo ""
+    info "=========================================="
+    info "Deployment completed!"
+    info "=========================================="
+    echo ""
+    
+    FRONTEND_PORT=$(grep -E "^FRONTEND_PORT=" .env 2>/dev/null | cut -d'=' -f2 || echo "8080")
+    DATA_DIR=$(grep -E "^DATA_DIR=" .env 2>/dev/null | cut -d'=' -f2 || echo "./data")
+    
+    info "Access URL: http://localhost:${FRONTEND_PORT}"
+    info "Data directory: ${DATA_DIR}"
+    info ""
+    info "Log files:"
+    info "  Backend:  ${DATA_DIR}/logs/backend/"
+    info "  Frontend: ${DATA_DIR}/logs/frontend/"
+    info "  Backup:   ${DATA_DIR}/logs/backup/backup.log"
+    info ""
+    info "Useful commands:"
+    info "  View logs:     docker compose logs -f"
+    info "  Stop services: docker compose down"
+    info "  Restart:       docker compose restart"
+    info "  Backup DB:     docker exec pota-park-backup /backup.sh"
+    info "  Restore DB:    ./scripts/restore.sh"
+    echo ""
+}
 
-STATUS=""
-for i in $(seq 1 60); do
-  STATUS="$(docker inspect -f '{{.State.Health.Status}}' "$DB_ID" 2>/dev/null || true)"
-  if [ "$STATUS" = "healthy" ]; then
-    break
-  fi
-  sleep 2
-done
+main() {
+    info "Starting POTA Park Apply deployment..."
+    echo ""
+    
+    check_docker
+    check_config
+    create_directories
+    set_permissions
+    deploy
+    show_status
+}
 
-if [ "$STATUS" != "healthy" ]; then
-  echo "❌ 数据库未进入 healthy 状态（当前: ${STATUS:-unknown}）"
-  echo "   你可以查看日志：$COMPOSE_CMD logs db | cat"
-  exit 1
-fi
-
-# 初始化数据库（幂等）
-echo "🗄️  初始化数据库（幂等）..."
-$COMPOSE_CMD exec -T backend node scripts/initDatabase.js
-
-echo "✅ 部署完成"
-echo "🌐 前端访问: http://localhost:8080"
-echo "提示：后端仅在容器内网可达（通过前端 nginx 的 /api 反代访问）。"
+main "$@"
